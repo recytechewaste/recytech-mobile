@@ -1,0 +1,21 @@
+class ApiEndpoints {
+  // auth
+  static const String login = '/auth/login';
+  static const String register = '/auth/register';
+  static const String forgotPassword = '/auth/forgot-password';
+  static const String logout = '/auth/logout';
+  static const String me = '/auth/me';
+
+  // requests
+  static const String requests = '/requests';
+  static String requestById(String id) => '/requests/$id';
+
+  // contributions
+  static const String contributions = '/contributions';
+
+  // centers (optional)
+  static const String centers = '/centers';
+
+  // notifications (optional)
+  static const String notifications = '/notifications';
+}

@@ -1,0 +1,31 @@
+import '../datasources/request_api.dart';
+import '../models/ewaste_request_model.dart';
+
+class RequestRepository {
+  final RequestApi _api;
+  RequestRepository(this._api);
+
+  Future<List<EWasteRequestModel>> fetchMyRequests() async {
+    final list = await _api.fetchRequests();
+    return list
+        .map((e) =>
+            EWasteRequestModel.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+  }
+
+  Future<EWasteRequestModel> submitRequest({
+    required String category,
+    required String description,
+    required String condition,
+    required String address,
+  }) async {
+    final payload = {
+      'category': category,
+      'description': description,
+      'condition': condition,
+      'address': address,
+    };
+    final res = await _api.createRequest(payload);
+    return EWasteRequestModel.fromJson(res);
+  }
+}

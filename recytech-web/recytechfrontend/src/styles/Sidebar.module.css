@@ -1,0 +1,240 @@
+.sidebar {
+    width: 260px;
+    background-color: #f3f4f6;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    font-family: 'Inter', sans-serif;
+    
+    /* --- NEW LOGIC: STATIONARY SIDEBAR --- */
+    height: 100vh;      /* Force it to always be exactly the screen height */
+    position: sticky;   /* Stick to the viewport */
+    top: 0;             /* Stick to the top edge */
+    z-index: 50;        /* Ensure it stays above other content if overlaps happen */
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: visible;
+}
+
+.collapsed {
+    width: 96px;
+}
+
+.logoContainer {
+    padding: 24px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-shrink: 0; /* Prevent logo from squishing */
+    min-height: 80px;
+}
+
+.logoIcon {
+    background-color: #111827; /* Dark box for logo icon */
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.logoText {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827; /* Dark text */
+    letter-spacing: 0;
+    white-space: nowrap;
+    transition: opacity 0.15s ease, width 0.2s ease;
+}
+
+.collapseBtn {
+    position: absolute;
+    right: -14px; /* Positions the control on the border line */
+    top: 40px;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 40px; /* Taller hit area for easier clicking */
+    background: white;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280; /* Darker gray arrow for visibility */
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 999px;
+    padding: 0;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+.collapseBtn:hover {
+    background-color: #e5e7eb;
+    color: #2563eb; /* RecyTech Blue on hover */
+    border-color: #2563eb;
+    transform: translateY(-50%) scale(1.15);
+}
+
+.menu {
+    list-style: none;
+    padding: 0 16px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    
+    /* --- NEW LOGIC: SCROLLABLE MENU --- */
+    flex: 1;            /* Take up all available space between Logo and Logout */
+    overflow-y: auto;   /* Scroll ONLY the menu if the list is too long */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.menu::-webkit-scrollbar {
+    display: none; /* Hide scrollbar for Chrome, Safari and Opera */
+}
+
+.menuItem {
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #4b5563; /* Gray text for inactive */
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    white-space: nowrap;
+}
+
+.menuItem:hover {
+    background-color: #e0ecff;
+    color: #1d4ed8;
+}
+
+.menuItemActive {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    min-height: 44px;
+    white-space: nowrap;
+}
+
+.iconWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 20px;
+    /* You can add specific colors to icons here if desired */
+}
+
+.menuLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.15s ease;
+}
+
+.logoutContainer {
+    margin-top: auto; /* Pushes it to the bottom of the flex container */
+    padding: 24px;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;   /* Prevent logout from squishing */
+    background-color: #f3f4f6; /* Match background so menu doesn't scroll behind it */
+}
+
+.logoutBtn {
+    width: 100%;
+    padding: 10px;
+    background-color: white;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+}
+
+.logoutBtn:hover {
+    background-color: #ef4444;
+    color: white;
+}
+
+.logoutText {
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+}
+
+.collapsed .logoContainer {
+    padding: 24px 8px;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.collapsed .logoText {
+    opacity: 0;
+    width: 0;
+    display: none;
+}
+
+.collapsed .menu {
+    padding: 0 16px;
+}
+
+.collapsed .menuItem,
+.collapsed .menuItemActive {
+    justify-content: center;
+    padding: 12px;
+    gap: 0;
+}
+
+.collapsed .menuLabel,
+.collapsed .logoutText {
+    opacity: 0;
+    width: 0;
+    display: none;
+}
+
+.collapsed .logoutContainer {
+    padding: 20px 12px;
+}
+
+.collapsed .logoutBtn {
+    padding: 10px;
+}
+
+/* Modal Styles */
+.modalOverlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex; justify-content: center; align-items: center; z-index: 1000;
+}
+.modalContent {
+    background: white; padding: 24px; border-radius: 12px; width: 400px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.modalHeader { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center; }
+.modalTitle { font-size: 18px; font-weight: 600; margin: 0; }
+.closeBtn { border: none; background: none; font-size: 20px; cursor: pointer; color: #666; }
+.modalFooter { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.cancelBtn { padding: 8px 16px; background: white; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; }
+.confirmLogoutBtn { padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; }

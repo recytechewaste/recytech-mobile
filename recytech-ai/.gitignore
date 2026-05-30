@@ -1,0 +1,50 @@
+# Python virtual environments
+venv/
+**/venv/
+.env/
+**/.env/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# YOLO / Ultralytics outputs
+runs/
+**/runs/
+*.cache
+
+# Dataset folders
+dataset/
+datasets/
+train/
+valid/
+test/
+**/dataset/
+**/datasets/
+**/train/
+**/valid/
+**/test/
+
+# Large model/checkpoint files
+*.pt
+*.keras
+*.h5
+
+# Roboflow/compressed files
+*.zip
+*.rar
+*.7z
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+*.npy
+
+test_image.jpg

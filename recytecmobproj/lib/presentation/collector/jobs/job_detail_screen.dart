@@ -1,0 +1,436 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:recytecmobproj/data/models/collector_job_model.dart';
+import 'package:recytecmobproj/data/models/user_model.dart';
+import 'package:recytecmobproj/data/repositories/collector_repository.dart';
+import 'package:provider/provider.dart';
+import 'package:recytecmobproj/services/auth_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class JobDetailScreen extends StatefulWidget {
+  final CollectorJob job;
+
+  const JobDetailScreen({
+    super.key,
+    required this.job,
+  });
+
+  @override
+  State<JobDetailScreen> createState() => _JobDetailScreenState();
+}
+
+class _JobDetailScreenState extends State<JobDetailScreen> {
+  final CollectorRepository _repository = CollectorRepository();
+
+  late CollectorJob job;
+  bool isUpdating = false;
+
+  static const List<String> supportedStatuses = [
+    'Pending',
+    'Approved',
+    'In-Transit',
+    'Completed',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    job = widget.job;
+  }
+
+  Future<void> _updateStatus(String status) async {
+    if (isUpdating || status == job.status) return;
+
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
+      final collector = status == 'In-Transit'
+          ? context.read<AuthProvider>().currentUser
+          : null;
+      final collectorName = _collectorName(collector);
+      final updated = await _repository.updateJobStatus(
+        requestId: job.id,
+        status: status,
+        collectorId: collector?.id,
+        collectorName: collectorName,
+        collectorEmail: collector?.email,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        job = updated.id.isEmpty
+            ? job.copyWith(
+                status: status,
+                assignedCollector: collectorName.isEmpty
+                    ? job.assignedCollector
+                    : collectorName,
+                assignedCollectorId: collector?.id,
+              )
+            : updated;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Request marked as $status.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_messageForError(e))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUpdating = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _acceptRequest() async {
+    if (isUpdating || job.id.isEmpty) return;
+
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
+      final collector = context.read<AuthProvider>().currentUser;
+      final collectorName = _collectorName(collector);
+      final updated = await _repository.acceptJob(
+        requestId: job.id,
+        collectorId: collector?.id,
+        collectorName: collectorName,
+        collectorEmail: collector?.email,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        job = updated.id.isEmpty
+            ? job.copyWith(
+                status: 'In-Transit',
+                assignedCollector: collectorName,
+                assignedCollectorId: collector?.id,
+              )
+            : updated;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${job.requestCode} accepted.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_messageForError(e))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUpdating = false;
+        });
+      }
+    }
+  }
+
+  void _declineRequest() {
+    if (job.id.isEmpty) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${job.requestCode} skipped for this session.')),
+    );
+    Navigator.pop(context, job.id);
+  }
+
+  Future<void> _openLocationInMaps() async {
+    final query = job.location.trim();
+
+    if (query.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pickup location available.')),
+      );
+      return;
+    }
+
+    final uri = Uri.https(
+      'www.google.com',
+      '/maps/search/',
+      {
+        'api': '1',
+        'query': query,
+      },
+    );
+
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Request Details'),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16.w),
+        child: ListView(
+          children: [
+            Text(
+              'Request ID: ${job.requestCode}',
+              style: TextStyle(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: 12.h),
+            _infoRow('Resident', _valueOrDash(job.residentName)),
+            _infoRow('Item', _valueOrDash(job.displayItem)),
+            _infoRow('Waste Type', _valueOrDash(job.wasteType)),
+            _infoRow('Location', _valueOrDash(job.location)),
+            _locationAction(),
+            _infoRow('Quantity', job.quantity.toString()),
+            _infoRow('Rate / kg', _formatMoney(job.ratePerKg)),
+            _infoRow('Email', _valueOrDash(job.residentEmail)),
+            _infoRow('Phone', _valueOrDash(job.phone)),
+            _infoRow('Status', _valueOrDash(job.status)),
+            _infoRow('Collector', _valueOrDash(job.assignedCollector)),
+            _infoRow('Scheduled', _formatDate(job.scheduledAt)),
+            SizedBox(height: 24.h),
+            Text(
+              'Waste Image',
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            _imagePreview(),
+            SizedBox(height: 24.h),
+            if (job.isApproved) ...[
+              _acceptDeclineActions(),
+              SizedBox(height: 18.h),
+            ],
+            DropdownButtonFormField<String>(
+              key: ValueKey(job.status),
+              initialValue: supportedStatuses.contains(job.status)
+                  ? job.status
+                  : 'Pending',
+              decoration: const InputDecoration(
+                labelText: 'Update status',
+                border: OutlineInputBorder(),
+              ),
+              items: supportedStatuses
+                  .map(
+                    (status) => DropdownMenuItem(
+                      value: status,
+                      child: Text(status),
+                    ),
+                  )
+                  .toList(),
+              onChanged: isUpdating || job.id.isEmpty
+                  ? null
+                  : (status) {
+                      if (status != null) _updateStatus(status);
+                    },
+            ),
+            SizedBox(height: 18.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: isUpdating || job.id.isEmpty
+                        ? null
+                        : () => _updateStatus('In-Transit'),
+                    child: isUpdating
+                        ? SizedBox(
+                            height: 18.h,
+                            width: 18.h,
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Mark In-Transit'),
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isUpdating || job.id.isEmpty
+                        ? null
+                        : () => _updateStatus('Completed'),
+                    child: const Text('Mark Completed'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _locationAction() {
+    if (job.location.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: _openLocationInMaps,
+          icon: const Icon(Icons.map_outlined),
+          label: const Text('Open in Google Maps'),
+        ),
+      ),
+    );
+  }
+
+  Widget _acceptDeclineActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: isUpdating || job.id.isEmpty ? null : _declineRequest,
+            child: const Text('Decline'),
+          ),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: isUpdating || job.id.isEmpty ? null : _acceptRequest,
+            child: isUpdating
+                ? SizedBox(
+                    height: 18.h,
+                    width: 18.h,
+                    child: const CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Accept'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _imagePreview() {
+    final image = job.wasteImage.trim();
+
+    if (image.isEmpty) {
+      return _placeholderBox('No waste image available.');
+    }
+
+    if (!image.startsWith('http://') && !image.startsWith('https://')) {
+      return _placeholderBox(image);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.network(
+        image,
+        width: double.infinity,
+        height: 170.h,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _placeholderBox(image),
+      ),
+    );
+  }
+
+  Widget _placeholderBox(String text) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 12.sp),
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 10.h),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100.w,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 12.sp),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _valueOrDash(String value) {
+    return value.trim().isEmpty ? '-' : value;
+  }
+
+  String _collectorName(UserModel? user) {
+    if (user == null) return '';
+    if (user.fullName.trim().isNotEmpty) return user.fullName.trim();
+
+    return [
+      user.firstName,
+      user.lastName,
+    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
+  }
+
+  String _formatDate(String value) {
+    if (value.trim().isEmpty) return '-';
+
+    final date = DateTime.tryParse(value);
+    if (date == null) return value;
+
+    final local = date.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+
+    return '${local.year}-$month-$day $hour:$minute';
+  }
+
+  String _formatMoney(double value) {
+    if (value <= 0) return '-';
+    return 'PHP ${value.toStringAsFixed(2)}';
+  }
+
+  String _messageForError(Object error) {
+    final text = error.toString();
+    const marker = 'message: ';
+    if (text.contains(marker)) {
+      return text.split(marker).last.replaceAll(')', '').trim();
+    }
+
+    return 'Status update failed. Please try again.';
+  }
+}

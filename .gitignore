@@ -1,0 +1,78 @@
+# Environment/secrets
+.env
+*.env
+
+# Node
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Flutter/Dart
+.dart_tool/
+**/.dart_tool/
+build/
+**/build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+
+# Android/iOS generated
+**/android/.gradle/
+**/android/app/build/
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+
+# Python
+venv/
+**/venv/
+.env/
+**/.env/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# YOLO / Ultralytics outputs
+runs/
+**/runs/
+*.cache
+
+# Datasets - too large
+dataset/
+datasets/
+train/
+valid/
+test/
+**/dataset/
+**/datasets/
+**/train/
+**/valid/
+**/test/
+
+# Large model/checkpoint files
+*.pt
+*.keras
+*.h5
+*.npy
+
+# Compressed files
+*.zip
+*.rar
+*.7z
+
+# IDE / OS
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -1,0 +1,11 @@
+Folder PATH listing
+Volume serial number is D025-CBD7
+C:\USERS\PC\DOWNLOADS\RECYTECHMOBPROG (1)\RECYTECHMOBPROG - COPY\RECYTECMOBPROJ\ASSETS
++---images
+¦       ai.png
+¦       recytech_logo.png
+¦       
++---models
+        labels.txt
+        recytech_yolov8.tflite
+        

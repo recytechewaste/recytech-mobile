@@ -1,0 +1,15 @@
+PCB
+air_conditioner
+battery
+fan
+keyboard
+laptop
+microwave
+monitor
+mouse
+oven
+printer
+refrigerator
+smartphone
+television
+washing_machine

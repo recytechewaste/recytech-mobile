@@ -1,0 +1,132 @@
+Folder PATH listing
+Volume serial number is D025-CBD7
+C:\USERS\PC\DOWNLOADS\RECYTECHMOBPROG (1)\RECYTECHMOBPROG - COPY\RECYTECMOBPROJ\LIB
+¦   firebase_options.dart
+¦   main.dart
+¦   
++---core
+¦   +---config
+¦   ¦       app_routes.dart
+¦   ¦       app_theme.dart
+¦   ¦       env.dart
+¦   ¦       
+¦   +---network
+¦   ¦       api_client.dart
+¦   ¦       api_endpoints.dart
+¦   ¦       api_exceptions.dart
+¦   ¦       
+¦   +---storage
+¦   ¦       secure_storage.dart
+¦   ¦       
+¦   +---theme
+¦   ¦       recytechtheme.dart
+¦   ¦       
+¦   +---utils
+¦           helpers.dart
+¦           validators.dart
+¦           
++---data
+¦   +---datasources
+¦   ¦       auth_api.dart
+¦   ¦       center_api.dart
+¦   ¦       collector_api.dart
+¦   ¦       contribution_api.dart
+¦   ¦       notification_api.dart
+¦   ¦       request_api.dart
+¦   ¦       
+¦   +---models
+¦   ¦       collector_job_model.dart
+¦   ¦       contribution_model.dart
+¦   ¦       ewaste_request_model.dart
+¦   ¦       notification_model.dart
+¦   ¦       recycling_center_model.dart
+¦   ¦       user_model.dart
+¦   ¦       
+¦   +---repositories
+¦           auth_repository.dart
+¦           center_repository.dart
+¦           collector_repository.dart
+¦           contribution_repository.dart
+¦           notification_repository.dart
+¦           request_repository.dart
+¦           
++---presentation
+¦   +---auth
+¦   ¦       forgot_password_screen.dart
+¦   ¦       login_screen.dart
+¦   ¦       register_screen.dart
+¦   ¦       
+¦   +---collector
+¦   ¦   +---assigned
+¦   ¦   ¦       collector_assigned_screen.dart
+¦   ¦   ¦       
+¦   ¦   +---home
+¦   ¦   ¦       collector_home_screen.dart
+¦   ¦   ¦       
+¦   ¦   +---jobs
+¦   ¦   ¦       job_detail_screen.dart
+¦   ¦   ¦       
+¦   ¦   +---profile
+¦   ¦   ¦       collector_profile_screen.dart
+¦   ¦   ¦       
+¦   ¦   +---shell
+¦   ¦           collector_home_shell.dart
+¦   ¦           
+¦   +---shell
+¦   ¦       app_shell.dart
+¦   ¦       collector_home_shell.dart
+¦   ¦       role_shell.dart
+¦   ¦       user_app_shell.dart
+¦   ¦       
+¦   +---user
+¦       +---contributions
+¦       ¦       contribution_screen.dart
+¦       ¦       
+¦       +---dashboard
+¦       ¦       dashboard_screen.dart
+¦       ¦       
+¦       +---ewaste_service
+¦       ¦       ai_capture_screen.dart
+¦       ¦       ewaste_services_screen.dart
+¦       ¦       submission_form_screen.dart
+¦       ¦       submission_result_screen.dart
+¦       ¦       tracking_screen.dart
+¦       ¦       
+¦       +---history
+¦       ¦       history_detail_screen.dart
+¦       ¦       history_screen.dart
+¦       ¦       
+¦       +---metrics
+¦       ¦       metrics_screen.dart
+¦       ¦       
+¦       +---products
+¦       ¦       products_screen.dart
+¦       ¦       
+¦       +---profile
+¦       ¦       edit_profile_screen.dart
+¦       ¦       profile_screen.dart
+¦       ¦       
+¦       +---rewards
+¦       ¦       rewards_screen.dart
+¦       ¦       
+¦       +---support
+¦               support_screen.dart
+¦               
++---services
+¦       api_stub.dart
+¦       auth_provider.dart
+¦       image_service.dart
+¦       location_service.dart
+¦       notification_service.dart
+¦       
++---widgets
+        empty_state.dart
+        home_feature_card.dart
+        labeled_textfied.dart
+        metric_card.dart
+        primary_button.dart
+        product_card.dart
+        section_title.dart
+        status_bagde.dart
+        ui_components.dart
+        

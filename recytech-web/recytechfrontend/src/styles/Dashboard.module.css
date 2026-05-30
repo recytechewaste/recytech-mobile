@@ -1,0 +1,451 @@
+.container {
+    display: flex;
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    background-color: #ffffff; /* Wireframe has white bg */
+}
+
+.main {
+    flex: 1;
+    padding: 40px 60px;
+    overflow-y: auto;
+}
+
+/* --- HERO SECTION --- */
+.heroSection {
+    text-align: center;
+    margin-bottom: 80px;
+    padding-top: 20px;
+}
+
+.heroTitle {
+    font-size: 42px;
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 16px;
+    line-height: 1.2;
+}
+
+.heroSubtitle {
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 32px;
+}
+
+.heroButtons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+/* --- BUTTONS --- */
+.btnOutline {
+    padding: 10px 24px;
+    border: 1px solid #111;
+    background: white;
+    color: #111;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.btnBlack {
+    padding: 10px 24px;
+    border: 1px solid #111;
+    background: #111;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+/* --- GENERAL SECTIONS --- */
+.sectionContainer {
+    margin-bottom: 80px;
+    text-align: center;
+}
+
+.sectionHeader {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.sectionSubHeader {
+    color: #666;
+    margin-bottom: 24px;
+}
+
+.actionRow {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 40px;
+}
+
+/* --- PRODUCTS GRID --- */
+.productsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+.productCard {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    overflow: hidden;
+    text-align: left;
+}
+
+.productImagePlaceholder {
+    height: 200px;
+    background-color: #f0f0f0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.imgText {
+    color: #888;
+    font-size: 12px;
+}
+
+.tag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: #e0e0e0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.productInfo {
+    padding: 16px;
+}
+
+.productInfo h3 {
+    font-size: 16px;
+    margin: 0 0 4px 0;
+}
+
+.productInfo p {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+}
+
+/* --- METRICS SECTION (Split Layout) --- */
+.sectionHeaderLeft {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+.sectionSubHeaderLeft {
+    color: #666;
+    margin-bottom: 24px;
+    text-align: left;
+}
+
+.metricsLayout {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.statsColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.metricCard {
+    border: 1px solid #eee;
+    padding: 24px;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.metricCard span {
+    font-size: 12px;
+    color: #666;
+}
+
+.metricCard h3 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 8px 0 0 0;
+}
+
+/* Status-based Card Variations */
+.dangerCard {
+    border-color: #fecaca !important;
+    background-color: #fef2f2;
+}
+.dangerCard h3 { color: #dc2626; }
+
+.warningCard {
+    border-color: #fef3c7 !important;
+    background-color: #fffbeb;
+}
+.warningCard h3 { color: #d97706; }
+
+.successCard {
+    border-color: #bbf7d0 !important;
+    background-color: #f0fdf4;
+}
+.successCard h3 { color: #16a34a; }
+
+.chartCard {
+    border: 1px solid #eee;
+    padding: 24px;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.chartCard h3 {
+    font-size: 16px;
+    margin: 0 0 4px 0;
+}
+
+.chartSub {
+    font-size: 12px;
+    color: #aaa;
+    display: block;
+    margin-bottom: 20px;
+}
+
+.chartFooter {
+    text-align: right;
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 10px;
+}
+
+/* --- NEWS SECTION --- */
+.newsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.newsCard {
+    border: 1px solid #eee;
+    padding: 16px;
+    border-radius: 8px;
+    display: flex;
+    gap: 16px;
+    text-align: left;
+}
+
+.newsThumb {
+    width: 80px;
+    height: 80px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.newsCard h3 {
+    font-size: 16px;
+    margin: 0 0 8px 0;
+}
+
+.newsCard p {
+    font-size: 13px;
+    color: #666;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* --- FEEDBACK SECTION --- */
+.feedbackGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.feedbackCard {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    overflow: hidden;
+    text-align: left;
+}
+
+.userHeader {
+    padding: 16px;
+    border-bottom: 1px solid #f9f9f9;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.userAvatar {
+    width: 32px;
+    height: 32px;
+    background-color: #ddd;
+    border-radius: 50%;
+}
+
+.userHeader h4 {
+    margin: 0;
+    font-size: 14px;
+}
+
+.userHeader span {
+    font-size: 11px;
+    color: #888;
+}
+
+.feedbackContent {
+    height: 150px;
+    background-color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    font-size: 12px;
+}
+
+.feedbackText {
+    padding: 16px;
+    font-size: 13px;
+    margin: 0;
+}
+
+.pill {
+    display: inline-block;
+    background-color: #eee;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 0 16px 16px 16px;
+}
+
+/* --- FOOTER --- */
+.footer {
+    border-top: 1px solid #eee;
+    padding-top: 40px;
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    font-size: 14px;
+    color: #111;
+}
+
+/* --- NEW: Dashboard Specific Styles --- */
+.dashboardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.pageTitle {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 4px 0;
+}
+
+.subTitle {
+    color: #6b7280;
+    font-size: 15px;
+    margin: 0;
+}
+
+.dateDisplay {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.cardTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 20px;
+}
+
+/* New Charts Grid for side-by-side display */
+.chartsGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Two columns for charts */
+    gap: 24px;
+    margin-bottom: 24px;
+}
+/* Recent Activity Table */
+.activityCard {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    padding: 24px;
+    margin-top: 24px; /* Space from the charts above */
+}
+
+.activityTable {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.activityTable th {
+    background: #f9fafb;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.activityTable td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 14px;
+    color: #374151;
+    vertical-align: middle;
+}
+
+.emptyActivityTd {
+    padding: 40px;
+    text-align: center;
+    color: #6b7280;
+}
+
+/* Status Badges for the table */
+.statusBadge {
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+.pending {
+    background-color: #fef3c7; /* Yellowish */
+    color: #92400e;
+}
+
+.approved {
+    background-color: #dcfce7; /* Greenish */
+    color: #166534;
+}
+
+.completed {
+    background-color: #eff6ff; /* Bluish */
+    color: #1e40af;
+}
+
+.rejected {
+    background-color: #fee2e2; /* Reddish */
+    color: #991b1b;
+}

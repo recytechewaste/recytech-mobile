@@ -1,0 +1,73 @@
+name: recytecmobproj
+description: "RecyTech Mobile Application – E-waste Management System"
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # REST API communication with Node.js (Express)
+  dio: ^5.7.0
+
+  # Secure local storage for JWT tokens
+  flutter_secure_storage: ^9.2.2
+
+  # State management
+  provider: ^6.1.2
+
+  # Model comparison and equality handling
+  equatable: ^2.0.5
+
+  # Responsive UI (based on Figma design size)
+  flutter_screenutil: ^5.9.3
+
+  # Image capture and selection (e-waste proof, AI input)
+  image_picker: ^1.1.2
+
+  # Camera preview / camera stream for AI scanning
+  camera: ^0.11.0+2
+
+  # YOLOv8 TensorFlow Lite object detection
+  flutter_vision: ^1.1.4
+
+  # Image compression before upload
+  flutter_image_compress: ^2.3.0
+
+  # Device location (recycling center & tracking)
+  geolocator: ^13.0.1
+
+  # Runtime permissions (camera, storage, location)
+  permission_handler: ^11.3.1
+
+  # Map rendering
+  google_maps_flutter: ^2.9.0
+
+  # Open external navigation apps (Google Maps)
+  url_launcher: ^6.3.0
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Recommended lint rules
+  flutter_lints: ^3.0.0
+
+dependency_overrides:
+  # Local Android metadata patch for AGP 8+ while keeping YOLOv8 integration.
+  flutter_vision:
+    path: third_party/flutter_vision
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/models/recytech_yolov8.tflite
+    - assets/models/labels.txt

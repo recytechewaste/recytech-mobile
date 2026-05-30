@@ -1,0 +1,10 @@
+PCB
+battery
+keyboard
+laptop
+microwave
+monitor
+mouse
+printer
+smartphone
+washing_machine
