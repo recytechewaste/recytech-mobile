@@ -12,8 +12,8 @@ const app = express();
 
 // Middleware
 app.use(cors()); // Allows your React Frontend to talk to this Backend
-app.use(express.json({ limit: '10mb' })); 
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '25mb' })); 
+app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
 // Basic Route (Test to see if it works)
 app.get('/', (req, res) => {

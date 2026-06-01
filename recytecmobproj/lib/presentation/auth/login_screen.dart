@@ -132,6 +132,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     hintText: 'Enter your email',
                     controller: email,
                     keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.email],
                   ),
                   SizedBox(height: 14.h),
                   LabeledTextField(
@@ -139,6 +141,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     hintText: 'Enter your password',
                     controller: pass,
                     obscureText: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
+                    keyboardType: TextInputType.visiblePassword,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.password],
                   ),
                   SizedBox(height: 14.h),
                   Align(

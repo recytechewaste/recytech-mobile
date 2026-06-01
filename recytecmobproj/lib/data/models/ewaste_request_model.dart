@@ -15,6 +15,11 @@ class EWasteRequestModel {
   final String assignedCollector;
   final String assignedCollectorId;
   final String scheduledAt;
+  final double monetaryValue;
+  final bool paymentProcessed;
+  final String payoutStatus;
+  final String dropoffConfirmedAt;
+  final String payoutReleasedAt;
   final String createdAt;
   final String updatedAt;
 
@@ -35,6 +40,11 @@ class EWasteRequestModel {
     required this.assignedCollector,
     required this.assignedCollectorId,
     required this.scheduledAt,
+    required this.monetaryValue,
+    required this.paymentProcessed,
+    required this.payoutStatus,
+    required this.dropoffConfirmedAt,
+    required this.payoutReleasedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -43,6 +53,11 @@ class EWasteRequestModel {
   String get description => itemCategory.isNotEmpty ? itemCategory : wasteType;
   String get condition => quantity.toString();
   String get address => location;
+  String get requestCode => id.isEmpty
+      ? 'Request'
+      : 'REQ-${id.substring(0, id.length < 6 ? id.length : 6).toUpperCase()}';
+  bool get hasReleasedPayout =>
+      paymentProcessed || payoutStatus.toLowerCase() == 'released';
 
   factory EWasteRequestModel.fromJson(Map<String, dynamic> json) {
     final locationValue = json['location'];
@@ -82,6 +97,11 @@ class EWasteRequestModel {
                   : ''))
           .toString(),
       scheduledAt: (json['scheduledAt'] ?? '').toString(),
+      monetaryValue: _parseDouble(json['monetaryValue']),
+      paymentProcessed: json['paymentProcessed'] == true,
+      payoutStatus: (json['payoutStatus'] ?? 'Not Ready').toString(),
+      dropoffConfirmedAt: (json['dropoffConfirmedAt'] ?? '').toString(),
+      payoutReleasedAt: (json['payoutReleasedAt'] ?? '').toString(),
       createdAt: (json['createdAt'] ?? '').toString(),
       updatedAt: (json['updatedAt'] ?? '').toString(),
     );

@@ -13,8 +13,12 @@ const RequestFilters = ({ filters, wasteCategories, onFilterChange, onClearFilte
                 <option value="">All Statuses</option>
                 <option value="Pending">Pending</option>
                 <option value="Approved">Approved</option>
+                <option value="In-Transit">In-Transit</option>
+                <option value="Collected">Collected</option>
+                <option value="Drop-off Confirmed">Drop-off Confirmed</option>
                 <option value="Completed">Completed</option>
                 <option value="Rejected">Rejected</option>
+                <option value="Cancelled">Cancelled</option>
             </select>
         </div>
         <div className={styles.filterGroup}>

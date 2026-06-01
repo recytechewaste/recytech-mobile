@@ -4,7 +4,9 @@ const STAT_ITEMS = [
     { key: 'total', label: 'Total Requests' },
     { key: 'pending', label: 'Pending Review' },
     { key: 'approved', label: 'Approved' },
-    { key: 'completed', label: 'Completed' }
+    { key: 'collected', label: 'Collected' },
+    { key: 'readyPayout', label: 'Ready for Payout' },
+    { key: 'completed', label: 'Paid / Completed' }
 ];
 
 const RequestStats = ({ stats }) => (

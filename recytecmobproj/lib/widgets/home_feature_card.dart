@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../core/theme/recytechtheme.dart';
+
 class HomeFeatureCard extends StatelessWidget {
   final String imagePath;
   final String title;
@@ -19,9 +21,16 @@ class HomeFeatureCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black12),
+        color: RecyTechTheme.card,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: RecyTechTheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: RecyTechTheme.primary.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -30,8 +39,8 @@ class HomeFeatureCard extends StatelessWidget {
             width: 56.w,
             height: 56.w,
             decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(10),
+              color: RecyTechTheme.pill,
+              borderRadius: BorderRadius.circular(16.r),
             ),
             clipBehavior: Clip.antiAlias,
             child: Image.asset(
@@ -51,7 +60,8 @@ class HomeFeatureCard extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
+                    color: RecyTechTheme.textDark,
                   ),
                 ),
                 SizedBox(height: 4.h),
@@ -59,7 +69,7 @@ class HomeFeatureCard extends StatelessWidget {
                   description,
                   style: TextStyle(
                     fontSize: 12.sp,
-                    color: Colors.black54,
+                    color: RecyTechTheme.textMuted,
                   ),
                 ),
               ],

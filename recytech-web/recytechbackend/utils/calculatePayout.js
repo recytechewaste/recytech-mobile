@@ -1,5 +1,5 @@
 const ExchangeRate = require('../models/ExchangeRate');
-const { normalizeWasteType, resolveSubmittedCategory } = require('./categoryNormalization');
+const { findActiveExchangeRateByWasteType, normalizeWasteType } = require('./categoryNormalization');
 
 /**
  * Calculate payout amount based on waste type and quantity
@@ -28,33 +28,35 @@ async function calculatePayoutAmount(wasteType, quantity = 1) {
             };
         }
 
-        // Find exchange rate for this waste type or mapped e-waste class.
-        const categoryResolution = await resolveSubmittedCategory(ExchangeRate, wasteType);
-        const exchangeRate = categoryResolution.exchangeRate;
+        // Payout release must use the request's stored wasteType only. The
+        // request creation flow already resolves AI classes to an Exchange Rate
+        // Manager category, so payout release should not remap or guess here.
+        const exchangeRate = await findActiveExchangeRateByWasteType(ExchangeRate, wasteType);
 
         if (!exchangeRate) {
-            const message = categoryResolution.error === 'unsupported-class'
-                ? `Unsupported e-waste class: ${normalizedWasteType}. Please select a valid e-waste item.`
-                : `No active exchange rate found for waste type: ${categoryResolution.wasteType || normalizedWasteType}. Please activate it in Exchange Rate Manager.`;
-
             return {
                 amount: 0,
                 success: false,
-                message
+                message: 'No active exchange rate found for this waste type.'
             };
         }
 
-        const rate = exchangeRate.ratePerItem ?? exchangeRate.ratePerKg;
+        // Current backend request.quantity means item count. Use ratePerItem
+        // first; ratePerKg remains supported for existing legacy rates.
+        const rateField = Number.isFinite(exchangeRate.ratePerItem)
+            ? 'ratePerItem'
+            : 'ratePerKg';
+        const rate = exchangeRate[rateField];
 
         if (!Number.isFinite(rate) || rate < 0) {
             return {
                 amount: 0,
                 success: false,
-                message: `No valid item rate found for waste type: ${wasteType}`
+                message: 'No active exchange rate found for this waste type.'
             };
         }
 
-        // Calculate payout: quantity x rate per item
+        // Calculate payout from the live database rate: quantity x active rate.
         const payout = quantity * rate;
 
         // Round to 2 decimal places (cents)
@@ -63,8 +65,11 @@ async function calculatePayoutAmount(wasteType, quantity = 1) {
         return {
             amount: roundedPayout,
             success: true,
-            message: `Payout calculated: ${quantity} item(s) x PHP ${rate}/item = PHP ${roundedPayout}`,
-            exchangeRate: rate
+            message: `Payout calculated from Exchange Rate Manager: ${quantity} item(s) x PHP ${rate} = PHP ${roundedPayout}`,
+            exchangeRate: rate,
+            exchangeRateId: exchangeRate._id,
+            rateField,
+            wasteType: exchangeRate.wasteType
         };
     } catch (error) {
         console.error('Error calculating payout:', error);

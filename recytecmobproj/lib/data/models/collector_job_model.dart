@@ -45,8 +45,55 @@ class CollectorJob {
   String get displayItem => itemCategory.isNotEmpty ? itemCategory : wasteType;
   bool get isApproved => status.toLowerCase() == 'approved';
   bool get isInTransit => status.toLowerCase() == 'in-transit';
-  bool get isCompleted => status.toLowerCase() == 'completed';
-  bool get isRejected => status.toLowerCase() == 'rejected';
+  bool get isCompleted {
+    final value = status.toLowerCase();
+    return value == 'completed' || value == 'collected';
+  }
+
+  bool get isRejected {
+    final value = status.toLowerCase();
+    return value == 'rejected' || value == 'cancelled' || value == 'canceled';
+  }
+
+  bool get isActive => !isCompleted && !isRejected;
+  bool get hasAssignedCollector =>
+      _hasMeaningfulValue(assignedCollectorId) ||
+      _hasMeaningfulValue(assignedCollector);
+  bool get isAvailableForAssignment =>
+      id.isNotEmpty && isApproved && isActive && !hasAssignedCollector;
+
+  DateTime? get scheduledDate => DateTime.tryParse(scheduledAt);
+  DateTime? get createdDate => DateTime.tryParse(createdAt);
+
+  bool isAssignedTo({
+    String? collectorId,
+    String? collectorName,
+    String? collectorEmail,
+  }) {
+    if (!hasAssignedCollector || !isActive) return false;
+
+    final id = _normalizeMatchValue(collectorId);
+    final name = _normalizeMatchValue(collectorName);
+    final email = _normalizeMatchValue(collectorEmail);
+    final assignedId = _normalizeMatchValue(assignedCollectorId);
+    final assignedName = _normalizeMatchValue(assignedCollector);
+
+    if (id.isNotEmpty && assignedId.isNotEmpty && id == assignedId) {
+      return true;
+    }
+
+    if (name.isNotEmpty && assignedName.isNotEmpty && name == assignedName) {
+      return true;
+    }
+
+    if (email.isNotEmpty &&
+        assignedName.isNotEmpty &&
+        assignedName.contains(email)) {
+      return true;
+    }
+
+    return false;
+  }
 
   factory CollectorJob.fromJson(Map<String, dynamic> json) {
     final locationValue = json['location'];
@@ -142,5 +189,17 @@ class CollectorJob {
   static double _parseDouble(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse((value ?? '').toString()) ?? 0;
+  }
+
+  static bool _hasMeaningfulValue(String value) {
+    final normalized = value.trim().toLowerCase();
+    return normalized.isNotEmpty &&
+        normalized != 'null' &&
+        normalized != '{}' &&
+        normalized != '[]';
+  }
+
+  static String _normalizeMatchValue(String? value) {
+    return (value ?? '').trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 }

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Resident = require('../models/Resident');
 
 const protect = async (req, res, next) => {
     let token;
@@ -15,10 +16,27 @@ const protect = async (req, res, next) => {
             // Verify token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            // Get user from the token
-            req.user = await User.findById(decoded.id).select('-password');
+            // Get account from the token. Admin/staff/collector accounts live in
+            // User, while mobile resident accounts live in Resident.
+            const user = await User.findById(decoded.id).select('-password');
 
-            return next();
+            if (user) {
+                req.user = user;
+                return next();
+            }
+
+            const resident = await Resident.findById(decoded.id).select('-password');
+
+            if (resident) {
+                req.user = {
+                    ...resident.toObject(),
+                    role: 'resident'
+                };
+                req.resident = resident;
+                return next();
+            }
+
+            return res.status(401).json({ message: 'Not authorized, account not found' });
         } catch (error) {
             console.error(error);
             return res.status(401).json({ message: 'Not authorized, token failed' });

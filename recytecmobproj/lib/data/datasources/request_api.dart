@@ -11,6 +11,27 @@ class RequestApi {
     return List<dynamic>.from(res.data);
   }
 
+  Future<List<dynamic>> fetchMyRequests() async {
+    final Response res = await _apiClient.dio.get(ApiEndpoints.myRequests);
+
+    return List<dynamic>.from(res.data);
+  }
+
+  Future<List<dynamic>> fetchMyTransactions() async {
+    final Response res = await _apiClient.dio.get(ApiEndpoints.myTransactions);
+
+    if (res.data is Map && (res.data as Map).containsKey('transactions')) {
+      final transactions = (res.data as Map)['transactions'];
+      if (transactions is List) return List<dynamic>.from(transactions);
+    }
+
+    if (res.data is List) {
+      return List<dynamic>.from(res.data as List);
+    }
+
+    return <dynamic>[];
+  }
+
   Future<Map<String, dynamic>> createRequest(
     Map<String, dynamic> payload,
   ) async {

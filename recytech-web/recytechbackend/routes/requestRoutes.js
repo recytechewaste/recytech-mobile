@@ -61,13 +61,147 @@ const findOrCreateTemporaryResident = async ({ residentName, residentEmail, phon
     return resident;
 };
 
+const activePickupStatuses = ['Pending', 'Approved', 'Assigned', 'In-Transit'];
+const payoutReadyStatuses = ['Drop-off Confirmed', 'Received'];
+
+const populateRequest = (query) => query
+    .populate('resident', 'email firstName lastName phone walletBalance totalEarned requestCount isTemporary source mobileUserId')
+    .populate('assignedCollector', 'firstName lastName phone vehicleType vehiclePlate');
+
+const residentDisplayName = (resident) => {
+    if (!resident) return '';
+    return [resident.firstName, resident.lastName]
+        .filter((part) => String(part || '').trim())
+        .join(' ')
+        .trim();
+};
+
+const resolveResidentForRequest = async (request) => {
+    let resident = request.resident
+        ? await Resident.findById(request.resident)
+        : null;
+
+    if (!resident && request.residentEmail) {
+        resident = await Resident.findOne({ email: request.residentEmail });
+    }
+
+    if (!resident) {
+        const residentEmail = request.residentEmail || `temp-request-${request._id}@recytech.local`;
+        const parsedName = splitResidentName(request.residentName);
+
+        resident = await Resident.create({
+            email: residentEmail,
+            firstName: parsedName.firstName,
+            lastName: parsedName.lastName,
+            source: 'Mobile Simulation',
+            isTemporary: true
+        });
+    }
+
+    return resident;
+};
+
+const buildCurrentResidentRequestQuery = (account = {}) => {
+    const clauses = [];
+    const accountId = account._id?.toString();
+    const email = String(account.email || '').trim().toLowerCase();
+    const mobileUserId = String(account.mobileUserId || '').trim();
+
+    if (accountId) {
+        clauses.push({ resident: accountId });
+        clauses.push({ mobileUserId: accountId });
+    }
+
+    if (email) {
+        clauses.push({ residentEmail: email });
+    }
+
+    if (mobileUserId) {
+        clauses.push({ mobileUserId });
+    }
+
+    return clauses.length ? { $or: clauses } : { _id: null };
+};
+
+const releasePayoutForRequest = async (request) => {
+    if (request.paymentProcessed) {
+        const existingTransaction = await Transaction.findOne({ requestId: request._id })
+            .populate('resident', 'email firstName lastName walletBalance totalEarned');
+
+        return {
+            request,
+            transaction: existingTransaction,
+            alreadyReleased: true
+        };
+    }
+
+    if (!payoutReadyStatuses.includes(request.status)) {
+        const error = new Error('Drop-off must be confirmed before releasing payout.');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const quantity = request.quantity || 1;
+    const payoutResult = await calculatePayoutAmount(request.wasteType, quantity);
+
+    if (!payoutResult.success) {
+        request.payoutStatus = 'Failed';
+        await request.save();
+
+        const error = new Error(payoutResult.message || 'Unable to calculate payout.');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const resident = await resolveResidentForRequest(request);
+    const amount = payoutResult.amount;
+    const releasedAt = new Date();
+
+    resident.walletBalance += amount;
+    resident.totalEarned += amount;
+    await resident.save();
+
+    const transaction = await Transaction.create({
+        resident: resident._id,
+        type: 'Payment',
+        amount,
+        requestId: request._id,
+        description: `Monetary payout for ${quantity} ${request.wasteType} recycling item(s)`,
+        status: 'Released',
+        residentEmail: resident.email,
+        residentName: residentDisplayName(resident) || request.residentName,
+        wasteType: request.wasteType,
+        quantity,
+        releasedAt
+    });
+
+    request.monetaryValue = amount;
+    request.paymentProcessed = true;
+    request.payoutStatus = 'Released';
+    request.payoutReleasedAt = releasedAt;
+    request.status = 'Completed';
+    request.resident = resident._id;
+    request.residentEmail = resident.email;
+
+    await request.save();
+
+    return {
+        request,
+        transaction,
+        payout: {
+            amount,
+            resident: resident.email,
+            transactionId: transaction._id,
+            message: payoutResult.message
+        }
+    };
+};
+
 // @desc    Get all requests (For the Dashboard Table)
 // @route   GET /api/requests
 router.get('/', protect, async (req, res) => {
     try {
-        const requests = await Request.find()
-            .populate('resident', 'email firstName lastName phone walletBalance totalEarned requestCount isTemporary source')
-            .populate('assignedCollector', 'firstName lastName phone vehicleType vehiclePlate') // Populate correct fields from Collector model
+        const requests = await populateRequest(Request.find())
             .sort({ createdAt: -1 }); // Newest first
         res.json(requests);
     } catch (error) {
@@ -75,7 +209,7 @@ router.get('/', protect, async (req, res) => {
     }
 });
 
-// @desc    Create a dummy request (For testing purposes)
+// @desc    Create a pickup request
 // @route   POST /api/requests
 router.post('/', protect, async (req, res) => {
     const { residentName, wasteType, location, quantity, residentEmail, wasteImage, phone, firstName, lastName, mobileUserId } = req.body;
@@ -120,6 +254,7 @@ router.post('/', protect, async (req, res) => {
             location,
             quantity: quantity || 1,
             residentEmail: resident.email,
+            mobileUserId,
             wasteImage
         });
         res.status(201).json(request);
@@ -128,7 +263,21 @@ router.post('/', protect, async (req, res) => {
     }
 });
 
-// @desc    Update request status (Approve/Reject/Complete with automatic payout)
+// @desc    Get requests for the logged-in mobile resident
+// @route   GET /api/requests/me
+router.get('/me', protect, async (req, res) => {
+    try {
+        const query = buildCurrentResidentRequestQuery(req.user);
+        const requests = await populateRequest(Request.find(query))
+            .sort({ createdAt: -1 });
+
+        res.json(requests);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Update request status/assignment without releasing payout
 // @route   PUT /api/requests/:id
 // @access  Protected (Staff, Admin, Super Admin)
 router.put('/:id', protect, async (req, res) => {
@@ -153,7 +302,7 @@ router.put('/:id', protect, async (req, res) => {
                     _id: { $ne: request._id },
                     assignedCollector: newAssignedCollector,
                     scheduledAt: newScheduledAt,
-                    status: { $in: ['Pending', 'Approved', 'In-Transit'] }
+                    status: { $in: activePickupStatuses }
                 });
 
                 if (conflictRequest) {
@@ -161,113 +310,90 @@ router.put('/:id', protect, async (req, res) => {
                 }
             }
 
-            // Handle payout when request is marked as Completed
-            if (newStatus === 'Completed' && request.status !== 'Completed' && !request.paymentProcessed) {
-                try {
-                    const quantity = request.quantity || 1;
-                    // Calculate payout
-                    const payoutResult = await calculatePayoutAmount(request.wasteType, quantity);
-                    
-                    if (payoutResult.success) {
-                        // Find or create the resident wallet linked to this request.
-                        let resident = request.resident
-                            ? await Resident.findById(request.resident)
-                            : await Resident.findOne({ email: request.residentEmail });
-
-                        if (!resident) {
-                            const residentEmail = request.residentEmail || `temp-request-${request._id}@recytech.local`;
-                            const parsedName = splitResidentName(request.residentName);
-
-                            resident = await Resident.create({
-                                email: residentEmail,
-                                firstName: parsedName.firstName,
-                                lastName: parsedName.lastName,
-                                source: 'Mobile Simulation',
-                                isTemporary: true
-                            });
-                        }
-                        
-                        // Update resident wallet
-                        resident.walletBalance += payoutResult.amount;
-                        resident.totalEarned += payoutResult.amount;
-                        await resident.save();
-                        
-                        // Create transaction record
-                        const transaction = await Transaction.create({
-                            resident: resident._id,
-                            type: 'Payment',
-                            amount: payoutResult.amount,
-                            requestId: request._id,
-                            description: `Payment for ${quantity} ${request.wasteType} recycling item(s)`
-                        });
-                        
-                        // Update request with payout info
-                        request.monetaryValue = payoutResult.amount;
-                        request.paymentProcessed = true;
-                        request.status = newStatus;
-                        request.resident = resident._id;
-                        request.residentEmail = resident.email;
-                        request.assignedCollector = newAssignedCollector;
-                        request.scheduledAt = newScheduledAt;
-                        
-                        const updatedRequest = await request.save();
-                        
-                        return res.json({
-                            ...updatedRequest.toObject(),
-                            payout: {
-                                amount: payoutResult.amount,
-                                resident: resident.email,
-                                transactionId: transaction._id,
-                                message: payoutResult.message
-                            }
-                        });
-                    } else {
-                        // Payout calculation failed, complete request without payment
-                        console.warn(`Payout calculation failed for request ${request._id}: ${payoutResult.message}`);
-                        
-                        request.status = newStatus;
-                        request.assignedCollector = newAssignedCollector;
-                        request.scheduledAt = newScheduledAt;
-                        request.monetaryValue = 0;
-                        request.paymentProcessed = false; // Don't mark as processed if calculation failed
-                        
-                        const updatedRequest = await request.save();
-                        
-                        return res.status(206).json({
-                            ...updatedRequest.toObject(),
-                            warning: `Request completed but payout failed: ${payoutResult.message}`
-                        });
-                    }
-                } catch (payoutError) {
-                    console.error('Error processing payout:', payoutError);
-                    
-                    // Still update status but without payment
-                    request.status = newStatus;
-                    request.assignedCollector = newAssignedCollector;
-                    request.scheduledAt = newScheduledAt;
-                    request.monetaryValue = 0;
-                    
-                    const updatedRequest = await request.save();
-                    
-                    return res.status(206).json({
-                        ...updatedRequest.toObject(),
-                        warning: `Request completed but payout processing failed: ${payoutError.message}`
-                    });
-                }
-            }
-            
             // Standard update (no payout processing)
             request.status = newStatus;
             request.assignedCollector = newAssignedCollector;
             request.scheduledAt = newScheduledAt;
+
+            if (newStatus === 'Collected' && request.payoutStatus === 'Not Ready') {
+                request.payoutStatus = 'Not Ready';
+            }
+
+            if (newStatus === 'Drop-off Confirmed' || newStatus === 'Received') {
+                request.dropoffConfirmedAt = request.dropoffConfirmedAt || new Date();
+                if (!request.paymentProcessed) request.payoutStatus = 'Pending';
+            }
             
             const updatedRequest = await request.save();
-            res.json(updatedRequest);
+            const populatedRequest = await populateRequest(Request.findById(updatedRequest._id));
+            res.json(populatedRequest);
         } else {
             res.status(404).json({ message: 'Request not found' });
         }
     } catch (error) {
         res.status(400).json({ message: error.message });
+    }
+});
+
+// @desc    Confirm that collected e-waste reached the drop-off/recycling point
+// @route   PUT /api/requests/:id/dropoff-confirmed
+// @access  Protected (Admin)
+router.put('/:id/dropoff-confirmed', protect, admin, async (req, res) => {
+    try {
+        const request = await Request.findById(req.params.id);
+
+        if (!request) {
+            return res.status(404).json({ message: 'Request not found' });
+        }
+
+        if (request.paymentProcessed) {
+            return res.status(400).json({ message: 'Payout has already been released for this request.' });
+        }
+
+        if (!['Collected', 'Drop-off Confirmed', 'Received'].includes(request.status)) {
+            return res.status(400).json({ message: 'Only collected requests can be confirmed at drop-off.' });
+        }
+
+        request.status = 'Drop-off Confirmed';
+        request.dropoffConfirmedAt = request.dropoffConfirmedAt || new Date();
+        request.payoutStatus = 'Pending';
+
+        const updatedRequest = await request.save();
+        const populatedRequest = await populateRequest(Request.findById(updatedRequest._id));
+
+        res.json(populatedRequest);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// @desc    Release monetary payout after drop-off confirmation
+// @route   PUT /api/requests/:id/release-payout
+// @access  Protected (Admin)
+router.put('/:id/release-payout', protect, admin, async (req, res) => {
+    try {
+        const request = await Request.findById(req.params.id);
+
+        if (!request) {
+            return res.status(404).json({ message: 'Request not found' });
+        }
+
+        const result = await releasePayoutForRequest(request);
+        const populatedRequest = await populateRequest(Request.findById(result.request._id));
+        const transaction = result.transaction
+            ? await Transaction.findById(result.transaction._id)
+                .populate('resident', 'email firstName lastName walletBalance totalEarned')
+                .populate('requestId', 'wasteType quantity status monetaryValue paymentProcessed payoutStatus')
+            : null;
+
+        res.json({
+            request: populatedRequest,
+            transaction,
+            payout: result.payout,
+            alreadyReleased: result.alreadyReleased || false
+        });
+    } catch (error) {
+        res.status(error.statusCode || 400).json({ message: error.message });
     }
 });
 
@@ -292,9 +418,7 @@ router.delete('/:id', protect, admin, async (req, res) => {
 // @access  Protected (Admin)
 router.get('/:id/payout', protect, admin, async (req, res) => {
     try {
-        const request = await Request.findById(req.params.id)
-            .populate('resident', 'email firstName lastName phone walletBalance totalEarned requestCount isTemporary source')
-            .populate('assignedCollector', 'firstName lastName');
+        const request = await populateRequest(Request.findById(req.params.id));
         
         if (!request) {
             return res.status(404).json({ message: 'Request not found' });
@@ -311,7 +435,10 @@ router.get('/:id/payout', protect, admin, async (req, res) => {
             quantity,
             estimatedPayout: payoutResult.amount,
             actualPayout: request.monetaryValue,
+            payoutStatus: request.payoutStatus,
             paymentProcessed: request.paymentProcessed,
+            dropoffConfirmedAt: request.dropoffConfirmedAt,
+            payoutReleasedAt: request.payoutReleasedAt,
             residentEmail: request.residentEmail,
             message: payoutResult.message
         });
@@ -320,15 +447,16 @@ router.get('/:id/payout', protect, admin, async (req, res) => {
     }
 });
 
-// @desc    Get all pending payouts (completed but not yet paid)
+// @desc    Get all drop-off confirmed requests awaiting payout
 // @route   GET /api/requests/pending-payouts
 // @access  Protected (Admin)
 router.get('/pending-payouts', protect, admin, async (req, res) => {
     try {
         const pendingPayouts = await Request.find({
-            status: 'Completed',
+            status: { $in: payoutReadyStatuses },
             paymentProcessed: false
         })
+        .populate('resident', 'email firstName lastName phone walletBalance totalEarned')
         .populate('assignedCollector', 'firstName lastName')
         .sort({ updatedAt: -1 });
         

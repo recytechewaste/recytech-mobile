@@ -29,6 +29,31 @@ const transactionSchema = mongoose.Schema({
         type: String,
         required: false,
         example: "Payment for 2 Battery recycling item(s)"
+    },
+    status: {
+        type: String,
+        enum: ['Pending', 'Processing', 'Released', 'Failed'],
+        default: 'Released'
+    },
+    residentEmail: {
+        type: String,
+        required: false
+    },
+    residentName: {
+        type: String,
+        required: false
+    },
+    wasteType: {
+        type: String,
+        required: false
+    },
+    quantity: {
+        type: Number,
+        required: false
+    },
+    releasedAt: {
+        type: Date,
+        required: false
     }
 }, {
     timestamps: true

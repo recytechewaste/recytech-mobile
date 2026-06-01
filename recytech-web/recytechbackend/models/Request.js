@@ -32,7 +32,7 @@ const requestSchema = mongoose.Schema({
         min: 1
     },
     wasteImage: {
-        type: String, // URL to the image stored in Cloud/Firebase
+        type: String, // Data URL or hosted image URL submitted by mobile/web
         required: false // Optional for now
     },
     location: {
@@ -41,7 +41,23 @@ const requestSchema = mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pending', 'Approved', 'Rejected', 'In-Transit', 'Completed'],
+        enum: [
+            'Pending',
+            'Approved',
+            'Assigned',
+            'For Pickup',
+            'Rejected',
+            'Cancelled',
+            'Canceled',
+            'In-Transit',
+            'Collected',
+            'Drop-off Confirmed',
+            'Received',
+            'Payout Processing',
+            'Paid',
+            'Reward Released',
+            'Completed'
+        ],
         default: 'Pending'
     },
     assignedCollector: {
@@ -57,9 +73,27 @@ const requestSchema = mongoose.Schema({
         type: String, // Email to link request to resident account
         required: false // Optional for anonymous submissions
     },
+    mobileUserId: {
+        type: String,
+        required: false,
+        trim: true
+    },
     monetaryValue: {
         type: Number, // Calculated payout in PHP
         default: 0
+    },
+    payoutStatus: {
+        type: String,
+        enum: ['Not Ready', 'Pending', 'Processing', 'Released', 'Failed'],
+        default: 'Not Ready'
+    },
+    dropoffConfirmedAt: {
+        type: Date,
+        required: false
+    },
+    payoutReleasedAt: {
+        type: Date,
+        required: false
     },
     ratePerItem: {
         type: Number,

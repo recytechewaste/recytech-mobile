@@ -1,9 +1,19 @@
-import { Check, Eye, X } from 'lucide-react';
+import { Banknote, Check, Eye, PackageCheck, X } from 'lucide-react';
 import styles from '../../styles/RequestManagement.module.css';
 
 const mutedText = { color: '#9ca3af', fontStyle: 'italic' };
+const isDropoffReady = (request) => request.status === 'Collected' && !request.paymentProcessed;
+const isPayoutReady = (request) =>
+    ['Drop-off Confirmed', 'Received'].includes(request.status) && !request.paymentProcessed;
 
-const RequestTable = ({ requests, onView, onApprove, onReject }) => (
+const RequestTable = ({
+    requests,
+    onView,
+    onApprove,
+    onReject,
+    onConfirmDropoff,
+    onReleasePayout
+}) => (
     <div className={styles.card}>
         <table className={styles.table}>
             <thead>
@@ -42,7 +52,14 @@ const RequestTable = ({ requests, onView, onApprove, onReject }) => (
                                 : <span style={mutedText}>Not scheduled</span>}
                         </td>
                         <td className={styles.td}>{new Date(request.createdAt).toLocaleDateString()}</td>
-                        <td className={styles.td}>{request.status}</td>
+                        <td className={styles.td}>
+                            <div>{request.status}</div>
+                            {(request.payoutStatus || request.paymentProcessed) && (
+                                <div style={{ ...mutedText, fontSize: '12px' }}>
+                                    Payout: {request.paymentProcessed ? 'Released' : request.payoutStatus}
+                                </div>
+                            )}
+                        </td>
                         <td className={`${styles.td} ${styles.actionCell}`}>
                             <div className={styles.tableActions}>
                                 <button
@@ -75,6 +92,28 @@ const RequestTable = ({ requests, onView, onApprove, onReject }) => (
                                             <span>Reject</span>
                                         </button>
                                     </>
+                                )}
+                                {isDropoffReady(request) && (
+                                    <button
+                                        type="button"
+                                        title="Confirm drop-off"
+                                        onClick={() => onConfirmDropoff(request)}
+                                        className={`${styles.actionBtn} ${styles.actionDropoff}`}
+                                    >
+                                        <PackageCheck size={14} />
+                                        <span>Confirm Drop-off</span>
+                                    </button>
+                                )}
+                                {isPayoutReady(request) && (
+                                    <button
+                                        type="button"
+                                        title="Release payout"
+                                        onClick={() => onReleasePayout(request)}
+                                        className={`${styles.actionBtn} ${styles.actionPayout}`}
+                                    >
+                                        <Banknote size={14} />
+                                        <span>Release Payout</span>
+                                    </button>
                                 )}
                             </div>
                         </td>

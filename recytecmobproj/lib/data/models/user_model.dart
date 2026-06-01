@@ -5,6 +5,9 @@ class UserModel {
   final String fullName;
   final String email;
   final String role;
+  final String? phone;
+  final String? vehicleType;
+  final String? plateNumber;
 
   UserModel({
     required this.id,
@@ -13,6 +16,9 @@ class UserModel {
     required this.fullName,
     required this.email,
     required this.role,
+    this.phone,
+    this.vehicleType,
+    this.plateNumber,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -30,6 +36,24 @@ class UserModel {
       fullName: fullName,
       email: (json['email'] ?? '').toString(),
       role: (json['role'] ?? '').toString(),
+      phone: _optionalString(
+        json['phone'] ??
+            json['contactNumber'] ??
+            json['contact_number'] ??
+            json['mobile'] ??
+            json['mobileNumber'],
+      ),
+      vehicleType: _optionalString(
+        json['vehicleType'] ?? json['vehicle_type'] ?? json['vehicle'],
+      ),
+      plateNumber: _optionalString(
+        json['plateNumber'] ?? json['plate_number'] ?? json['plateNo'],
+      ),
     );
+  }
+
+  static String? _optionalString(dynamic value) {
+    final text = (value ?? '').toString().trim();
+    return text.isEmpty ? null : text;
   }
 }

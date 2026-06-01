@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../core/theme/recytechtheme.dart';
+
 class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -19,12 +21,12 @@ class PrimaryButton extends StatelessWidget {
         ? ElevatedButton.styleFrom(
             minimumSize: Size(double.infinity, 48.h),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.r)),
+                borderRadius: BorderRadius.circular(18.r)),
           )
         : OutlinedButton.styleFrom(
             minimumSize: Size(double.infinity, 48.h),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.r)),
+                borderRadius: BorderRadius.circular(18.r)),
           );
 
     return filled
@@ -40,6 +42,10 @@ class LabeledField extends StatelessWidget {
   final bool obscure;
   final TextEditingController controller;
   final TextInputType keyboardType;
+  final bool? enableSuggestions;
+  final bool? autocorrect;
+  final TextInputAction? textInputAction;
+  final Iterable<String>? autofillHints;
   final int maxLines;
 
   const LabeledField({
@@ -49,6 +55,10 @@ class LabeledField extends StatelessWidget {
     required this.controller,
     this.obscure = false,
     this.keyboardType = TextInputType.text,
+    this.enableSuggestions,
+    this.autocorrect,
+    this.textInputAction,
+    this.autofillHints,
     this.maxLines = 1,
   });
 
@@ -56,16 +66,24 @@ class LabeledField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.sp)),
+          style: TextStyle(
+            color: RecyTechTheme.textDark,
+            fontWeight: FontWeight.w800,
+            fontSize: 13.sp,
+          )),
       SizedBox(height: 6.h),
       TextField(
         controller: controller,
         obscureText: obscure,
-        keyboardType: keyboardType,
+        keyboardType: obscure ? TextInputType.visiblePassword : keyboardType,
+        enableSuggestions: enableSuggestions ?? !obscure,
+        autocorrect: autocorrect ?? !obscure,
+        textInputAction: textInputAction,
+        autofillHints: autofillHints,
         maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hint,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16.r)),
           contentPadding:
               EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.h),
         ),
@@ -83,10 +101,14 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18.sp),
+        Icon(icon, size: 18.sp, color: RecyTechTheme.primary),
         SizedBox(width: 8.w),
         Text(title,
-            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700)),
+            style: TextStyle(
+              color: RecyTechTheme.textDark,
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w800,
+            )),
       ],
     );
   }
@@ -102,14 +124,15 @@ class SoftCard extends StatelessWidget {
     return Container(
       padding: padding ?? EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14.r),
+        color: RecyTechTheme.card,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: RecyTechTheme.border),
         boxShadow: [
           BoxShadow(
-            blurRadius: 14,
+            blurRadius: 18,
             spreadRadius: 0,
             offset: const Offset(0, 6),
-            color: Colors.black.withOpacity(0.06),
+            color: RecyTechTheme.primary.withValues(alpha: 0.08),
           ),
         ],
       ),

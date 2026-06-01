@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
 import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
@@ -17,19 +18,28 @@ class CollectorAssignedScreen extends StatefulWidget {
 
 class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   final CollectorRepository _repository = CollectorRepository();
-  final Set<String> _declinedRequestIds = <String>{};
 
   late Future<List<CollectorJob>> _jobsFuture;
-  String? _busyRequestId;
 
   @override
   void initState() {
     super.initState();
-    _jobsFuture = _repository.fetchAvailableJobs();
+    _jobsFuture = _fetchAssignedJobs();
+  }
+
+  Future<List<CollectorJob>> _fetchAssignedJobs() {
+    final collector = context.read<AuthProvider>().currentUser;
+    final collectorName = _collectorName(collector);
+
+    return _repository.fetchAssignedJobs(
+      collectorId: collector?.id,
+      collectorName: collectorName,
+      collectorEmail: collector?.email,
+    );
   }
 
   Future<void> _refreshJobs() async {
-    final future = _repository.fetchAvailableJobs();
+    final future = _fetchAssignedJobs();
     setState(() {
       _jobsFuture = future;
     });
@@ -46,111 +56,22 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   }
 
   Future<void> _openJob(CollectorJob job) async {
-    final declinedRequestId = await Navigator.push<String?>(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => JobDetailScreen(job: job),
       ),
     );
 
-    if (declinedRequestId != null && declinedRequestId.isNotEmpty && mounted) {
-      setState(() {
-        _declinedRequestIds.add(declinedRequestId);
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Request declined for this session.'),
-        ),
-      );
-    }
-
     if (mounted) {
       await _refreshJobs();
     }
-  }
-
-  Future<void> _acceptJob(CollectorJob job) async {
-    if (_busyRequestId != null || job.id.isEmpty) return;
-
-    setState(() {
-      _busyRequestId = job.id;
-    });
-
-    CollectorJob? acceptedJob;
-
-    try {
-      final collector = context.read<AuthProvider>().currentUser;
-      final collectorName = _collectorName(collector);
-      final updated = await _repository.acceptJob(
-        requestId: job.id,
-        collectorId: collector?.id,
-        collectorName: collectorName,
-        collectorEmail: collector?.email,
-      );
-
-      if (!mounted) return;
-
-      acceptedJob = updated.id.isEmpty
-          ? job.copyWith(
-              status: 'In-Transit',
-              assignedCollector: collectorName,
-              assignedCollectorId: collector?.id,
-            )
-          : updated;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${job.requestCode} accepted.')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_messageForError(e))),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _busyRequestId = null;
-        });
-      }
-    }
-
-    if (acceptedJob == null || !mounted) return;
-
-    await _refreshJobs();
-
-    if (!mounted) return;
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => JobDetailScreen(job: acceptedJob!),
-      ),
-    );
-
-    if (mounted) {
-      await _refreshJobs();
-    }
-  }
-
-  void _declineJob(CollectorJob job) {
-    if (job.id.isEmpty) return;
-
-    setState(() {
-      _declinedRequestIds.add(job.id);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${job.requestCode} declined for this session.'),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Collector Requests'),
       ),
@@ -170,9 +91,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
             );
           }
 
-          final jobs = (snapshot.data ?? <CollectorJob>[])
-              .where((job) => !_declinedRequestIds.contains(job.id))
-              .toList();
+          final jobs = snapshot.data ?? <CollectorJob>[];
 
           return RefreshIndicator(
             onRefresh: _refreshJobs,
@@ -182,7 +101,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                     children: [
                       _messageState(
                         context,
-                        'No approved collector requests available.',
+                        'No assigned pickup tasks yet.',
                       ),
                     ],
                   )
@@ -206,15 +125,15 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
       width: double.infinity,
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+        color: RecyTechTheme.pill,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: RecyTechTheme.primary.withValues(alpha: 0.2)),
       ),
       child: Text(
-        '$count approved request${count == 1 ? '' : 's'} in FIFO queue. Oldest request is shown first.',
+        '$count assigned pickup task${count == 1 ? '' : 's'}. Nearest scheduled tasks appear first.',
         style: TextStyle(
           fontSize: 11.sp,
-          color: Colors.green.shade800,
+          color: RecyTechTheme.primary,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -222,17 +141,23 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   }
 
   Widget _requestCard(BuildContext context, CollectorJob job, int position) {
-    final isBusy = _busyRequestId == job.id;
-
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: isBusy ? null : () => _openJob(job),
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => _openJob(job),
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.black12),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: RecyTechTheme.border),
+          boxShadow: [
+            BoxShadow(
+              color: RecyTechTheme.primary.withValues(alpha: 0.07),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,8 +178,8 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                       EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
                   decoration: BoxDecoration(
                     color: position == 1
-                        ? Colors.green.withValues(alpha: 0.12)
-                        : Colors.black.withValues(alpha: 0.04),
+                        ? RecyTechTheme.primary.withValues(alpha: 0.12)
+                        : RecyTechTheme.pill,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -262,6 +187,9 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                     style: TextStyle(
                       fontSize: 10.sp,
                       fontWeight: FontWeight.w800,
+                      color: position == 1
+                          ? RecyTechTheme.primary
+                          : RecyTechTheme.textMuted,
                     ),
                   ),
                 ),
@@ -269,15 +197,20 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
             ),
             SizedBox(height: 6.h),
             Text('Resident: ${_valueOrDash(job.residentName)}',
-                style: TextStyle(fontSize: 12.sp)),
+                style:
+                    TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
             Text('Location: ${_valueOrDash(job.location)}',
-                style: TextStyle(fontSize: 12.sp)),
+                style:
+                    TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
             Text('Item: ${_valueOrDash(job.displayItem)}',
-                style: TextStyle(fontSize: 12.sp)),
+                style:
+                    TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
             Text('Waste type: ${_valueOrDash(job.wasteType)}',
-                style: TextStyle(fontSize: 12.sp)),
+                style:
+                    TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
             Text('Quantity: ${job.quantity}',
-                style: TextStyle(fontSize: 12.sp)),
+                style:
+                    TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
             SizedBox(height: 8.h),
             Align(
               alignment: Alignment.centerRight,
@@ -291,30 +224,12 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
               ),
             ),
             SizedBox(height: 12.h),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: isBusy ? null : () => _declineJob(job),
-                    child: const Text('Decline'),
-                  ),
-                ),
-                SizedBox(width: 10.w),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: isBusy ? null : () => _acceptJob(job),
-                    child: isBusy
-                        ? SizedBox(
-                            height: 18.h,
-                            width: 18.h,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text('Accept'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _openJob(job),
+                child: const Text('View Details'),
+              ),
             ),
           ],
         ),
@@ -324,9 +239,9 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
 
   Color _statusColor(String status) {
     final value = status.toLowerCase();
-    if (value == 'completed') return Colors.green;
+    if (value == 'completed') return RecyTechTheme.primary;
     if (value.contains('transit') || value.contains('approved')) {
-      return Colors.orange;
+      return RecyTechTheme.accent;
     }
     return Colors.redAccent;
   }

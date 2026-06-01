@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
+import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
 import 'package:recytecmobproj/presentation/auth/login_screen.dart';
 import 'package:recytecmobproj/presentation/collector/jobs/job_detail_screen.dart';
@@ -16,20 +18,37 @@ class CollectorHomeScreen extends StatefulWidget {
 
 class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
   final CollectorRepository _repository = CollectorRepository();
-  final Set<String> _declinedRequestIds = <String>{};
 
-  late Future<List<CollectorJob>> _jobsFuture;
+  late Future<_CollectorHomeData> _homeFuture;
 
   @override
   void initState() {
     super.initState();
-    _jobsFuture = _repository.fetchAvailableJobs();
+    _homeFuture = _loadHomeData();
+  }
+
+  Future<_CollectorHomeData> _loadHomeData() async {
+    final collector = context.read<AuthProvider>().currentUser;
+    final collectorName = _collectorName(collector);
+    final results = await Future.wait([
+      _repository.fetchAvailableJobs(),
+      _repository.fetchAssignedJobs(
+        collectorId: collector?.id,
+        collectorName: collectorName,
+        collectorEmail: collector?.email,
+      ),
+    ]);
+
+    return _CollectorHomeData(
+      availableJobs: results[0],
+      assignedJobs: results[1],
+    );
   }
 
   Future<void> _refreshJobs() async {
-    final future = _repository.fetchAvailableJobs();
+    final future = _loadHomeData();
     setState(() {
-      _jobsFuture = future;
+      _homeFuture = future;
     });
 
     try {
@@ -55,24 +74,12 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
   }
 
   Future<void> _openJob(CollectorJob job) async {
-    final declinedRequestId = await Navigator.push<String?>(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => JobDetailScreen(job: job),
       ),
     );
-
-    if (declinedRequestId != null && declinedRequestId.isNotEmpty && mounted) {
-      setState(() {
-        _declinedRequestIds.add(declinedRequestId);
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Request declined for this session.'),
-        ),
-      );
-    }
 
     if (mounted) {
       await _refreshJobs();
@@ -84,6 +91,7 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
+      backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Collector Dashboard'),
         centerTitle: false,
@@ -114,8 +122,8 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<CollectorJob>>(
-        future: _jobsFuture,
+      body: FutureBuilder<_CollectorHomeData>(
+        future: _homeFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -130,10 +138,10 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
             );
           }
 
-          final jobs = (snapshot.data ?? <CollectorJob>[])
-              .where((job) => !_declinedRequestIds.contains(job.id))
-              .toList();
-          final visibleJobs = jobs.take(4).toList();
+          final data = snapshot.data ?? const _CollectorHomeData();
+          final availableJobs = data.availableJobs;
+          final assignedJobs = data.assignedJobs;
+          final nextJob = _nextJob(availableJobs, assignedJobs);
 
           return RefreshIndicator(
             onRefresh: _refreshJobs,
@@ -150,20 +158,20 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
                   children: [
                     _summaryCard(
                       context,
-                      'Queue',
-                      jobs.length.toString(),
+                      'Available',
+                      availableJobs.length.toString(),
                       Icons.assignment_outlined,
                     ),
                     _summaryCard(
                       context,
-                      'Approved',
-                      _statusCount(jobs, 'Approved').toString(),
+                      'Assigned',
+                      assignedJobs.length.toString(),
                       Icons.timelapse_outlined,
                     ),
                     _summaryCard(
                       context,
-                      'Next',
-                      jobs.isEmpty ? '0' : '1',
+                      'Next Pickup',
+                      nextJob?.requestCode ?? 'None',
                       Icons.check_circle_outline,
                     ),
                   ],
@@ -174,10 +182,10 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
                   style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 SizedBox(height: 10.h),
-                if (visibleJobs.isEmpty)
+                if (availableJobs.isEmpty)
                   _emptyCard(context)
                 else
-                  ...visibleJobs.map(
+                  ...availableJobs.map(
                     (job) => _jobItem(context, job),
                   ),
               ],
@@ -188,10 +196,18 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
     );
   }
 
-  int _statusCount(List<CollectorJob> jobs, String status) {
-    return jobs
-        .where((job) => job.status.toLowerCase() == status.toLowerCase())
-        .length;
+  CollectorJob? _nextJob(
+    List<CollectorJob> availableJobs,
+    List<CollectorJob> assignedJobs,
+  ) {
+    final scheduledAssigned = assignedJobs
+        .where((job) => job.scheduledDate != null)
+        .toList()
+      ..sort((a, b) => a.scheduledDate!.compareTo(b.scheduledDate!));
+
+    if (scheduledAssigned.isNotEmpty) return scheduledAssigned.first;
+    if (availableJobs.isNotEmpty) return availableJobs.first;
+    return null;
   }
 
   Widget _summaryCard(
@@ -204,9 +220,16 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
         margin: EdgeInsets.symmetric(horizontal: 4.w),
         padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 12.w),
         decoration: BoxDecoration(
-          color: cs.primary.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.10)),
+          color: RecyTechTheme.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: RecyTechTheme.border),
+          boxShadow: [
+            BoxShadow(
+              color: cs.primary.withValues(alpha: 0.07),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -228,9 +251,16 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
                       style: tt.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w900)),
                   SizedBox(height: 2.h),
-                  Text(label,
-                      style: tt.bodySmall?.copyWith(
-                          color: cs.onSurface.withValues(alpha: 0.75))),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.75),
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -244,32 +274,26 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    final bool isPending = job.status.toLowerCase().contains('pending');
-    final bool isProgress = job.status.toLowerCase().contains('transit') ||
-        job.status.toLowerCase().contains('progress');
-
-    final Color chipBg = isPending
-        ? cs.tertiary.withValues(alpha: 0.12)
-        : isProgress
-            ? cs.secondary.withValues(alpha: 0.12)
-            : cs.primary.withValues(alpha: 0.12);
-
-    final Color chipFg = isPending
-        ? cs.tertiary
-        : isProgress
-            ? cs.secondary
-            : cs.primary;
+    final chipFg = _statusColor(context, job.status);
+    final chipBg = chipFg.withValues(alpha: 0.12);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(20),
       onTap: () => _openJob(job),
       child: Container(
         margin: EdgeInsets.only(bottom: 10.h),
         padding: EdgeInsets.all(12.w),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: RecyTechTheme.border),
+          boxShadow: [
+            BoxShadow(
+              color: cs.primary.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -321,11 +345,11 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: RecyTechTheme.border),
       ),
       child: Text(
-        'No active requests available.',
+        'No approved unassigned requests available.',
         style:
             tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.75)),
       ),
@@ -365,4 +389,45 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
 
     return 'Unable to refresh collector jobs.';
   }
+
+  Color _statusColor(BuildContext context, String status) {
+    final cs = Theme.of(context).colorScheme;
+    final value = status.toLowerCase();
+
+    if (value == 'pending') return cs.tertiary;
+    if (value == 'approved' || value == 'assigned') return RecyTechTheme.accent;
+    if (value.contains('transit') ||
+        value.contains('pickup') ||
+        value.contains('progress')) {
+      return cs.secondary;
+    }
+    if (value == 'completed' || value == 'collected') {
+      return RecyTechTheme.primary;
+    }
+    if (value == 'rejected' || value == 'cancelled' || value == 'canceled') {
+      return Colors.redAccent;
+    }
+
+    return cs.primary;
+  }
+
+  String _collectorName(UserModel? user) {
+    if (user == null) return '';
+    if (user.fullName.trim().isNotEmpty) return user.fullName.trim();
+
+    return [
+      user.firstName,
+      user.lastName,
+    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
+  }
+}
+
+class _CollectorHomeData {
+  const _CollectorHomeData({
+    this.availableJobs = const <CollectorJob>[],
+    this.assignedJobs = const <CollectorJob>[],
+  });
+
+  final List<CollectorJob> availableJobs;
+  final List<CollectorJob> assignedJobs;
 }

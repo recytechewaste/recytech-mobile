@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:recytecmobproj/core/theme/recytechtheme.dart';
+import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/presentation/auth/login_screen.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 
@@ -23,14 +25,37 @@ class _CollectorProfileScreenState extends State<CollectorProfileScreen> {
     );
   }
 
+  String _displayName(UserModel? user) {
+    if (user == null) return 'Collector';
+
+    final fullName = user.fullName.trim();
+    if (fullName.isNotEmpty) return fullName;
+
+    final composedName = [
+      user.firstName,
+      user.lastName,
+    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
+    if (composedName.isNotEmpty) return composedName;
+
+    final email = user.email.trim();
+    if (email.isNotEmpty) return email.split('@').first;
+
+    return 'Collector';
+  }
+
+  String _profileValue(String? value) {
+    final text = value?.trim() ?? '';
+    return text.isEmpty ? 'Not set' : text;
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.currentUser;
-    final displayName =
-        user?.fullName.trim().isNotEmpty == true ? user!.fullName : 'Collector';
+    final displayName = _displayName(user);
 
     return Scaffold(
+      backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Collector Profile'),
         centerTitle: false,
@@ -44,11 +69,11 @@ class _CollectorProfileScreenState extends State<CollectorProfileScreen> {
             // 🔹 PROFILE ICON
             CircleAvatar(
               radius: 40.r,
-              backgroundColor: Colors.grey.shade300,
+              backgroundColor: RecyTechTheme.pill,
               child: Icon(
                 Icons.person,
                 size: 40.sp,
-                color: const Color.fromARGB(137, 1, 186, 26),
+                color: RecyTechTheme.primary,
               ),
             ),
 
@@ -59,7 +84,8 @@ class _CollectorProfileScreenState extends State<CollectorProfileScreen> {
               displayName,
               style: TextStyle(
                 fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w900,
+                color: RecyTechTheme.textDark,
               ),
             ),
             SizedBox(height: 4.h),
@@ -67,16 +93,20 @@ class _CollectorProfileScreenState extends State<CollectorProfileScreen> {
               'E-Waste Collector',
               style: TextStyle(
                 fontSize: 12.sp,
-                color: Colors.black54,
+                color: RecyTechTheme.textMuted,
               ),
             ),
 
             SizedBox(height: 30.h),
 
-            // 🔹 PROFILE DETAILS
-            _profileItem('Assigned Barangay', 'Marikina Heights'),
-            _profileItem('Collector ID', user?.id ?? '-'),
-            _profileItem('Contact Number', '0912 345 6789'),
+            _profileItem('Vehicle Type', _profileValue(user?.vehicleType)),
+            _profileItem('Plate Number', _profileValue(user?.plateNumber)),
+            if (user?.email.trim().isNotEmpty == true)
+              _profileItem(
+                'Account Email',
+                user!.email.trim(),
+                secondary: true,
+              ),
 
             const Spacer(),
 
@@ -96,13 +126,25 @@ class _CollectorProfileScreenState extends State<CollectorProfileScreen> {
     );
   }
 
-  Widget _profileItem(String label, String value) {
+  Widget _profileItem(
+    String label,
+    String value, {
+    bool secondary = false,
+  }) {
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color.fromARGB(31, 5, 166, 21)),
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        border: Border.all(color: RecyTechTheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: RecyTechTheme.primary.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -112,11 +154,23 @@ class _CollectorProfileScreenState extends State<CollectorProfileScreen> {
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
+              color: RecyTechTheme.textMuted,
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(fontSize: 12.sp),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: secondary ? 11.sp : 12.sp,
+                color: secondary
+                    ? RecyTechTheme.textMuted
+                    : RecyTechTheme.textDark,
+                fontWeight: secondary ? FontWeight.w600 : FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),

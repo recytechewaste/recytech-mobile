@@ -5,6 +5,35 @@ const Resident = require('../models/Resident');
 const Request = require('../models/Request');
 const { protect, admin } = require('../middleware/authMiddleware');
 
+const buildCurrentResidentTransactionQuery = async (account = {}) => {
+    const accountId = account._id?.toString();
+    const email = String(account.email || '').trim().toLowerCase();
+    const clauses = [];
+
+    let resident = null;
+
+    if (account.role === 'resident' && accountId) {
+        resident = await Resident.findById(accountId);
+    }
+
+    if (!resident && email) {
+        resident = await Resident.findOne({ email });
+    }
+
+    if (resident?._id) {
+        clauses.push({ resident: resident._id });
+    }
+
+    if (email) {
+        clauses.push({ residentEmail: email });
+    }
+
+    return {
+        resident,
+        query: clauses.length ? { $or: clauses } : { _id: null }
+    };
+};
+
 // @desc    Get all transactions (paginated)
 // @route   GET /api/transactions
 // @access  Admin only
@@ -62,6 +91,27 @@ router.get('/', protect, admin, async (req, res) => {
                 total,
                 pages: Math.ceil(total / limit)
             }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Get payout transactions for the logged-in mobile resident
+// @route   GET /api/transactions/me
+// @access  Protected
+router.get('/me', protect, async (req, res) => {
+    try {
+        const { resident, query } = await buildCurrentResidentTransactionQuery(req.user);
+
+        const transactions = await Transaction.find(query)
+            .populate('resident', 'email firstName lastName walletBalance totalEarned')
+            .populate('requestId', 'wasteType itemCategory detectedClass quantity status monetaryValue paymentProcessed payoutStatus payoutReleasedAt')
+            .sort({ createdAt: -1 });
+
+        res.json({
+            resident,
+            transactions
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

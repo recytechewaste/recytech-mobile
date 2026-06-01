@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
 import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
@@ -29,6 +33,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     'Pending',
     'Approved',
     'In-Transit',
+    'Collected',
     'Completed',
   ];
 
@@ -90,62 +95,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
-  Future<void> _acceptRequest() async {
-    if (isUpdating || job.id.isEmpty) return;
-
-    setState(() {
-      isUpdating = true;
-    });
-
-    try {
-      final collector = context.read<AuthProvider>().currentUser;
-      final collectorName = _collectorName(collector);
-      final updated = await _repository.acceptJob(
-        requestId: job.id,
-        collectorId: collector?.id,
-        collectorName: collectorName,
-        collectorEmail: collector?.email,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        job = updated.id.isEmpty
-            ? job.copyWith(
-                status: 'In-Transit',
-                assignedCollector: collectorName,
-                assignedCollectorId: collector?.id,
-              )
-            : updated;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${job.requestCode} accepted.')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_messageForError(e))),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isUpdating = false;
-        });
-      }
-    }
-  }
-
-  void _declineRequest() {
-    if (job.id.isEmpty) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${job.requestCode} skipped for this session.')),
-    );
-    Navigator.pop(context, job.id);
-  }
-
   Future<void> _openLocationInMaps() async {
     final query = job.location.trim();
 
@@ -180,6 +129,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Request Details'),
       ),
@@ -191,45 +141,64 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               'Request ID: ${job.requestCode}',
               style: TextStyle(
                 fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w900,
+                color: RecyTechTheme.textDark,
               ),
             ),
             SizedBox(height: 12.h),
-            _infoRow('Resident', _valueOrDash(job.residentName)),
-            _infoRow('Item', _valueOrDash(job.displayItem)),
-            _infoRow('Waste Type', _valueOrDash(job.wasteType)),
-            _infoRow('Location', _valueOrDash(job.location)),
-            _locationAction(),
-            _infoRow('Quantity', job.quantity.toString()),
-            _infoRow('Rate / kg', _formatMoney(job.ratePerKg)),
-            _infoRow('Email', _valueOrDash(job.residentEmail)),
-            _infoRow('Phone', _valueOrDash(job.phone)),
-            _infoRow('Status', _valueOrDash(job.status)),
-            _infoRow('Collector', _valueOrDash(job.assignedCollector)),
-            _infoRow('Scheduled', _formatDate(job.scheduledAt)),
+            Container(
+              padding: EdgeInsets.all(14.w),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(color: RecyTechTheme.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: RecyTechTheme.primary.withValues(alpha: 0.07),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _infoRow('Resident', _valueOrDash(job.residentName)),
+                  _infoRow('Item', _valueOrDash(job.displayItem)),
+                  _infoRow('Waste Type', _valueOrDash(job.wasteType)),
+                  _infoRow('Location', _valueOrDash(job.location)),
+                  _locationAction(),
+                  _infoRow('Quantity', job.quantity.toString()),
+                  _infoRow('Rate / kg', _formatMoney(job.ratePerKg)),
+                  _infoRow('Email', _valueOrDash(job.residentEmail)),
+                  _infoRow('Phone', _valueOrDash(job.phone)),
+                  _infoRow('Status', _valueOrDash(job.status)),
+                  _infoRow('Collector', _valueOrDash(job.assignedCollector)),
+                  _infoRow('Scheduled', _formatDate(job.scheduledAt)),
+                ],
+              ),
+            ),
             SizedBox(height: 24.h),
             Text(
               'Waste Image',
               style: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w800,
+                color: RecyTechTheme.textDark,
               ),
             ),
             SizedBox(height: 8.h),
             _imagePreview(),
             SizedBox(height: 24.h),
-            if (job.isApproved) ...[
-              _acceptDeclineActions(),
-              SizedBox(height: 18.h),
-            ],
             DropdownButtonFormField<String>(
               key: ValueKey(job.status),
               initialValue: supportedStatuses.contains(job.status)
                   ? job.status
                   : 'Pending',
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Update status',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
               ),
               items: supportedStatuses
                   .map(
@@ -262,7 +231,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text('Mark In-Transit'),
+                        : const Text('Start Pickup'),
                   ),
                 ),
                 SizedBox(width: 12.w),
@@ -270,8 +239,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   child: ElevatedButton(
                     onPressed: isUpdating || job.id.isEmpty
                         ? null
-                        : () => _updateStatus('Completed'),
-                    child: const Text('Mark Completed'),
+                        : () => _updateStatus('Collected'),
+                    child: const Text('Mark Collected'),
                   ),
                 ),
               ],
@@ -300,32 +269,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  Widget _acceptDeclineActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: isUpdating || job.id.isEmpty ? null : _declineRequest,
-            child: const Text('Decline'),
-          ),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: isUpdating || job.id.isEmpty ? null : _acceptRequest,
-            child: isUpdating
-                ? SizedBox(
-                    height: 18.h,
-                    width: 18.h,
-                    child: const CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Accept'),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _imagePreview() {
     final image = job.wasteImage.trim();
 
@@ -333,12 +276,29 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       return _placeholderBox('No waste image available.');
     }
 
+    if (image.startsWith('data:image/')) {
+      final bytes = _decodeDataImage(image);
+      if (bytes == null) return _placeholderBox('Unable to display image.');
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Image.memory(
+          bytes,
+          width: double.infinity,
+          height: 170.h,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              _placeholderBox('Unable to display image.'),
+        ),
+      );
+    }
+
     if (!image.startsWith('http://') && !image.startsWith('https://')) {
       return _placeholderBox(image);
     }
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(18),
       child: Image.network(
         image,
         width: double.infinity,
@@ -349,17 +309,29 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
+  Uint8List? _decodeDataImage(String value) {
+    final commaIndex = value.indexOf(',');
+    if (commaIndex < 0 || commaIndex == value.length - 1) return null;
+
+    try {
+      return base64Decode(value.substring(commaIndex + 1));
+    } catch (_) {
+      return null;
+    }
+  }
+
   Widget _placeholderBox(String text) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(10),
+        color: RecyTechTheme.pill,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: RecyTechTheme.border),
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 12.sp),
+        style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted),
       ),
     );
   }
@@ -376,13 +348,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w500,
+                color: RecyTechTheme.textMuted,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontSize: 12.sp),
+              style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark),
             ),
           ),
         ],

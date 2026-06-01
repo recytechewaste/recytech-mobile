@@ -19,7 +19,6 @@ class ProductsScreen extends StatelessWidget {
               style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w800),
             ),
             SizedBox(height: 12.h),
-
             Row(
               children: [
                 Expanded(
@@ -39,7 +38,6 @@ class ProductsScreen extends StatelessWidget {
                 ),
               ],
             ),
-
             SizedBox(height: 12.h),
             Row(
               children: [
@@ -53,8 +51,8 @@ class ProductsScreen extends StatelessWidget {
                 SizedBox(width: 12.w),
                 Expanded(
                   child: _ProductTile(
-                    title: 'Rewards',
-                    subtitle: 'Earn points',
+                    title: 'Payouts',
+                    subtitle: 'View rewards',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -103,14 +101,16 @@ class _ProductTile extends StatelessWidget {
               height: 56.h,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.black12.withOpacity(0.08),
+                color: Colors.black12.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10.r),
               ),
             ),
             SizedBox(height: 10.h),
-            Text(title, style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w800)),
+            Text(title,
+                style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w800)),
             SizedBox(height: 4.h),
-            Text(subtitle, style: TextStyle(fontSize: 10.sp, color: Colors.black54)),
+            Text(subtitle,
+                style: TextStyle(fontSize: 10.sp, color: Colors.black54)),
           ],
         ),
       ),

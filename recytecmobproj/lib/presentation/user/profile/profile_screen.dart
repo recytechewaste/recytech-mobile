@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:recytecmobproj/core/theme/recytechtheme.dart';
+import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 
 import '../../../widgets/primary_button.dart';
@@ -35,7 +37,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Text(value,
             style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w900)),
         SizedBox(height: 2.h),
-        Text(label, style: TextStyle(fontSize: 10.sp, color: Colors.black54)),
+        Text(label,
+            style: TextStyle(fontSize: 10.sp, color: RecyTechTheme.textMuted)),
       ],
     );
   }
@@ -54,7 +57,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontSize: 11.sp, fontWeight: FontWeight.w800)),
                 SizedBox(height: 2.h),
                 Text(date,
-                    style: TextStyle(fontSize: 9.5.sp, color: Colors.black54)),
+                    style: TextStyle(
+                        fontSize: 9.5.sp, color: RecyTechTheme.textMuted)),
               ],
             ),
           ),
@@ -65,13 +69,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String _displayName(UserModel? user) {
+    if (user == null) return 'User';
+
+    final fullName = user.fullName.trim();
+    if (fullName.isNotEmpty) return fullName;
+
+    final composedName = [
+      user.firstName,
+      user.lastName,
+    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
+    if (composedName.isNotEmpty) return composedName;
+
+    final email = user.email.trim();
+    if (email.isNotEmpty) return email.split('@').first;
+
+    return 'User';
+  }
+
+  String _profileValue(String? value) {
+    final text = value?.trim() ?? '';
+    return text.isEmpty ? 'Not set' : text;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final auth = context.watch<AuthProvider>();
+    final user = auth.currentUser;
+    final displayName = _displayName(user);
 
     return SafeArea(
       child: Scaffold(
+        backgroundColor: RecyTechTheme.bg,
         appBar: AppBar(
           title: const Text('Profile'),
           actions: const [
@@ -85,7 +115,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
           children: [
             Text('My Profile',
-                style: TextStyle(fontSize: 12.sp, color: Colors.black54)),
+                style:
+                    TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted)),
             SizedBox(height: 10.h),
 
             // ✅ CLICKABLE PROFILE IMAGE
@@ -125,33 +156,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             Center(
               child: Text(
-                'Juan Dela Cruz',
+                displayName,
                 style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w900),
               ),
             ),
-            SizedBox(height: 2.h),
-            Center(
-                child: Text('Marikina City',
-                    style: TextStyle(fontSize: 10.sp, color: Colors.black54))),
             SizedBox(height: 8.h),
 
             Center(
                 child: Text('Top Contributor',
-                    style: TextStyle(fontSize: 10.sp, color: Colors.black54))),
+                    style: TextStyle(
+                        fontSize: 10.sp, color: RecyTechTheme.textMuted))),
             SizedBox(height: 8.h),
 
-            Center(
-              child: Wrap(
-                spacing: 10.w,
-                children: [
-                  _pill('Email Address', cs),
-                  _pill('Contact Number', cs),
-                ],
-              ),
-            ),
+            _profileInfoCard('Email Address', _profileValue(user?.email), cs),
+            SizedBox(height: 8.h),
+            _profileInfoCard('Contact Number', _profileValue(user?.phone), cs),
 
             SizedBox(height: 14.h),
-            const Divider(color: Colors.black12),
+            const Divider(),
 
             Padding(
               padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -165,7 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            const Divider(color: Colors.black12),
+            const Divider(),
             SizedBox(height: 12.h),
 
             Center(
@@ -177,14 +199,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: EdgeInsets.all(12.w),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.black12),
-                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(color: RecyTechTheme.border),
+                borderRadius: BorderRadius.circular(20.r),
                 color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: RecyTechTheme.primary.withValues(alpha: 0.07),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
                   _recentRow('Old Laptop', 'July 23, 2025', 'Completed'),
-                  const Divider(color: Colors.black12),
+                  const Divider(),
                   _recentRow('Tablet', 'Aug 25, 2025', 'Completed'),
                 ],
               ),
@@ -234,15 +263,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _pill(String text, ColorScheme cs) {
+  Widget _profileInfoCard(String label, String value, ColorScheme cs) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(color: RecyTechTheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Text(text, style: TextStyle(fontSize: 10.sp, color: cs.onSurface)),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.sp,
+                color: RecyTechTheme.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          SizedBox(width: 10.w),
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 11.sp,
+                color: RecyTechTheme.textDark,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

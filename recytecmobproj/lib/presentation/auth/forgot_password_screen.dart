@@ -39,14 +39,39 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
           SizedBox(height: 24.h),
-
-          LabeledTextField(label: 'Email Address*', hintText: 'Enter your email address', controller: email, keyboardType: TextInputType.emailAddress),
+          LabeledTextField(
+            label: 'Email Address*',
+            hintText: 'Enter your email address',
+            controller: email,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
+          ),
           SizedBox(height: 14.h),
-          LabeledTextField(label: 'Create a new password*', hintText: 'Enter new password', controller: newPass, obscureText: true),
+          LabeledTextField(
+            label: 'Create a new password*',
+            hintText: 'Enter new password',
+            controller: newPass,
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+            keyboardType: TextInputType.visiblePassword,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.newPassword],
+          ),
           SizedBox(height: 14.h),
-          LabeledTextField(label: 'Confirm Password*', hintText: 'Re-enter new password', controller: confirm, obscureText: true),
+          LabeledTextField(
+            label: 'Confirm Password*',
+            hintText: 'Re-enter new password',
+            controller: confirm,
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+            keyboardType: TextInputType.visiblePassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.newPassword],
+          ),
           SizedBox(height: 18.h),
-
           Center(
             child: PrimaryButton(
               text: 'Reset Password',
@@ -55,11 +80,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
           SizedBox(height: 10.h),
-
           Center(
             child: TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Back to login page', style: TextStyle(fontSize: 12.sp, color: Colors.black)),
+              child: Text('Back to login page',
+                  style: TextStyle(fontSize: 12.sp, color: Colors.black)),
             ),
           ),
         ],

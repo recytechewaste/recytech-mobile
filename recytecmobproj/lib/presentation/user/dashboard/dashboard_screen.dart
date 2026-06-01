@@ -1,102 +1,112 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 
-import '../../../widgets/primary_button.dart';
-import '../ewaste_service/ai_capture_screen.dart';
+import '../../../data/models/user_model.dart';
+import '../../../services/auth_provider.dart';
+import '../education/education_content_screen.dart';
 
 class UserDashboardScreen extends StatelessWidget {
   const UserDashboardScreen({super.key});
 
-  // RecyTech palette
-  static const _primary = Color(0xFF1B5E20); // eco green
-  static const _secondary = Color(0xFF00897B); // teal
-  static const _accent = Color(0xFFF9A825); // amber
-  static const _bg = Color(0xFFF5F7F4);
-  static const _textDark = Color(0xFF0F172A);
+  static const _primary = Color(0xFF1F4D36);
+  static const _accent = Color(0xFFE5A823);
+  static const _bg = Color(0xFFF7FAF5);
+  static const _textDark = Color(0xFF1B1F1D);
+  static const _textMuted = Color(0xFF66736A);
+  static const _border = Color(0xFFE3EBE2);
 
   Widget _infoCard({
     required String title,
     required String body,
     required IconData icon,
     required Color tint,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52.w,
-            height: 52.w,
-            decoration: BoxDecoration(
-              color: tint.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12.r),
+    return InkWell(
+      borderRadius: BorderRadius.circular(20.r),
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(14.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: _border),
+          boxShadow: [
+            BoxShadow(
+              color: _primary.withValues(alpha: 0.07),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
-            child: Icon(icon, color: tint, size: 24.sp),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12.5.sp,
-                    color: _textDark,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  body,
-                  style: TextStyle(
-                    fontSize: 11.sp,
-                    color: Colors.black54,
-                    height: 1.3,
-                  ),
-                ),
-              ],
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52.w,
+              height: 52.w,
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              child: Icon(icon, color: tint, size: 24.sp),
             ),
-          ),
-          Icon(Icons.chevron_right, color: Colors.black38, size: 20.sp),
-        ],
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12.5.sp,
+                      color: _textDark,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    body,
+                    style: TextStyle(
+                      fontSize: 11.sp,
+                      color: _textMuted,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.black38, size: 20.sp),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _sectionTitle(String title, String subtitle) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 13.5.sp,
-            fontWeight: FontWeight.w900,
-            color: _textDark,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          subtitle,
-          style: TextStyle(fontSize: 11.sp, color: Colors.black54),
-        ),
-      ],
-    );
+  String _firstName(UserModel? user) {
+    if (user == null) return 'User';
+
+    final firstName = user.firstName.trim();
+    if (firstName.isNotEmpty) return firstName;
+
+    final fullName = user.fullName.trim();
+    if (fullName.isNotEmpty) return fullName.split(RegExp(r'\s+')).first;
+
+    final email = user.email.trim();
+    if (email.isNotEmpty) return email.split('@').first;
+
+    return 'User';
   }
 
   @override
   Widget build(BuildContext context) {
+    final firstName = _firstName(context.watch<AuthProvider>().currentUser);
+
     return SafeArea(
       child: Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
-          title: const Text('Homepage'),
+          title: const Text('Dashboard'),
           centerTitle: true,
           actions: const [
             Icon(Icons.search),
@@ -109,7 +119,7 @@ class UserDashboardScreen extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
           children: [
             Text(
-              'Hi, Username!',
+              'Hi, $firstName!',
               style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w900,
@@ -119,56 +129,22 @@ class UserDashboardScreen extends StatelessWidget {
             SizedBox(height: 4.h),
             Text(
               'Manage your e-waste responsibly today',
-              style: TextStyle(fontSize: 11.sp, color: Colors.black54),
+              style: TextStyle(fontSize: 11.sp, color: _textMuted),
             ),
             SizedBox(height: 16.h),
-
-            // 🔹 FIRST CONTENT CARDS
-            _infoCard(
-              title: 'New AI Features',
-              body: 'We introduced new AI features to improve user experience.',
-              icon: Icons.auto_awesome,
-              tint: _secondary,
-            ),
-            SizedBox(height: 12.h),
             _infoCard(
               title: 'Environmental Impact',
               body: 'Learn how e-waste recycling helps the environment.',
               icon: Icons.public,
               tint: _accent,
-            ),
-
-            SizedBox(height: 22.h),
-
-            _sectionTitle(
-              'AI-Driven E-Waste Management',
-              'Manage your electronic waste effectively with AI technologies.',
-            ),
-            SizedBox(height: 16.h),
-
-            Center(
-              child: PrimaryButton(
-                text: 'Learn More',
-                filled: false,
-                width: 220.w,
-                onPressed: () {},
-              ),
-            ),
-            SizedBox(height: 10.h),
-
-            Center(
-              child: PrimaryButton(
-                text: 'Get Started',
-                width: 220.w,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AICaptureScreen(),
-                    ),
-                  );
-                },
-              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EducationContentScreen(),
+                  ),
+                );
+              },
             ),
           ],
         ),

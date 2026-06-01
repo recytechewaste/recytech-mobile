@@ -16,7 +16,11 @@ const calculateStats = (requests) => ({
     total: requests.length,
     pending: requests.filter((request) => request.status === 'Pending').length,
     approved: requests.filter((request) => request.status === 'Approved').length,
-    completed: requests.filter((request) => request.status === 'Completed').length
+    collected: requests.filter((request) => request.status === 'Collected').length,
+    readyPayout: requests.filter((request) =>
+        ['Drop-off Confirmed', 'Received'].includes(request.status) && !request.paymentProcessed
+    ).length,
+    completed: requests.filter((request) => request.status === 'Completed' || request.paymentProcessed).length
 });
 
 const filterRequests = (requests, filters) => {
@@ -48,7 +52,14 @@ const RequestManagement = () => {
     const [filteredRequests, setFilteredRequests] = useState([]);
     const [collectors, setCollectors] = useState([]);
     const [wasteCategories, setWasteCategories] = useState([]);
-    const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, completed: 0 });
+    const [stats, setStats] = useState({
+        total: 0,
+        pending: 0,
+        approved: 0,
+        collected: 0,
+        readyPayout: 0,
+        completed: 0
+    });
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [successTitle, setSuccessTitle] = useState('');
@@ -189,6 +200,35 @@ const RequestManagement = () => {
         }
     };
 
+    const confirmDropoff = async (request) => {
+        try {
+            await api.put(`/requests/${request._id}/dropoff-confirmed`);
+            setSuccessTitle('Drop-off Confirmed');
+            setSuccessMessage('The collected e-waste has been confirmed at the drop-off point. Payout can now be released.');
+            setShowSuccessModal(true);
+            setViewRequest(null);
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            alert(error.response?.data?.message || 'Unable to confirm drop-off.');
+        }
+    };
+
+    const releasePayout = async (request) => {
+        try {
+            const res = await api.put(`/requests/${request._id}/release-payout`);
+            const amount = res.data?.payout?.amount ?? res.data?.request?.monetaryValue;
+            setSuccessTitle('Payout Released');
+            setSuccessMessage(`The resident payout${amount ? ` of PHP ${Number(amount).toFixed(2)}` : ''} has been released.`);
+            setShowSuccessModal(true);
+            setViewRequest(null);
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            alert(error.response?.data?.message || 'Unable to release payout.');
+        }
+    };
+
     return (
         <div className={styles.container}>
             <Sidebar activePage="Request Management" />
@@ -212,12 +252,16 @@ const RequestManagement = () => {
                     onView={setViewRequest}
                     onApprove={handleApproveClick}
                     onReject={setRejectingRequestId}
+                    onConfirmDropoff={confirmDropoff}
+                    onReleasePayout={releasePayout}
                 />
 
                 <ViewRequestModal
                     request={viewRequest}
                     onClose={() => setViewRequest(null)}
                     onApprove={handleApproveClick}
+                    onConfirmDropoff={confirmDropoff}
+                    onReleasePayout={releasePayout}
                 />
 
                 {selectedRequest && !showAssignmentModal && (

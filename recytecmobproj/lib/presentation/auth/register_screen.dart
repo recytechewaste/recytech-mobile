@@ -93,6 +93,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             label: 'Full Name',
             hintText: 'Enter your full name',
             controller: name,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.name],
           ),
           SizedBox(height: 14.h),
           LabeledTextField(
@@ -100,6 +102,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hintText: 'Enter your email address',
             controller: email,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
           ),
           SizedBox(height: 14.h),
           LabeledTextField(
@@ -107,6 +111,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hintText: 'Create a password',
             controller: pass,
             obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+            keyboardType: TextInputType.visiblePassword,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.newPassword],
           ),
           SizedBox(height: 14.h),
           LabeledTextField(
@@ -114,6 +123,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hintText: 'Re-enter your password',
             controller: confirm,
             obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+            keyboardType: TextInputType.visiblePassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.newPassword],
           ),
           SizedBox(height: 18.h),
           Center(

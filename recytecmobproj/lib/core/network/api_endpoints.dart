@@ -9,11 +9,15 @@ class ApiEndpoints {
 
   // requests
   static const String requests = '/requests';
+  static const String myRequests = '/requests/me';
   static String requestById(String id) => '/requests/$id';
   static String requestPayout(String id) => '/requests/$id/payout';
+  static String confirmDropoff(String id) => '/requests/$id/dropoff-confirmed';
+  static String releasePayout(String id) => '/requests/$id/release-payout';
   static const String pendingPayouts = '/requests/pending-payouts';
   static const String activeWasteCategories =
       '/exchange-rates/active-categories';
+  static const String myTransactions = '/transactions/me';
 
   // contributions
   static const String contributions = '/contributions';

@@ -9,27 +9,30 @@ class CollectorRepository {
   Future<List<CollectorJob>> fetchAvailableJobs() async {
     final jobs = await _fetchJobs();
 
-    final availableJobs = jobs
-        .where((job) => job.id.isNotEmpty && job.isApproved)
-        .toList()
+    return jobs.where((job) => job.isAvailableForAssignment).toList()
       ..sort(_oldestFirst);
-
-    return availableJobs;
   }
 
-  Future<List<CollectorJob>> fetchAssignedJobs() async {
+  Future<List<CollectorJob>> fetchAssignedJobs({
+    String? collectorId,
+    String? collectorName,
+    String? collectorEmail,
+  }) async {
     final jobs = await _fetchJobs();
 
     return jobs
         .where(
           (job) =>
               job.id.isNotEmpty &&
-              !job.isRejected &&
-              !job.isCompleted &&
-              (job.isApproved || job.isInTransit),
+              job.isActive &&
+              job.isAssignedTo(
+                collectorId: collectorId,
+                collectorName: collectorName,
+                collectorEmail: collectorEmail,
+              ),
         )
         .toList()
-      ..sort(_oldestFirst);
+      ..sort(_scheduledThenOldest);
   }
 
   Future<List<CollectorJob>> _fetchJobs() async {
@@ -105,5 +108,19 @@ class CollectorRepository {
     if (bDate != null) return 1;
 
     return a.createdAt.compareTo(b.createdAt);
+  }
+
+  int _scheduledThenOldest(CollectorJob a, CollectorJob b) {
+    final aDate = a.scheduledDate ?? a.createdDate;
+    final bDate = b.scheduledDate ?? b.createdDate;
+
+    if (aDate != null && bDate != null) {
+      return aDate.compareTo(bDate);
+    }
+
+    if (aDate != null) return -1;
+    if (bDate != null) return 1;
+
+    return _oldestFirst(a, b);
   }
 }

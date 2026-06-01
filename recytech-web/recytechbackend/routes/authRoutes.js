@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Resident = require('../models/Resident');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
@@ -97,9 +98,29 @@ router.post('/login', async (req, res) => {
                 role: user.role,
                 token: generateToken(user._id),
             });
-        } else {
-            res.status(401).json({ message: 'Invalid email or password' });
+            return;
         }
+
+        const resident = await Resident.findOne({ email }).select('+password');
+
+        if (resident && resident.password && (await bcrypt.compare(password, resident.password))) {
+            if (resident.status === 'Inactive') {
+                return res.status(403).json({
+                    message: 'Account is deactivated. Please contact support.'
+                });
+            }
+
+            return res.json({
+                _id: resident._id,
+                firstName: resident.firstName,
+                lastName: resident.lastName,
+                email: resident.email,
+                role: 'resident',
+                token: generateToken(resident._id),
+            });
+        }
+
+        res.status(401).json({ message: 'Invalid email or password' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -9,6 +9,12 @@ const residentSchema = mongoose.Schema({
         trim: true,
         description: "Unique email identifier for resident"
     },
+    password: {
+        type: String,
+        required: false,
+        select: false,
+        description: "Hashed password for mobile resident account login"
+    },
     firstName: {
         type: String,
         required: false

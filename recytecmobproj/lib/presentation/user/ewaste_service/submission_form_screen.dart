@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/core/utils/waste_type_mapper.dart';
 import 'package:recytecmobproj/data/datasources/request_api.dart';
 import 'package:recytecmobproj/data/repositories/request_repository.dart';
@@ -277,7 +280,16 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
               labelText: 'Active Category',
               hintText: 'Optional category match',
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16.r),
+                borderSide: const BorderSide(color: RecyTechTheme.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16.r),
+                borderSide:
+                    const BorderSide(color: RecyTechTheme.primary, width: 1.6),
               ),
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
@@ -328,7 +340,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
         color: Colors.redAccent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
       ),
       child: Text(
@@ -347,6 +359,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
+        backgroundColor: RecyTechTheme.bg,
         appBar: AppBar(
           title: const Text('Submission Form'),
           actions: const [
@@ -365,6 +378,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
                 style: TextStyle(
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w800,
+                  color: RecyTechTheme.textDark,
                 ),
               ),
             ),
@@ -376,7 +390,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 10.sp,
-                  color: Colors.black54,
+                  color: RecyTechTheme.textMuted,
                 ),
               ),
             ),
@@ -391,7 +405,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
                 'AI Confidence: ${(widget.confidence! * 100).toStringAsFixed(1)}%',
                 style: TextStyle(
                   fontSize: 10.sp,
-                  color: Colors.green,
+                  color: RecyTechTheme.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -404,7 +418,8 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
               'Provide Upload',
               style: TextStyle(
                 fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
+                color: RecyTechTheme.textDark,
               ),
             ),
             SizedBox(height: 6.h),
@@ -412,18 +427,11 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
             Container(
               height: 90.h,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.black12),
-                borderRadius: BorderRadius.circular(8.r),
+                color: Colors.white,
+                border: Border.all(color: RecyTechTheme.border),
+                borderRadius: BorderRadius.circular(20.r),
               ),
-              child: Center(
-                child: Text(
-                  'Drag and drop your image here or tap to upload',
-                  style: TextStyle(
-                    fontSize: 10.sp,
-                    color: Colors.black45,
-                  ),
-                ),
-              ),
+              child: _selectedImagePreview(),
             ),
             SizedBox(height: 14.h),
 
@@ -475,6 +483,43 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _selectedImagePreview() {
+    final imagePath = widget.wasteImage?.trim() ?? '';
+
+    if (imagePath.isNotEmpty && File(imagePath).existsSync()) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20.r),
+        child: Image.file(
+          File(imagePath),
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.image_outlined,
+            color: RecyTechTheme.primary,
+            size: 18.sp,
+          ),
+          SizedBox(width: 8.w),
+          Text(
+            imagePath.isEmpty ? 'No image selected' : 'Image ready for upload',
+            style: TextStyle(
+              fontSize: 10.sp,
+              color: RecyTechTheme.textMuted,
+            ),
+          ),
+        ],
       ),
     );
   }

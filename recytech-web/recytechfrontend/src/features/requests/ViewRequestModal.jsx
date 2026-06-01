@@ -1,9 +1,15 @@
 import styles from '../../styles/RequestManagement.module.css';
 
 const getCollectorName = (collector) => collector?.firstName ? `${collector.firstName} ${collector.lastName}` : 'Unassigned';
+const isDropoffReady = (request) => request.status === 'Collected' && !request.paymentProcessed;
+const isPayoutReady = (request) =>
+    ['Drop-off Confirmed', 'Received'].includes(request.status) && !request.paymentProcessed;
+const formatMoney = (value) => Number(value || 0) > 0 ? `PHP ${Number(value).toFixed(2)}` : 'Not released';
 
-const ViewRequestModal = ({ request, onClose, onApprove }) => {
+const ViewRequestModal = ({ request, onClose, onApprove, onConfirmDropoff, onReleasePayout }) => {
     if (!request) return null;
+    const image = request.wasteImage || request.imageUrl || '';
+    const canRenderImage = image.startsWith('data:image/') || image.startsWith('http://') || image.startsWith('https://');
 
     return (
         <div className={styles.modalOverlay}>
@@ -15,7 +21,11 @@ const ViewRequestModal = ({ request, onClose, onApprove }) => {
 
                 <div className={styles.modalBody}>
                     <div className={styles.detailsSection}>
-                        <img src={request.wasteImage || request.imageUrl || 'https://placehold.co/600x400'} className={styles.evidenceImage} alt="Evidence" />
+                        {canRenderImage ? (
+                            <img src={image} className={styles.evidenceImage} alt="Submitted e-waste" />
+                        ) : (
+                            <div className={styles.imageFallback}>No image provided.</div>
+                        )}
                         <div className={styles.detailRow}><strong>Resident:</strong> {request.residentName}</div>
                         <div className={styles.detailRow}><strong>Detected Item:</strong> {request.itemCategory || request.detectedClass || 'N/A'}</div>
                         <div className={styles.detailRow}><strong>Waste Type:</strong> {request.wasteType}</div>
@@ -32,6 +42,14 @@ const ViewRequestModal = ({ request, onClose, onApprove }) => {
                             </>
                         )}
                         <div className={styles.detailRow}><strong>Status:</strong> {request.status}</div>
+                        <div className={styles.detailRow}><strong>Payout Status:</strong> {request.paymentProcessed ? 'Released' : (request.payoutStatus || 'Not Ready')}</div>
+                        <div className={styles.detailRow}><strong>Payout Amount:</strong> {formatMoney(request.monetaryValue)}</div>
+                        <div className={styles.detailRow}>
+                            <strong>Drop-off Confirmed:</strong> {request.dropoffConfirmedAt ? new Date(request.dropoffConfirmedAt).toLocaleString() : 'Not confirmed'}
+                        </div>
+                        <div className={styles.detailRow}>
+                            <strong>Payout Released:</strong> {request.payoutReleasedAt ? new Date(request.payoutReleasedAt).toLocaleString() : 'Not released'}
+                        </div>
                         <div className={styles.detailRow}>
                             <strong>Pickup Schedule:</strong> {request.scheduledAt ? new Date(request.scheduledAt).toLocaleString() : 'Not scheduled'}
                         </div>
@@ -51,6 +69,12 @@ const ViewRequestModal = ({ request, onClose, onApprove }) => {
                 <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                     {request.status === 'Pending' && (
                         <button onClick={() => onApprove(request)} className={styles.approveBtn}>Proceed to Approve</button>
+                    )}
+                    {isDropoffReady(request) && (
+                        <button onClick={() => onConfirmDropoff(request)} className={styles.approveBtn}>Confirm Drop-off</button>
+                    )}
+                    {isPayoutReady(request) && (
+                        <button onClick={() => onReleasePayout(request)} className={styles.approveBtn}>Release Payout</button>
                     )}
                     <button onClick={onClose} className={styles.viewBtn}>Close</button>
                 </div>
