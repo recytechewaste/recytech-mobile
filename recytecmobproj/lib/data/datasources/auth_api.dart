@@ -33,6 +33,16 @@ class AuthApi {
 
       return _parseAuthResponse(res.data);
     } on DioException catch (e) {
+      if (role == 'Staff' && _isLguRoleMismatch(e)) {
+        final Response retry = await _postLogin(
+          email: email,
+          password: password,
+          role: 'LGU',
+        );
+
+        return _parseAuthResponse(retry.data);
+      }
+
       if (role == 'Staff' && _isCollectorRoleMismatch(e)) {
         final Response retry = await _postLogin(
           email: email,
@@ -179,6 +189,17 @@ class AuthApi {
 
     return message.contains('registered as collector') ||
         (message.contains('collector') && message.contains('not staff'));
+  }
+
+  bool _isLguRoleMismatch(DioException exception) {
+    final message = [
+      exception.error,
+      exception.response?.data,
+      exception.message,
+    ].join(' ').toLowerCase();
+
+    return message.contains('registered as lgu') ||
+        (message.contains('lgu') && message.contains('not staff'));
   }
 
   Map<String, dynamic> _asMap(dynamic value) {

@@ -9,8 +9,11 @@ import 'presentation/auth/login_screen.dart';
 import 'presentation/auth/register_screen.dart';
 import 'presentation/auth/forgot_password_screen.dart';
 import 'presentation/collector/shell/collector_home_shell.dart';
+import 'presentation/lgu/shell/lgu_home_shell.dart';
+import 'presentation/shell/access_denied_screen.dart';
 import 'presentation/shell/user_app_shell.dart';
 
+import 'core/constants/app_constants.dart';
 import 'core/theme/recytechtheme.dart';
 
 void main() async {
@@ -37,12 +40,23 @@ class RecyTechApp extends StatelessWidget {
             theme: RecyTechTheme.light(),
             home: Consumer<AuthProvider>(
               builder: (context, auth, _) {
-                if (auth.user != null) {
-                  if (auth.user!.role.toLowerCase() == 'collector') {
-                    return const CollectorHomeShell();
-                  }
+                if (auth.isLoading) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-                  return UserAppShell();
+                if (auth.user != null) {
+                  switch (AppRoles.shellTargetFor(auth.user!.role)) {
+                    case AppShellTarget.household:
+                      return const UserAppShell();
+                    case AppShellTarget.lgu:
+                      return const LguHomeShell();
+                    case AppShellTarget.collector:
+                      return const CollectorHomeShell();
+                    case AppShellTarget.accessDenied:
+                      return AccessDeniedScreen(role: auth.user!.role);
+                  }
                 }
 
                 return const LoginScreen();
@@ -53,7 +67,10 @@ class RecyTechApp extends StatelessWidget {
               RegisterScreen.route: (_) => const RegisterScreen(),
               ForgotPasswordScreen.route: (_) => const ForgotPasswordScreen(),
               CollectorHomeShell.route: (_) => const CollectorHomeShell(),
-              UserAppShell.route: (_) => UserAppShell(),
+              LguHomeShell.route: (_) => const LguHomeShell(),
+              AccessDeniedScreen.route: (_) => const AccessDeniedScreen(),
+              // Legacy household shell kept for comparison/debug during migration.
+              UserAppShell.route: (_) => const UserAppShell(),
             },
           );
         },

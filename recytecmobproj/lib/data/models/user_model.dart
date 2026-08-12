@@ -52,6 +52,20 @@ class UserModel {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'firstName': firstName,
+      'lastName': lastName,
+      'fullName': fullName,
+      'email': email,
+      'role': role,
+      if (phone != null) 'phone': phone,
+      if (vehicleType != null) 'vehicleType': vehicleType,
+      if (plateNumber != null) 'plateNumber': plateNumber,
+    };
+  }
+
   static String? _optionalString(dynamic value) {
     final text = (value ?? '').toString().trim();
     return text.isEmpty ? null : text;

@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/presentation/collector/shell/collector_home_shell.dart';
-import 'package:recytecmobproj/presentation/shell/user_app_shell.dart';
+import 'package:recytecmobproj/presentation/lgu/shell/lgu_home_shell.dart';
+import 'package:recytecmobproj/presentation/shell/access_denied_screen.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 import 'package:recytecmobproj/widgets/labeled_textfied.dart';
+import 'package:recytecmobproj/presentation/shell/user_app_shell.dart';
 import '../../widgets/primary_button.dart';
-import 'register_screen.dart';
 import 'forgot_password_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -39,11 +42,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success) {
       final user = context.read<AuthProvider>().currentUser;
-      final isCollector = user?.role.toLowerCase() == 'collector';
+      final target = AppRoles.shellTargetFor(user?.role);
+
+      if (target == AppShellTarget.accessDenied) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AccessDeniedScreen(role: user?.role),
+          ),
+          (route) => false,
+        );
+        return;
+      }
+
+      final route = switch (target) {
+        AppShellTarget.household => UserAppShell.route,
+        AppShellTarget.lgu => LguHomeShell.route,
+        AppShellTarget.collector => CollectorHomeShell.route,
+        AppShellTarget.accessDenied => AccessDeniedScreen.route,
+      };
 
       Navigator.pushNamedAndRemoveUntil(
         context,
-        isCollector ? CollectorHomeShell.route : UserAppShell.route,
+        route,
         (route) => false,
       );
       return;
@@ -181,14 +202,17 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            SizedBox(height: 16.h),
-
+            SizedBox(height: 20.h),
             Center(
               child: TextButton(
-                onPressed: () =>
-                    Navigator.pushNamed(context, RegisterScreen.route),
+                onPressed: auth.isLoading
+                    ? null
+                    : () => Navigator.pushNamed(
+                          context,
+                          RegisterScreen.route,
+                        ),
                 child: Text(
-                  "Don't have an Account? Register",
+                  'Create Household Account',
                   style: TextStyle(
                     fontSize: 12.sp,
                     color: scheme.primary,
@@ -197,8 +221,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-
-            SizedBox(height: 20.h),
           ],
         ),
       ),

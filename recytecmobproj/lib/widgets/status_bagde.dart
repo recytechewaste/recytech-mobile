@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../core/constants/app_constants.dart';
 import '../core/theme/recytechtheme.dart';
 
 class StatusBadge extends StatelessWidget {
@@ -36,16 +37,19 @@ class StatusBadge extends StatelessWidget {
   }
 
   Color _colorFor(String status) {
-    final value = status.toLowerCase();
-    if (value.contains('completed') || value.contains('collected')) {
+    final requestStatus = CollectionRequestStatuses.normalize(status);
+    if (requestStatus == CollectionRequestStatuses.completed) {
       return RecyTechTheme.primary;
     }
-    if (value.contains('approved') ||
-        value.contains('transit') ||
-        value.contains('accepted')) {
+    if (requestStatus == CollectionRequestStatuses.approved ||
+        requestStatus == CollectionRequestStatuses.collectorAssigned ||
+        requestStatus == CollectionRequestStatuses.onTheWay ||
+        requestStatus == CollectionRequestStatuses.arrived ||
+        requestStatus == CollectionRequestStatuses.inProgress) {
       return RecyTechTheme.accent;
     }
-    if (value.contains('cancel') || value.contains('decline')) {
+    if (requestStatus == CollectionRequestStatuses.cancelled ||
+        requestStatus == CollectionRequestStatuses.rejected) {
       return Colors.redAccent;
     }
     return RecyTechTheme.secondary;

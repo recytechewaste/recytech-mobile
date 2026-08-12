@@ -37,6 +37,9 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       user = await _repo.login(email, password);
+      if (user == null) {
+        throw StateError('Login response did not include a user profile.');
+      }
       return true;
     } catch (e) {
       error = _messageForAuthError(
@@ -65,6 +68,9 @@ class AuthProvider extends ChangeNotifier {
         password,
         fullName: fullName,
       );
+      if (user == null) {
+        throw StateError('Registration response did not include a user profile.');
+      }
       return true;
     } catch (e) {
       error = _messageForAuthError(
