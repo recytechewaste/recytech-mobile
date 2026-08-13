@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/recytechtheme.dart';
+import '../user/bins/bin_locator_screen.dart';
 import '../user/dashboard/dashboard_screen.dart';
-import '../user/ewaste_service/ai_capture_screen.dart';
+import '../user/ewaste_service/submission_form_screen.dart';
 import '../user/rewards/rewards_screen.dart';
 import '../user/history/history_screen.dart';
 import '../user/profile/profile_screen.dart';
@@ -18,13 +19,13 @@ class UserAppShell extends StatefulWidget {
 class _UserAppShellState extends State<UserAppShell> {
   int index = 0;
 
-  // 🔥 MATCHES: Home / Submit / Rewards / History / Profile
   final screens = const [
-    UserDashboardScreen(), // Home
-    AICaptureScreen(), // Submit
-    RewardsScreen(), // Rewards
-    HistoryScreen(), // History
-    ProfileScreen(), // Profile
+    UserDashboardScreen(),
+    SubmissionFormScreen(),
+    BinLocatorScreen(),
+    RewardsScreen(),
+    HistoryScreen(),
+    ProfileScreen(),
   ];
 
   @override
@@ -68,6 +69,11 @@ class _UserAppShellState extends State<UserAppShell> {
               icon: Icon(Icons.send_outlined),
               activeIcon: _NavPill(icon: Icons.send_outlined),
               label: 'Submit',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.location_on_outlined),
+              activeIcon: _NavPill(icon: Icons.location_on_outlined),
+              label: 'Locator',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.emoji_events_outlined),

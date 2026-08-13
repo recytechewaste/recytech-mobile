@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/core/utils/waste_type_mapper.dart';
@@ -34,11 +35,13 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
   final condition = TextEditingController();
   final address = TextEditingController();
   final RequestRepository _requestRepository = RequestRepository(RequestApi());
+  final ImagePicker _imagePicker = ImagePicker();
 
   bool isSubmitting = false;
   bool isLoadingCategories = false;
   List<String> wasteCategories = [];
   String? selectedWasteType;
+  String? selectedImagePath;
   String? categoryLoadError;
   String? formMessage;
 
@@ -51,6 +54,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
         widget.detectedItem!,
       );
     }
+    selectedImagePath = widget.wasteImage;
 
     _loadWasteCategories();
   }
@@ -68,9 +72,15 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
       _cleanCategory(description.text),
     );
     final location = address.text.trim();
+    final quantity = _parseQuantity(condition.text);
 
     if (wasteType.isEmpty || location.isEmpty) {
       _showInlineMessage('Please enter the item and pickup location.');
+      return;
+    }
+
+    if (quantity <= 0) {
+      _showInlineMessage('Quantity must be a whole number greater than zero.');
       return;
     }
 
@@ -94,10 +104,10 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
       await _requestRepository.submitRequest(
         wasteType: wasteType,
         location: location,
-        quantity: _parseQuantity(condition.text),
+        quantity: quantity,
         residentName: residentName,
         residentEmail: currentUser?.email ?? '',
-        wasteImage: widget.wasteImage,
+        wasteImage: selectedImagePath,
         phone: '',
         firstName: firstName,
         lastName: lastName,
@@ -129,6 +139,22 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
     setState(() {
       formMessage = message;
     });
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    if (isSubmitting) return;
+
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 78,
+        maxWidth: 1280,
+      );
+      if (image == null || !mounted) return;
+      setState(() => selectedImagePath = image.path);
+    } catch (_) {
+      _showInlineMessage('Could not open image picker. Please try again.');
+    }
   }
 
   Future<void> _loadWasteCategories() async {
@@ -173,9 +199,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
   }
 
   int _parseQuantity(String value) {
-    final match = RegExp(r'\d+').firstMatch(value);
-    if (match == null) return 1;
-    return int.tryParse(match.group(0) ?? '') ?? 1;
+    return int.tryParse(value.trim()) ?? 0;
   }
 
   String _firstNameFrom(String fullName) {
@@ -362,12 +386,6 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
         backgroundColor: RecyTechTheme.bg,
         appBar: AppBar(
           title: const Text('Submission Form'),
-          actions: const [
-            Icon(Icons.search),
-            SizedBox(width: 12),
-            Icon(Icons.more_vert),
-            SizedBox(width: 8),
-          ],
         ),
         body: ListView(
           padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
@@ -383,7 +401,6 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
               ),
             ),
             SizedBox(height: 6.h),
-
             Center(
               child: Text(
                 'Please fill in the details to submit your e-waste for recycling',
@@ -395,27 +412,10 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
               ),
             ),
             SizedBox(height: 18.h),
-
-            // 🔹 ITEM DESCRIPTION
             _categoryInput(),
-
-            if (widget.confidence != null) ...[
-              SizedBox(height: 6.h),
-              Text(
-                'AI Confidence: ${(widget.confidence! * 100).toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 10.sp,
-                  color: RecyTechTheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-
             SizedBox(height: 14.h),
-
-            // 🔹 IMAGE UPLOAD (UI ONLY)
             Text(
-              'Provide Upload',
+              'Optional Photo',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w800,
@@ -423,7 +423,6 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
               ),
             ),
             SizedBox(height: 6.h),
-
             Container(
               height: 90.h,
               decoration: BoxDecoration(
@@ -433,17 +432,34 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
               ),
               child: _selectedImagePreview(),
             ),
-            SizedBox(height: 14.h),
-
-            // 🔹 QUANTITY / CONDITION
-            LabeledTextField(
-              label: 'Quantity / Condition',
-              hintText: 'Enter quantity or condition',
-              controller: condition,
+            SizedBox(height: 8.h),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickImage(ImageSource.camera),
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('Camera'),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Gallery'),
+                  ),
+                ),
+              ],
             ),
             SizedBox(height: 14.h),
-
-            // 🔹 LOCATION / ADDRESS
+            LabeledTextField(
+              label: 'Quantity',
+              hintText: 'Whole number greater than 0',
+              controller: condition,
+              keyboardType: TextInputType.number,
+            ),
+            SizedBox(height: 14.h),
             LabeledTextField(
               label: 'Location / Address',
               hintText: 'Enter your address',
@@ -451,11 +467,8 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
               maxLines: 2,
             ),
             SizedBox(height: 22.h),
-
             _inlineMessage(),
             if (formMessage != null) SizedBox(height: 12.h),
-
-            // 🔹 ACTION BUTTONS
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -475,7 +488,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
                         ),
                       )
                     : PrimaryButton(
-                        text: 'Next',
+                        text: 'Submit',
                         width: 130.w,
                         onPressed: _submitRequest,
                       ),
@@ -488,7 +501,7 @@ class _SubmissionFormScreenState extends State<SubmissionFormScreen> {
   }
 
   Widget _selectedImagePreview() {
-    final imagePath = widget.wasteImage?.trim() ?? '';
+    final imagePath = selectedImagePath?.trim() ?? '';
 
     if (imagePath.isNotEmpty && File(imagePath).existsSync()) {
       return ClipRRect(

@@ -14,6 +14,8 @@ class RecyTechBin {
     String? fullnessStatus,
     String? sensorStatus,
     this.controllerStatus,
+    this.latitude,
+    this.longitude,
     DateTime? lastUpdatedAt,
     DateTime? lastMonitoringUpdate,
     DateTime? lastCollectionAt,
@@ -25,8 +27,7 @@ class RecyTechBin {
   })  : binId = binId ?? id ?? '',
         binName = binName ?? name,
         fillPercentage = fillPercentage ?? fillLevel,
-        fullnessStatus =
-            fullnessStatus ?? FullnessStatuses.requiresInspection,
+        fullnessStatus = fullnessStatus ?? FullnessStatuses.requiresInspection,
         sensorStatus = sensorStatus ?? SensorStatuses.unknown,
         lastUpdatedAt = lastUpdatedAt ?? lastMonitoringUpdate,
         lastCollectionAt = lastCollectionAt ?? lastCollectionDate;
@@ -40,6 +41,8 @@ class RecyTechBin {
   final String fullnessStatus;
   final String sensorStatus;
   final String? controllerStatus;
+  final double? latitude;
+  final double? longitude;
   final DateTime? lastUpdatedAt;
   final DateTime? lastCollectionAt;
   final CollectionRequestSummary? activeCollectionRequest;
@@ -67,7 +70,8 @@ class RecyTechBin {
   factory RecyTechBin.fromJson(Map<String, dynamic> json) {
     return RecyTechBin(
       binId: _readString(json, ['binId', 'id', '_id']),
-      binName: _nullableString(json['binName'] ?? json['name'] ?? json['label']),
+      binName:
+          _nullableString(json['binName'] ?? json['name'] ?? json['label']),
       assignedLguId: _nullableString(
         json['assignedLguId'] ?? json['lguId'] ?? json['assigned_lgu_id'],
       ),
@@ -96,6 +100,8 @@ class RecyTechBin {
       controllerStatus: _nullableString(
         json['controllerStatus'] ?? json['esp32Status'],
       ),
+      latitude: _readDouble(json['latitude'] ?? json['lat']),
+      longitude: _readDouble(json['longitude'] ?? json['lng'] ?? json['lon']),
       lastUpdatedAt: _readDate(
         json['lastUpdatedAt'] ?? json['lastMonitoringUpdate'],
       ),
@@ -132,8 +138,7 @@ class BinMonitoringData {
     this.latestImageUrl,
     this.cameraStatus = 'Legacy camera disabled',
   })  : fillPercentage = fillPercentage ?? fillLevel,
-        fullnessStatus =
-            fullnessStatus ?? FullnessStatuses.requiresInspection,
+        fullnessStatus = fullnessStatus ?? FullnessStatuses.requiresInspection,
         sensorStatus = sensorStatus ?? SensorStatuses.unknown;
 
   final String binId;
@@ -229,7 +234,8 @@ class CollectionRequestSummary {
         json['fullnessStatus'] ?? json['currentFullnessStatus'],
       ),
       status: CollectionRequestStatuses.normalize(
-        _readString(json, ['status'], fallback: CollectionRequestStatuses.pending),
+        _readString(json, ['status'],
+            fallback: CollectionRequestStatuses.pending),
       ),
       requestedAt: _readDate(
             json['requestedAt'] ??
@@ -282,7 +288,8 @@ class DepositEvent {
     final parsedDetections = detections is List
         ? detections
             .whereType<Map>()
-            .map((item) => ObjectDetection.fromJson(item.cast<String, dynamic>()))
+            .map((item) =>
+                ObjectDetection.fromJson(item.cast<String, dynamic>()))
             .toList()
         : <ObjectDetection>[];
     final now = DateTime.now();
@@ -294,7 +301,8 @@ class DepositEvent {
       imageUrl: _readString(json, ['imageUrl', 'capturedImageUrl']),
       capturedAt: _readDate(json['capturedAt']) ?? now,
       detections: parsedDetections,
-      status: _readString(json, ['status', 'detectionStatus'], fallback: 'Saved'),
+      status:
+          _readString(json, ['status', 'detectionStatus'], fallback: 'Saved'),
       requiresVerification: _readBool(json['requiresVerification']),
       createdAt: _readDate(json['createdAt']) ?? now,
       updatedAt: _readDate(json['updatedAt']) ?? now,

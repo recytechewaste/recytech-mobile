@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/presentation/collector/home/collector_home_screen.dart';
 import 'package:recytecmobproj/presentation/collector/assigned/collector_assigned_screen.dart';
+import 'package:recytecmobproj/presentation/collector/history/collector_history_screen.dart';
 import 'package:recytecmobproj/presentation/collector/profile/collector_profile_screen.dart';
 
 class CollectorHomeShell extends StatefulWidget {
@@ -20,6 +21,7 @@ class _CollectorHomeShellState extends State<CollectorHomeShell> {
   final List<Widget> screens = const [
     CollectorHomeScreen(),
     CollectorAssignedScreen(),
+    CollectorHistoryScreen(),
     CollectorProfileScreen(),
   ];
 
@@ -60,6 +62,11 @@ class _CollectorHomeShellState extends State<CollectorHomeShell> {
               icon: Icon(Icons.assignment_outlined),
               activeIcon: _NavPill(icon: Icons.assignment_outlined),
               label: 'Assigned',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.history),
+              activeIcon: _NavPill(icon: Icons.history),
+              label: 'History',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),

@@ -35,6 +35,28 @@ class CollectorRepository {
       ..sort(_scheduledThenOldest);
   }
 
+  Future<List<CollectorJob>> fetchCompletedJobs({
+    String? collectorId,
+    String? collectorName,
+    String? collectorEmail,
+  }) async {
+    final jobs = await _fetchJobs();
+
+    return jobs
+        .where(
+          (job) =>
+              job.id.isNotEmpty &&
+              job.isCompleted &&
+              job.isAssignedTo(
+                collectorId: collectorId,
+                collectorName: collectorName,
+                collectorEmail: collectorEmail,
+              ),
+        )
+        .toList()
+      ..sort((a, b) => _scheduledThenOldest(b, a));
+  }
+
   Future<List<CollectorJob>> _fetchJobs() async {
     final list = await _api.fetchJobs();
 

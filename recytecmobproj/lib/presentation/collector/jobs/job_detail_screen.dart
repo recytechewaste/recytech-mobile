@@ -3,13 +3,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
+import 'package:recytecmobproj/core/utils/map_launcher.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
 import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
 import 'package:provider/provider.dart';
+import 'package:recytecmobproj/presentation/collector/collection/collection_workflow_screen.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class JobDetailScreen extends StatefulWidget {
   final CollectorJob job;
@@ -25,17 +27,10 @@ class JobDetailScreen extends StatefulWidget {
 
 class _JobDetailScreenState extends State<JobDetailScreen> {
   final CollectorRepository _repository = CollectorRepository();
+  final MapLauncher _mapLauncher = const MapLauncher();
 
   late CollectorJob job;
   bool isUpdating = false;
-
-  static const List<String> supportedStatuses = [
-    'Pending',
-    'Approved',
-    'In-Transit',
-    'Collected',
-    'Completed',
-  ];
 
   @override
   void initState() {
@@ -43,21 +38,33 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     job = widget.job;
   }
 
-  Future<void> _updateStatus(String status) async {
-    if (isUpdating || status == job.status) return;
+  Future<void> _updateStatus(String logicalStatus) async {
+    if (isUpdating) return;
+
+    final current = CollectorJobStatuses.normalize(job.status);
+    final next = CollectorJobStatuses.normalize(logicalStatus);
+    if (current == next) return;
+
+    if (!CollectorJobStatuses.canTransition(current, next)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Complete the required prior step first.')),
+      );
+      return;
+    }
 
     setState(() {
       isUpdating = true;
     });
 
     try {
-      final collector = status == 'In-Transit'
+      final collector = next == CollectorJobStatuses.onTheWay
           ? context.read<AuthProvider>().currentUser
           : null;
       final collectorName = _collectorName(collector);
       final updated = await _repository.updateJobStatus(
         requestId: job.id,
-        status: status,
+        status: CollectorJobStatuses.backendValue(logicalStatus),
         collectorId: collector?.id,
         collectorName: collectorName,
         collectorEmail: collector?.email,
@@ -68,7 +75,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       setState(() {
         job = updated.id.isEmpty
             ? job.copyWith(
-                status: status,
+                status: CollectorJobStatuses.backendValue(logicalStatus),
                 assignedCollector: collectorName.isEmpty
                     ? job.assignedCollector
                     : collectorName,
@@ -78,7 +85,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Request marked as $status.')),
+        SnackBar(
+          content: Text(
+            'Request marked as ${CollectorJobStatuses.label(logicalStatus)}.',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -105,24 +116,37 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       return;
     }
 
-    final uri = Uri.https(
-      'www.google.com',
-      '/maps/search/',
-      {
-        'api': '1',
-        'query': query,
-      },
-    );
-
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
+    final launched = await _mapLauncher.open(
+      MapLaunchTarget(address: query),
     );
 
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open Google Maps.')),
       );
+    }
+  }
+
+  Future<void> _startOrContinueCollection() async {
+    final current = CollectorJobStatuses.normalize(job.status);
+    if (current == CollectorJobStatuses.arrived) {
+      await _updateStatus(CollectorJobStatuses.inProgress);
+    }
+
+    if (!mounted) return;
+    final completed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => CollectionWorkflowScreen(job: job)),
+    );
+
+    if (completed == true && mounted) {
+      setState(() {
+        job = job.copyWith(
+          status: CollectorJobStatuses.backendValue(
+            CollectorJobStatuses.completed,
+          ),
+        );
+      });
     }
   }
 
@@ -138,7 +162,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         child: ListView(
           children: [
             Text(
-              'Request ID: ${job.requestCode}',
+              'Request Reference: ${job.requestCode}',
               style: TextStyle(
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w900,
@@ -163,17 +187,21 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               child: Column(
                 children: [
                   _infoRow('Resident', _valueOrDash(job.residentName)),
+                  _infoRow('LGU', _valueOrDash(job.assignedCollector)),
+                  _infoRow('Bin', _valueOrDash(job.displayItem)),
                   _infoRow('Item', _valueOrDash(job.displayItem)),
                   _infoRow('Waste Type', _valueOrDash(job.wasteType)),
-                  _infoRow('Location', _valueOrDash(job.location)),
+                  _infoRow('Bin Location', _valueOrDash(job.location)),
                   _locationAction(),
                   _infoRow('Quantity', job.quantity.toString()),
                   _infoRow('Rate / kg', _formatMoney(job.ratePerKg)),
                   _infoRow('Email', _valueOrDash(job.residentEmail)),
                   _infoRow('Phone', _valueOrDash(job.phone)),
-                  _infoRow('Status', _valueOrDash(job.status)),
+                  _infoRow('Status', CollectorJobStatuses.label(job.status)),
                   _infoRow('Collector', _valueOrDash(job.assignedCollector)),
                   _infoRow('Scheduled', _formatDate(job.scheduledAt)),
+                  _infoRow('Priority', _priorityLabel()),
+                  _infoRow('Remarks', _valueOrDash(job.detectedClass)),
                 ],
               ),
             ),
@@ -189,62 +217,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             SizedBox(height: 8.h),
             _imagePreview(),
             SizedBox(height: 24.h),
-            DropdownButtonFormField<String>(
-              key: ValueKey(job.status),
-              initialValue: supportedStatuses.contains(job.status)
-                  ? job.status
-                  : 'Pending',
-              decoration: InputDecoration(
-                labelText: 'Update status',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-              ),
-              items: supportedStatuses
-                  .map(
-                    (status) => DropdownMenuItem(
-                      value: status,
-                      child: Text(status),
-                    ),
-                  )
-                  .toList(),
-              onChanged: isUpdating || job.id.isEmpty
-                  ? null
-                  : (status) {
-                      if (status != null) _updateStatus(status);
-                    },
-            ),
-            SizedBox(height: 18.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: isUpdating || job.id.isEmpty
-                        ? null
-                        : () => _updateStatus('In-Transit'),
-                    child: isUpdating
-                        ? SizedBox(
-                            height: 18.h,
-                            width: 18.h,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text('Start Pickup'),
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: isUpdating || job.id.isEmpty
-                        ? null
-                        : () => _updateStatus('Collected'),
-                    child: const Text('Mark Collected'),
-                  ),
-                ),
-              ],
-            ),
+            _workflowActions(),
           ],
         ),
       ),
@@ -265,6 +238,68 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           icon: const Icon(Icons.map_outlined),
           label: const Text('Open in Google Maps'),
         ),
+      ),
+    );
+  }
+
+  Widget _workflowActions() {
+    final normalized = CollectorJobStatuses.normalize(job.status);
+    final next = CollectorJobStatuses.next(normalized);
+    final canUpdate = !isUpdating && job.id.isNotEmpty;
+
+    if (normalized == CollectorJobStatuses.completed) {
+      return const _InfoPanel(message: 'This collection is completed.');
+    }
+
+    if (normalized == CollectorJobStatuses.inProgress ||
+        normalized == CollectorJobStatuses.readyForCompletion) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: canUpdate ? _startOrContinueCollection : null,
+          icon: const Icon(Icons.assignment_turned_in_outlined),
+          label: Text(
+            normalized == CollectorJobStatuses.readyForCompletion
+                ? 'Review Report'
+                : 'Continue Collection',
+          ),
+        ),
+      );
+    }
+
+    final label = next == CollectorJobStatuses.onTheWay
+        ? 'On The Way'
+        : next == CollectorJobStatuses.arrived
+            ? 'Arrived'
+            : next == CollectorJobStatuses.inProgress
+                ? 'Start Collection'
+                : null;
+
+    if (label == null) {
+      return const _InfoPanel(
+          message: 'No action is available for this status.');
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: canUpdate
+            ? () {
+                if (next == CollectorJobStatuses.inProgress) {
+                  _startOrContinueCollection();
+                } else {
+                  _updateStatus(next!);
+                }
+              }
+            : null,
+        icon: isUpdating
+            ? SizedBox(
+                width: 16.w,
+                height: 16.w,
+                child: const CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.arrow_forward),
+        label: Text(label),
       ),
     );
   }
@@ -397,6 +432,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     return 'PHP ${value.toStringAsFixed(2)}';
   }
 
+  String _priorityLabel() {
+    if (job.quantity >= 5) return 'High';
+    if (job.quantity >= 2) return 'Normal';
+    return 'Standard';
+  }
+
   String _messageForError(Object error) {
     final text = error.toString();
     const marker = 'message: ';
@@ -405,5 +446,25 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
 
     return 'Status update failed. Please try again.';
+  }
+}
+
+class _InfoPanel extends StatelessWidget {
+  const _InfoPanel({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: RecyTechTheme.pill,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RecyTechTheme.border),
+      ),
+      child: Text(message, textAlign: TextAlign.center),
+    );
   }
 }

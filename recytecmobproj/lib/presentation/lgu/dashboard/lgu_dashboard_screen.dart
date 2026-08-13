@@ -11,6 +11,7 @@ import '../../../presentation/bin_monitoring/widgets/bin_monitoring_components.d
 import '../../../services/auth_provider.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/status_bagde.dart';
+import '../../notifications/notification_center_screen.dart';
 import '../bins/bin_details_screen.dart';
 
 class LguDashboardScreen extends StatefulWidget {
@@ -64,6 +65,20 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
         centerTitle: false,
         actions: [
           IconButton(
+            tooltip: 'Notifications',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationCenterScreen(
+                    role: UserRole.lgu,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.notifications_outlined),
+          ),
+          IconButton(
             tooltip: 'Refresh dashboard',
             onPressed: _refresh,
             icon: const Icon(Icons.refresh),
@@ -109,7 +124,8 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
                   childAspectRatio: 1.35,
                   children: [
                     _metric('Assigned Bins', data.bins.length.toString()),
-                    _metric('Full', _countBins(data.bins, FullnessStatuses.full)),
+                    _metric(
+                        'Full', _countBins(data.bins, FullnessStatuses.full)),
                     _metric(
                       'Nearly Full',
                       _countBins(data.bins, FullnessStatuses.nearlyFull),
@@ -302,7 +318,8 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
 
   String _countBins(List<RecyTechBin> bins, String status) {
     return bins
-        .where((bin) => FullnessStatuses.normalize(bin.fullnessStatus) == status)
+        .where(
+            (bin) => FullnessStatuses.normalize(bin.fullnessStatus) == status)
         .length
         .toString();
   }

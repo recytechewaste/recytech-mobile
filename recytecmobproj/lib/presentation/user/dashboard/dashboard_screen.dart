@@ -4,7 +4,13 @@ import 'package:provider/provider.dart';
 
 import '../../../data/models/user_model.dart';
 import '../../../services/auth_provider.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../notifications/notification_center_screen.dart';
+import '../bins/bin_locator_screen.dart';
 import '../education/education_content_screen.dart';
+import '../ewaste_service/submission_form_screen.dart';
+import '../history/history_screen.dart';
+import '../rewards/rewards_screen.dart';
 
 class UserDashboardScreen extends StatelessWidget {
   const UserDashboardScreen({super.key});
@@ -108,11 +114,21 @@ class UserDashboardScreen extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Dashboard'),
           centerTitle: true,
-          actions: const [
-            Icon(Icons.search),
-            SizedBox(width: 12),
-            Icon(Icons.more_vert),
-            SizedBox(width: 8),
+          actions: [
+            IconButton(
+              tooltip: 'Notifications',
+              icon: const Icon(Icons.notifications_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationCenterScreen(
+                      role: UserRole.household,
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
         ),
         body: ListView(
@@ -132,6 +148,62 @@ class UserDashboardScreen extends StatelessWidget {
               style: TextStyle(fontSize: 11.sp, color: _textMuted),
             ),
             SizedBox(height: 16.h),
+            _infoCard(
+              title: 'Submit E-Waste',
+              body: 'Manually enter item details and request information.',
+              icon: Icons.send_outlined,
+              tint: _primary,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SubmissionFormScreen(),
+                  ),
+                );
+              },
+            ),
+            SizedBox(height: 12.h),
+            _infoCard(
+              title: 'Bin Locator',
+              body: 'Find designated public drop-off points and directions.',
+              icon: Icons.location_on_outlined,
+              tint: Colors.teal,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BinLocatorScreen(),
+                  ),
+                );
+              },
+            ),
+            SizedBox(height: 12.h),
+            _infoCard(
+              title: 'Rewards',
+              body: 'View contribution payouts where backend data exists.',
+              icon: Icons.emoji_events_outlined,
+              tint: Colors.orange,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RewardsScreen()),
+                );
+              },
+            ),
+            SizedBox(height: 12.h),
+            _infoCard(
+              title: 'History',
+              body: 'Review submitted requests and backend status history.',
+              icon: Icons.history,
+              tint: Colors.blueGrey,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                );
+              },
+            ),
+            SizedBox(height: 12.h),
             _infoCard(
               title: 'Environmental Impact',
               body: 'Learn how e-waste recycling helps the environment.',

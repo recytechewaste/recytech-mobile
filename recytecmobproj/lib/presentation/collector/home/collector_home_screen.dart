@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
 import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
 import 'package:recytecmobproj/presentation/auth/login_screen.dart';
 import 'package:recytecmobproj/presentation/collector/jobs/job_detail_screen.dart';
+import 'package:recytecmobproj/presentation/notifications/notification_center_screen.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 
 class CollectorHomeScreen extends StatefulWidget {
@@ -96,6 +98,20 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
         title: const Text('Collector Dashboard'),
         centerTitle: false,
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationCenterScreen(
+                    role: UserRole.collector,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.notifications_outlined),
+          ),
           IconButton(
             tooltip: 'Refresh jobs',
             onPressed: _refreshJobs,

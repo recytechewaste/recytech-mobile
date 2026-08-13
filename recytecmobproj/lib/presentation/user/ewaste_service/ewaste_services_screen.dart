@@ -6,7 +6,7 @@ import 'package:recytecmobproj/presentation/user/history/history_screen.dart';
 import 'package:recytecmobproj/presentation/user/profile/profile_screen.dart';
 import 'package:recytecmobproj/widgets/ui_components.dart';
 
-import 'ai_capture_screen.dart';
+import 'submission_form_screen.dart';
 import 'tracking_screen.dart';
 
 class EWasteServicesScreen extends StatelessWidget {
@@ -71,7 +71,7 @@ class EWasteServicesScreen extends StatelessWidget {
             filled: true,
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AICaptureScreen()),
+              MaterialPageRoute(builder: (_) => const SubmissionFormScreen()),
             ),
           ),
 
@@ -86,7 +86,7 @@ class EWasteServicesScreen extends StatelessWidget {
             filled: false,
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AICaptureScreen()),
+              MaterialPageRoute(builder: (_) => const SubmissionFormScreen()),
             ),
           ),
 
@@ -171,7 +171,7 @@ class EWasteServicesScreen extends StatelessWidget {
           foregroundColor: filled ? Colors.white : _textDark,
           side: filled
               ? BorderSide.none
-              : BorderSide(color: color.withOpacity(0.45)),
+              : BorderSide(color: color.withValues(alpha: 0.45)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14.r),
           ),

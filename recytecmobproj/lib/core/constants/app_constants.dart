@@ -233,6 +233,140 @@ class CollectionRequestStatuses {
   }
 }
 
+class CollectorJobStatuses {
+  static const assigned = 'collector_assigned';
+  static const onTheWay = 'on_the_way';
+  static const arrived = 'arrived';
+  static const inProgress = 'in_progress';
+  static const readyForCompletion = 'ready_for_completion';
+  static const completed = 'completed';
+  static const cancelled = 'cancelled';
+
+  static const values = [
+    assigned,
+    onTheWay,
+    arrived,
+    inProgress,
+    readyForCompletion,
+    completed,
+    cancelled,
+  ];
+
+  static String normalize(String? value) {
+    final normalized = _normalizeKey(value);
+    if (values.contains(normalized)) return normalized;
+    if (normalized == 'approved' || normalized == 'assigned') return assigned;
+    if (normalized == 'in_transit' || normalized == 'on_the_way') {
+      return onTheWay;
+    }
+    if (normalized == 'started' || normalized == 'collection_started') {
+      return inProgress;
+    }
+    if (normalized == 'collected' || normalized == 'ready') {
+      return readyForCompletion;
+    }
+    return assigned;
+  }
+
+  static String backendValue(String status) {
+    switch (normalize(status)) {
+      case assigned:
+        return 'Approved';
+      case onTheWay:
+        return 'In-Transit';
+      case arrived:
+        return 'Arrived';
+      case inProgress:
+        return 'In Progress';
+      case readyForCompletion:
+        return 'Collected';
+      case completed:
+        return 'Completed';
+      case cancelled:
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
+  static String label(String? value) {
+    switch (normalize(value)) {
+      case assigned:
+        return 'Assigned';
+      case onTheWay:
+        return 'On The Way';
+      case arrived:
+        return 'Arrived';
+      case inProgress:
+        return 'In Progress';
+      case readyForCompletion:
+        return 'Ready for Completion';
+      case completed:
+        return 'Completed';
+      case cancelled:
+        return 'Cancelled';
+      default:
+        return 'Assigned';
+    }
+  }
+
+  static String? next(String? current) {
+    switch (normalize(current)) {
+      case assigned:
+        return onTheWay;
+      case onTheWay:
+        return arrived;
+      case arrived:
+        return inProgress;
+      case inProgress:
+        return readyForCompletion;
+      case readyForCompletion:
+        return completed;
+      case completed:
+      case cancelled:
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  static bool canTransition(String? from, String to) {
+    return next(from) == normalize(to);
+  }
+}
+
+class CollectorCollectionConstants {
+  static const beforeBinConditions = [
+    'Full',
+    'Overflowing',
+    'Partially Filled',
+    'Damaged',
+    'Wet',
+    'Contaminated',
+    'Inaccessible',
+    'Sensor Issue',
+    'Other',
+  ];
+
+  static const itemConditions = [
+    'Working',
+    'Repairable',
+    'Damaged',
+    'Non-functional',
+    'For Parts',
+    'Unknown',
+  ];
+
+  static const finalBinStatuses = [
+    'Empty',
+    'Serviced',
+    'Partially Cleared',
+    'Requires Repair',
+    'Requires Follow-Up',
+    'Unable to Complete',
+  ];
+}
+
 String _normalizeKey(String? value) {
   return (value ?? '')
       .trim()

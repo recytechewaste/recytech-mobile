@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
+import '../../../core/utils/map_launcher.dart';
 import '../../../data/models/bin_monitoring_models.dart';
 import '../../../data/repositories/bin_monitoring_repository.dart';
 import '../../../presentation/bin_monitoring/widgets/bin_monitoring_components.dart';
@@ -24,6 +25,7 @@ class BinDetailsScreen extends StatefulWidget {
 
 class _BinDetailsScreenState extends State<BinDetailsScreen> {
   final LguBinRepository _repository = MockBinMonitoringService();
+  final MapLauncher _mapLauncher = const MapLauncher();
   late Future<_BinDetailsData> _detailsFuture;
 
   @override
@@ -57,6 +59,24 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
       ),
     );
     if (mounted) await _refresh();
+  }
+
+  Future<void> _openMaps(RecyTechBin bin) async {
+    final opened = await _mapLauncher.open(
+      MapLaunchTarget(
+        label: bin.displayName,
+        address: bin.location,
+        latitude: bin.latitude,
+        longitude: bin.longitude,
+      ),
+    );
+
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('No bin coordinates or map app available.')),
+      );
+    }
   }
 
   @override
@@ -171,9 +191,19 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
           _infoRow('Bin ID', bin.binId),
           _infoRow('LGU ID', bin.assignedLguId ?? '-'),
           _infoRow('Location', bin.location),
+          _infoRow('Coordinates', _coordinatesLabel(bin)),
           _infoRow('Distance', _distanceLabel(monitoring.distanceCm)),
           _infoRow('Sensor reading', formatDateTime(monitoring.lastUpdatedAt)),
           _infoRow('Last collection', formatDateTime(bin.lastCollectionAt)),
+          SizedBox(height: 12.h),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openMaps(bin),
+              icon: const Icon(Icons.directions_outlined),
+              label: const Text('Open in Maps'),
+            ),
+          ),
           SizedBox(height: 12.h),
           FillLevelIndicator(
             fillLevel: monitoring.fillPercentage,
@@ -209,6 +239,11 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
   String _distanceLabel(double? distanceCm) {
     if (distanceCm == null) return 'Not supplied';
     return '${distanceCm.toStringAsFixed(1)} cm';
+  }
+
+  String _coordinatesLabel(RecyTechBin bin) {
+    if (bin.latitude == null || bin.longitude == null) return 'Not supplied';
+    return '${bin.latitude!.toStringAsFixed(5)}, ${bin.longitude!.toStringAsFixed(5)}';
   }
 
   Widget _infoRow(String label, String value) {

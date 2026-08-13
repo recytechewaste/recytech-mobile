@@ -1,19 +1,86 @@
+import '../../core/constants/app_constants.dart';
 import '../models/notification_model.dart';
 
 class NotificationRepository {
-  Future<List<NotificationModel>> fetchNotifications() async {
-    return [
-      NotificationModel(
-        id: 'notif-1',
-        title: 'Pickup Assigned',
-        message: 'You have a new pickup assignment.',
-        date: 'Feb 2, 2026',
-        isRead: false,
+  static final List<NotificationModel> _notifications = [
+    NotificationModel(
+      id: 'household-1',
+      title: 'Submission received',
+      message: 'Your e-waste request was received and is pending review.',
+      timestamp: DateTime(2026, 8, 12, 9, 15),
+      isRead: false,
+      role: UserRole.household,
+      type: 'submission_received',
+      relatedEntityId: 'REQ-DEMO-001',
+      destination: const NotificationDestination(
+        kind: NotificationDestinationKind.householdRequest,
+        entityId: 'REQ-DEMO-001',
       ),
-    ];
+    ),
+    NotificationModel(
+      id: 'lgu-1',
+      title: 'Bin alert',
+      message: 'Municipal Hall Bin is full and ready for collection review.',
+      timestamp: DateTime(2026, 8, 12, 8, 40),
+      isRead: false,
+      role: UserRole.lgu,
+      type: 'sensor_bin_alert',
+      relatedEntityId: 'BIN-LGU-001',
+      destination: const NotificationDestination(
+        kind: NotificationDestinationKind.lguBin,
+        entityId: 'BIN-LGU-001',
+      ),
+    ),
+    NotificationModel(
+      id: 'collector-1',
+      title: 'Pickup Assigned',
+      message: 'You have a new pickup assignment.',
+      timestamp: DateTime(2026, 8, 12, 10, 5),
+      isRead: false,
+      role: UserRole.collector,
+      type: 'new_assignment',
+      relatedEntityId: 'REQ-DEMO-001',
+      destination: const NotificationDestination(
+        kind: NotificationDestinationKind.collectorAssignment,
+        entityId: 'REQ-DEMO-001',
+      ),
+    ),
+  ];
+
+  /// Temporary mock notifications.
+  ///
+  /// Backend contract still needed:
+  /// GET /api/notifications?role=:role
+  /// PATCH /api/notifications/:id/read
+  /// PATCH /api/notifications/read-all?role=:role
+  Future<List<NotificationModel>> fetchNotifications(UserRole role) async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return _notifications
+        .where((notification) => notification.role == role)
+        .toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  }
+
+  Future<int> unreadCount(UserRole role) async {
+    final notifications = await fetchNotifications(role);
+    return notifications.where((notification) => !notification.isRead).length;
   }
 
   Future<void> markAsRead(String notificationId) async {
-    // mock only
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    for (var i = 0; i < _notifications.length; i++) {
+      if (_notifications[i].id == notificationId) {
+        _notifications[i] = _notifications[i].copyWith(isRead: true);
+      }
+    }
+  }
+
+  Future<void> markAllAsRead(UserRole role) async {
+    await Future<void>.delayed(const Duration(milliseconds: 140));
+    for (var i = 0; i < _notifications.length; i++) {
+      if (_notifications[i].role == role) {
+        _notifications[i] = _notifications[i].copyWith(isRead: true);
+      }
+    }
   }
 }
