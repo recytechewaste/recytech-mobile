@@ -8,13 +8,13 @@ class RequestApi {
   Future<List<dynamic>> fetchRequests() async {
     final Response res = await _apiClient.dio.get(ApiEndpoints.requests);
 
-    return List<dynamic>.from(res.data);
+    return _readList(res.data);
   }
 
   Future<List<dynamic>> fetchMyRequests() async {
     final Response res = await _apiClient.dio.get(ApiEndpoints.myRequests);
 
-    return List<dynamic>.from(res.data);
+    return _readList(res.data);
   }
 
   Future<List<dynamic>> fetchMyTransactions() async {
@@ -55,6 +55,19 @@ class RequestApi {
 
     if (res.data is List) {
       return List<dynamic>.from(res.data as List);
+    }
+
+    return <dynamic>[];
+  }
+
+  List<dynamic> _readList(dynamic data) {
+    if (data is List) return List<dynamic>.from(data);
+
+    if (data is Map) {
+      for (final key in ['data', 'requests', 'items', 'results']) {
+        final value = data[key];
+        if (value is List) return List<dynamic>.from(value);
+      }
     }
 
     return <dynamic>[];

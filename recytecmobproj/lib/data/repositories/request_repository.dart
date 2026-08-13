@@ -28,8 +28,8 @@ class RequestRepository {
   Future<List<EWasteRequestModel>> fetchMyRequests() async {
     final list = await _api.fetchMyRequests();
     return list
-        .map((e) =>
-            EWasteRequestModel.fromJson((e as Map).cast<String, dynamic>()))
+        .whereType<Map>()
+        .map((e) => EWasteRequestModel.fromJson(e.cast<String, dynamic>()))
         .toList();
   }
 

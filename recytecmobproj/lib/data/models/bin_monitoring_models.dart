@@ -194,6 +194,25 @@ class BinMonitoringData {
   }
 }
 
+class SensorReadingFreshness {
+  const SensorReadingFreshness._();
+
+  static const staleAfter = Duration(hours: 2);
+
+  static String status(DateTime? lastUpdatedAt, {DateTime? now}) {
+    if (lastUpdatedAt == null) return 'Unknown';
+    final reference = now ?? DateTime.now();
+    if (lastUpdatedAt.isAfter(reference)) return 'Unknown';
+    return reference.difference(lastUpdatedAt) > staleAfter
+        ? 'Stale'
+        : 'Current';
+  }
+
+  static bool isStale(DateTime? lastUpdatedAt, {DateTime? now}) {
+    return status(lastUpdatedAt, now: now) == 'Stale';
+  }
+}
+
 class CollectionRequestSummary {
   const CollectionRequestSummary({
     required this.id,
@@ -406,7 +425,6 @@ class CollectionReport {
     required this.detectedCategories,
     required this.confirmedCategories,
     required this.actualQuantity,
-    required this.actualWeight,
     required this.completionStatus,
     this.beforeImage,
     this.afterImage,
@@ -419,7 +437,6 @@ class CollectionReport {
   final List<String> detectedCategories;
   final List<String> confirmedCategories;
   final int actualQuantity;
-  final double actualWeight;
   final String? beforeImage;
   final String? afterImage;
   final String? collectorRemarks;
@@ -433,7 +450,6 @@ class CollectionReport {
       'detectedCategories': detectedCategories,
       'confirmedCategories': confirmedCategories,
       'actualQuantity': actualQuantity,
-      'actualWeight': actualWeight,
       'beforeImage': beforeImage,
       'afterImage': afterImage,
       'collectorRemarks': collectorRemarks,

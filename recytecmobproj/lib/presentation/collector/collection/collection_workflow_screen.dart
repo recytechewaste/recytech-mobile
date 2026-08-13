@@ -102,7 +102,9 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
 
     final updated = await Navigator.push<CollectedEWasteItem>(
       context,
-      MaterialPageRoute(builder: (_) => const CollectorEWasteCaptureScreen()),
+      MaterialPageRoute(
+        builder: (_) => CollectorEWasteCaptureScreen(initialItem: item),
+      ),
     );
     if (updated == null || !mounted) return;
     setState(() => _draft.items[index] = updated);

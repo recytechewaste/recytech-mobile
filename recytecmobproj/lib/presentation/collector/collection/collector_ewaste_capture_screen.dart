@@ -12,7 +12,12 @@ import '../../../data/models/ewaste_detection_result.dart';
 import '../../../data/services/ewaste_detection_service.dart';
 
 class CollectorEWasteCaptureScreen extends StatefulWidget {
-  const CollectorEWasteCaptureScreen({super.key});
+  const CollectorEWasteCaptureScreen({
+    super.key,
+    this.initialItem,
+  });
+
+  final CollectedEWasteItem? initialItem;
 
   @override
   State<CollectorEWasteCaptureScreen> createState() =>
@@ -57,6 +62,7 @@ class _CollectorEWasteCaptureScreenState
   @override
   void initState() {
     super.initState();
+    _hydrateInitialItem();
     _loadModel();
   }
 
@@ -76,6 +82,28 @@ class _CollectorEWasteCaptureScreenState
       if (mounted) {
         setState(() => _message = 'Unable to load local AI model.');
       }
+    }
+  }
+
+  void _hydrateInitialItem() {
+    final item = widget.initialItem;
+    if (item == null) return;
+
+    _image = File(item.imagePath);
+    _confirmedClass = item.confirmedClass;
+    _condition = item.condition ?? _condition;
+    _quantity.text = item.quantity.toString();
+    _remarks.text = item.remarks ?? '';
+
+    final aiClass = item.aiPredictedClass;
+    final aiConfidence = item.aiConfidence;
+    if (aiClass != null && aiConfidence != null) {
+      _result = EWasteDetectionResult(
+        detectedClass: aiClass,
+        confidence: aiConfidence,
+        mappedWasteCategory: WasteTypeMapper.toBackendWasteType(aiClass),
+        imagePath: item.imagePath,
+      );
     }
   }
 
@@ -149,7 +177,8 @@ class _CollectorEWasteCaptureScreenState
     Navigator.pop(
       context,
       CollectedEWasteItem(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        id: widget.initialItem?.id ??
+            DateTime.now().microsecondsSinceEpoch.toString(),
         imagePath: image.path,
         aiPredictedClass: _result?.detectedClass,
         aiConfidence: _result?.confidence,
@@ -158,6 +187,7 @@ class _CollectorEWasteCaptureScreenState
         quantity: quantity,
         condition: _condition,
         remarks: _remarks.text.trim().isEmpty ? null : _remarks.text.trim(),
+        capturedAt: widget.initialItem?.capturedAt,
       ),
     );
   }
@@ -166,7 +196,11 @@ class _CollectorEWasteCaptureScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
-      appBar: AppBar(title: const Text('Scan / Capture E-Waste')),
+      appBar: AppBar(
+        title: Text(widget.initialItem == null
+            ? 'Scan / Capture E-Waste'
+            : 'Edit Collected Item'),
+      ),
       body: ListView(
         padding: EdgeInsets.all(16.w),
         children: [
@@ -237,7 +271,11 @@ class _CollectorEWasteCaptureScreenState
           ElevatedButton.icon(
             onPressed: _saveItem,
             icon: const Icon(Icons.add),
-            label: const Text('Add Item to Collection'),
+            label: Text(
+              widget.initialItem == null
+                  ? 'Add Item to Collection'
+                  : 'Save Item Changes',
+            ),
           ),
           SizedBox(height: 8.h),
           TextButton(
@@ -250,6 +288,8 @@ class _CollectorEWasteCaptureScreenState
   }
 
   Widget _imagePanel() {
+    final image = _image;
+    final hasImageFile = image != null && image.existsSync();
     return Container(
       height: 260.h,
       decoration: BoxDecoration(
@@ -257,17 +297,32 @@ class _CollectorEWasteCaptureScreenState
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: RecyTechTheme.border),
       ),
-      child: _image == null
+      child: !hasImageFile
           ? Center(
-              child: Icon(
-                Icons.center_focus_strong,
-                size: 42.sp,
-                color: RecyTechTheme.primary,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.center_focus_strong,
+                    size: 42.sp,
+                    color: RecyTechTheme.primary,
+                  ),
+                  if (image != null) ...[
+                    SizedBox(height: 8.h),
+                    Text(
+                      'Image file unavailable. Retake to continue.',
+                      style: TextStyle(
+                        color: RecyTechTheme.textMuted,
+                        fontSize: 11.sp,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             )
           : ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.file(_image!, fit: BoxFit.cover),
+              child: Image.file(image, fit: BoxFit.cover),
             ),
     );
   }

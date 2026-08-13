@@ -34,10 +34,7 @@ class ApiClient {
         onError: (DioException e, handler) {
           final int? statusCode = e.response?.statusCode;
 
-          final String message = e.response?.data is Map &&
-                  (e.response!.data as Map).containsKey('message')
-              ? e.response!.data['message'].toString()
-              : (e.message ?? 'Request failed');
+          final String message = _messageForError(e);
 
           handler.reject(
             DioException(
@@ -53,5 +50,37 @@ class ApiClient {
         },
       ),
     );
+  }
+
+  String _messageForError(DioException exception) {
+    final data = exception.response?.data;
+    if (data is Map && data.containsKey('message')) {
+      final message = data['message'].toString().trim();
+      if (message.isNotEmpty) return message;
+    }
+
+    switch (exception.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Connection timed out. Please try again.';
+      case DioExceptionType.connectionError:
+        return 'Unable to connect. Check your internet or API base URL.';
+      case DioExceptionType.badResponse:
+        final statusCode = exception.response?.statusCode;
+        if (statusCode == 401 || statusCode == 403) {
+          return 'Your session has expired. Please sign in again.';
+        }
+        if (statusCode != null && statusCode >= 500) {
+          return 'Server error. Please try again later.';
+        }
+        return exception.message ?? 'Request failed.';
+      case DioExceptionType.cancel:
+        return 'Request was cancelled.';
+      case DioExceptionType.badCertificate:
+        return 'Secure connection failed.';
+      case DioExceptionType.unknown:
+        return exception.message ?? 'Request failed.';
+    }
   }
 }

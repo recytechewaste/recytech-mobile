@@ -9,8 +9,8 @@ class ContributionRepository {
   Future<List<ContributionModel>> fetchMyContributions() async {
     final list = await _api.fetchContributions();
     return list
-        .map((e) =>
-            ContributionModel.fromJson((e as Map).cast<String, dynamic>()))
+        .whereType<Map>()
+        .map((e) => ContributionModel.fromJson(e.cast<String, dynamic>()))
         .toList();
   }
 }

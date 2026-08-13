@@ -168,6 +168,8 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
   Widget _conditionPanel(RecyTechBin bin, BinMonitoringData monitoring) {
     final fullnessLabel = FullnessStatuses.label(monitoring.fullnessStatus);
     final sensorLabel = SensorStatuses.label(monitoring.sensorStatus);
+    final freshnessLabel =
+        SensorReadingFreshness.status(monitoring.lastUpdatedAt);
 
     return Container(
       padding: EdgeInsets.all(14.w),
@@ -194,6 +196,7 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
           _infoRow('Coordinates', _coordinatesLabel(bin)),
           _infoRow('Distance', _distanceLabel(monitoring.distanceCm)),
           _infoRow('Sensor reading', formatDateTime(monitoring.lastUpdatedAt)),
+          _infoRow('Reading status', freshnessLabel),
           _infoRow('Last collection', formatDateTime(bin.lastCollectionAt)),
           SizedBox(height: 12.h),
           SizedBox(
@@ -216,12 +219,17 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
             children: [
               StatusBadge(label: fullnessLabel),
               StatusBadge(label: 'Sensor: $sensorLabel'),
+              StatusBadge(label: 'Reading: $freshnessLabel'),
               if ((monitoring.controllerStatus ?? '').trim().isNotEmpty)
                 StatusBadge(
                   label: 'Controller: ${monitoring.controllerStatus}',
                 ),
             ],
           ),
+          if (freshnessLabel == 'Stale') ...[
+            SizedBox(height: 12.h),
+            _staleReadingWarning(),
+          ],
           if (bin.activeCollectionRequest != null) ...[
             SizedBox(height: 12.h),
             EmptyState(
@@ -287,6 +295,27 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _staleReadingWarning() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Text(
+        'This ToF reading is older than the expected sync window. Refresh or verify the backend sensor update before acting on it.',
+        style: TextStyle(
+          color: Colors.orange.shade900,
+          fontSize: 11.sp,
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+        ),
+      ),
     );
   }
 }

@@ -46,7 +46,8 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
   List<RecyTechBin> _filteredBins(List<RecyTechBin> bins) {
     if (_filter == 'all') return bins;
     return bins
-        .where((bin) => FullnessStatuses.normalize(bin.fullnessStatus) == _filter)
+        .where(
+            (bin) => FullnessStatuses.normalize(bin.fullnessStatus) == _filter)
         .toList();
   }
 
@@ -134,6 +135,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
   Widget _binCard(RecyTechBin bin) {
     final fullnessLabel = FullnessStatuses.label(bin.fullnessStatus);
     final sensorLabel = SensorStatuses.label(bin.sensorStatus);
+    final freshnessLabel = SensorReadingFreshness.status(bin.lastUpdatedAt);
 
     return InkWell(
       onTap: () => _openBin(bin),
@@ -193,6 +195,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
               children: [
                 StatusBadge(label: fullnessLabel),
                 StatusBadge(label: 'Sensor: $sensorLabel'),
+                StatusBadge(label: 'Reading: $freshnessLabel'),
                 if (bin.hasActiveCollectionRequest)
                   StatusBadge(
                     label:

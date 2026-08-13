@@ -20,34 +20,16 @@ dependencies:
   # State management
   provider: ^6.1.2
 
-  # Model comparison and equality handling
-  equatable: ^2.0.5
-
   # Responsive UI (based on Figma design size)
   flutter_screenutil: ^5.9.3
 
   # Image capture and selection (e-waste proof, AI input)
   image_picker: ^1.1.2
 
-  # Camera preview / camera stream for AI scanning
-  camera: ^0.11.0+2
-
-  # Image compression before upload
-  flutter_image_compress: ^2.3.0
-
-  # Device location (recycling center & tracking)
-  geolocator: ^13.0.1
-
-  # Runtime permissions (camera, storage, location)
-  permission_handler: ^11.3.1
-
-  # Map rendering
-  google_maps_flutter: ^2.9.0
-
   # Open external navigation apps (Google Maps)
   url_launcher: ^6.3.0
-  flutter_map: ^8.3.0
-  latlong2: ^0.9.1
+
+  # Local Collector-only YOLO/TFLite inference
   tflite_flutter: ^0.12.1
   image: ^4.8.0
 

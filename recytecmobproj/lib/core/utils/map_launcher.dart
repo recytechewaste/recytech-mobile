@@ -13,7 +13,18 @@ class MapLaunchTarget {
   final double? latitude;
   final double? longitude;
 
-  bool get hasCoordinates => latitude != null && longitude != null;
+  bool get hasCoordinates {
+    final lat = latitude;
+    final lng = longitude;
+    if (lat == null || lng == null) return false;
+    return lat.isFinite &&
+        lng.isFinite &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180;
+  }
+
   bool get hasAddress => (address ?? '').trim().isNotEmpty;
   bool get canOpen => hasCoordinates || hasAddress;
 }

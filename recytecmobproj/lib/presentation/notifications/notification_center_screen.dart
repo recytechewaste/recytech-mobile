@@ -41,23 +41,33 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
   Future<void> _markAsRead(NotificationModel notification) async {
     if (notification.isRead) return;
     setState(() => _isUpdating = true);
-    await _repository.markAsRead(notification.id);
-    if (!mounted) return;
-    setState(() {
-      _isUpdating = false;
-      _future = _repository.fetchNotifications(widget.role);
-    });
+    try {
+      await _repository.markAsRead(notification.id);
+      if (!mounted) return;
+      setState(() {
+        _future = _repository.fetchNotifications(widget.role);
+      });
+    } catch (_) {
+      if (mounted) _showMessage('Unable to update notification.');
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
+    }
   }
 
   Future<void> _markAllAsRead() async {
     if (_isUpdating) return;
     setState(() => _isUpdating = true);
-    await _repository.markAllAsRead(widget.role);
-    if (!mounted) return;
-    setState(() {
-      _isUpdating = false;
-      _future = _repository.fetchNotifications(widget.role);
-    });
+    try {
+      await _repository.markAllAsRead(widget.role);
+      if (!mounted) return;
+      setState(() {
+        _future = _repository.fetchNotifications(widget.role);
+      });
+    } catch (_) {
+      if (mounted) _showMessage('Unable to update notifications.');
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
+    }
   }
 
   Future<void> _openNotification(NotificationModel notification) async {

@@ -64,7 +64,9 @@ class _CollectionRequestFormScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to create request: $e')),
+        const SnackBar(
+          content: Text('Unable to create request. Please try again.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -130,17 +132,22 @@ class _CollectionRequestFormScreenState
           _row('Location', bin.location),
           _row(
             'Fill',
-            bin.fillPercentage == null ? '-' : '${bin.fillPercentage!.round()}%',
+            bin.fillPercentage == null
+                ? '-'
+                : '${bin.fillPercentage!.round()}%',
           ),
           _row('Fullness', fullnessLabel),
-          _row('Timestamp', formatDateTime(DateTime.now())),
+          _row('Reading timestamp', formatDateTime(bin.lastUpdatedAt)),
+          _row('Reading status',
+              SensorReadingFreshness.status(bin.lastUpdatedAt)),
           SizedBox(height: 12.h),
           Wrap(
             spacing: 8.w,
             runSpacing: 8.h,
             children: [
               StatusBadge(label: fullnessLabel),
-              StatusBadge(label: 'Sensor: ${SensorStatuses.label(bin.sensorStatus)}'),
+              StatusBadge(
+                  label: 'Sensor: ${SensorStatuses.label(bin.sensorStatus)}'),
             ],
           ),
         ],

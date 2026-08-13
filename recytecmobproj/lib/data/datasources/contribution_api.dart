@@ -8,6 +8,11 @@ class ContributionApi {
   Future<List<dynamic>> fetchContributions() async {
     final Response res = await _apiClient.dio.get(ApiEndpoints.contributions);
 
-    return List<dynamic>.from(res.data);
+    if (res.data is List) return List<dynamic>.from(res.data as List);
+    if (res.data is Map) {
+      final data = (res.data as Map)['data'] ?? (res.data as Map)['items'];
+      if (data is List) return List<dynamic>.from(data);
+    }
+    return <dynamic>[];
   }
 }
