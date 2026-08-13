@@ -9,8 +9,10 @@ abstract class CollectionCompletionRepository {
 ///
 /// Backend contract still needed:
 /// POST /api/collector/collection-reports
-/// Body: CollectionReportDraft.toJson(), including before/after evidence and
-/// confirmed item list.
+/// Body: CollectionReportDraft.toJson(), including requestId, collectorId,
+/// optional LGU/bin context, before/after evidence, confirmed item list,
+/// confirmedCategorySummary, and totalQuantity. Collector-entered weight is
+/// intentionally not part of the Phase 3 mobile contract.
 /// GET /api/collector/collection-reports?collectorId=:id
 class MockCollectionCompletionRepository
     implements CollectionCompletionRepository {

@@ -9,7 +9,6 @@ class CollectedEWasteItem {
     required this.confirmedClass,
     String? mappedCategory,
     required this.quantity,
-    required this.weightKg,
     this.condition,
     this.remarks,
     DateTime? capturedAt,
@@ -24,7 +23,6 @@ class CollectedEWasteItem {
   final String confirmedClass;
   final String mappedCategory;
   final int quantity;
-  final double weightKg;
   final String? condition;
   final String? remarks;
   final DateTime capturedAt;
@@ -38,7 +36,6 @@ class CollectedEWasteItem {
       'confirmedClass': confirmedClass,
       'mappedCategory': mappedCategory,
       'quantity': quantity,
-      'weightKg': weightKg,
       'condition': condition,
       'remarks': remarks,
       'capturedAt': capturedAt.toIso8601String(),
@@ -51,7 +48,10 @@ class CollectionReportDraft {
     required this.assignmentId,
     required this.requestReference,
     required this.collectorName,
+    this.collectorId,
+    this.lguId,
     this.lguName,
+    this.binId,
     this.binName,
     this.binLocation,
     this.beforeImagePath,
@@ -69,7 +69,10 @@ class CollectionReportDraft {
   final String assignmentId;
   final String requestReference;
   final String collectorName;
+  final String? collectorId;
+  final String? lguId;
   final String? lguName;
+  final String? binId;
   final String? binName;
   final String? binLocation;
   String? beforeImagePath;
@@ -85,11 +88,17 @@ class CollectionReportDraft {
   int get totalQuantity =>
       items.fold<int>(0, (total, item) => total + item.quantity);
 
-  double get totalWeightKg =>
-      items.fold<double>(0, (total, item) => total + item.weightKg);
-
   int get totalCategories =>
       items.map((item) => item.mappedCategory).toSet().length;
+
+  Map<String, int> get confirmedCategorySummary {
+    final summary = <String, int>{};
+    for (final item in items) {
+      summary[item.confirmedClass] =
+          (summary[item.confirmedClass] ?? 0) + item.quantity;
+    }
+    return summary;
+  }
 
   bool get hasBeforeDocumentation =>
       (beforeImagePath ?? '').trim().isNotEmpty &&
@@ -99,15 +108,22 @@ class CollectionReportDraft {
       (afterImagePath ?? '').trim().isNotEmpty &&
       (finalBinStatus ?? '').trim().isNotEmpty;
 
+  bool get hasValidItems =>
+      items.isNotEmpty && items.every((item) => item.quantity > 0);
+
   bool get canSubmit =>
-      hasBeforeDocumentation && hasAfterDocumentation && items.isNotEmpty;
+      hasBeforeDocumentation && hasAfterDocumentation && hasValidItems;
 
   Map<String, dynamic> toJson() {
     return {
       'assignmentId': assignmentId,
+      'requestId': assignmentId,
       'requestReference': requestReference,
+      'collectorId': collectorId,
       'collectorName': collectorName,
+      'lguId': lguId,
       'lguName': lguName,
+      'binId': binId,
       'binName': binName,
       'binLocation': binLocation,
       'beforeImagePath': beforeImagePath,
@@ -119,9 +135,9 @@ class CollectionReportDraft {
       'startedAt': startedAt.toIso8601String(),
       'completedAt': completedAt?.toIso8601String(),
       'items': items.map((item) => item.toJson()).toList(),
+      'confirmedCategorySummary': confirmedCategorySummary,
       'totalCategories': totalCategories,
       'totalQuantity': totalQuantity,
-      'totalWeightKg': totalWeightKg,
     };
   }
 }

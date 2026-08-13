@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
+import '../../../core/utils/waste_type_mapper.dart';
 import '../../../data/models/collected_item_model.dart';
 import '../../../data/models/collector_job_model.dart';
 import '../../../data/repositories/collection_completion_repository.dart';
@@ -48,6 +49,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     _draft = CollectionReportDraft(
       assignmentId: widget.job.id,
       requestReference: widget.job.requestCode,
+      collectorId: user?.id,
       collectorName: user?.fullName.trim().isNotEmpty == true
           ? user!.fullName.trim()
           : 'Collector',
@@ -94,6 +96,18 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     setState(() => _draft.items.add(item));
   }
 
+  Future<void> _editItem(CollectedEWasteItem item) async {
+    final index = _draft.items.indexOf(item);
+    if (index < 0) return;
+
+    final updated = await Navigator.push<CollectedEWasteItem>(
+      context,
+      MaterialPageRoute(builder: (_) => const CollectorEWasteCaptureScreen()),
+    );
+    if (updated == null || !mounted) return;
+    setState(() => _draft.items[index] = updated);
+  }
+
   void _removeItem(CollectedEWasteItem item) {
     setState(() => _draft.items.remove(item));
   }
@@ -116,6 +130,9 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
       });
       return;
     }
+
+    final confirmed = await _confirmCompletion();
+    if (!confirmed) return;
 
     setState(() {
       _isSubmitting = true;
@@ -253,7 +270,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
       trailing: OutlinedButton.icon(
         onPressed: _addItem,
         icon: const Icon(Icons.add),
-        label: const Text('Add Item'),
+        label: const Text('Add Another Item'),
       ),
       children: [
         if (_draft.items.isEmpty)
@@ -265,7 +282,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
           ..._draft.items.map(_itemTile),
         SizedBox(height: 8.h),
         Text(
-          'Categories: ${_draft.totalCategories}   Quantity: ${_draft.totalQuantity}   Weight: ${_draft.totalWeightKg.toStringAsFixed(2)} kg',
+          'Categories: ${_draft.totalCategories}   Total quantity: ${_draft.totalQuantity}',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11.sp),
         ),
       ],
@@ -316,8 +333,13 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
         _reviewRow('Before condition', _beforeCondition ?? '-'),
         _reviewRow('Final status', _finalStatus ?? '-'),
         _reviewRow('Total quantity', _draft.totalQuantity.toString()),
-        _reviewRow(
-            'Total weight', '${_draft.totalWeightKg.toStringAsFixed(2)} kg'),
+        SizedBox(height: 4.h),
+        ..._draft.confirmedCategorySummary.entries.map(
+          (entry) => _reviewRow(
+            WasteTypeMapper.toBackendWasteType(entry.key),
+            entry.value.toString(),
+          ),
+        ),
       ],
     );
   }
@@ -361,12 +383,23 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
       title: Text(item.mappedCategory),
       subtitle: Text(
         'AI: ${item.aiPredictedClass ?? '-'} (${((item.aiConfidence ?? 0) * 100).toStringAsFixed(1)}%)\n'
-        'Qty ${item.quantity}, ${item.weightKg.toStringAsFixed(2)} kg, ${item.condition ?? 'Unknown'}',
+        'Confirmed: ${item.confirmedClass}\n'
+        'Qty ${item.quantity}, ${item.condition ?? 'Unknown'}',
       ),
-      trailing: IconButton(
-        tooltip: 'Remove item',
-        onPressed: () => _removeItem(item),
-        icon: const Icon(Icons.delete_outline),
+      trailing: Wrap(
+        spacing: 4.w,
+        children: [
+          IconButton(
+            tooltip: 'Edit item',
+            onPressed: () => _editItem(item),
+            icon: const Icon(Icons.edit_outlined),
+          ),
+          IconButton(
+            tooltip: 'Remove item',
+            onPressed: () => _removeItem(item),
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
       ),
     );
   }
@@ -479,6 +512,30 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('Discard'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<bool> _confirmCompletion() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Complete collection?'),
+            content: Text(
+              'Submit ${_draft.items.length} scanned item record(s) with '
+              '${_draft.totalQuantity} total item(s) for backend analytics.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Review Again'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Complete Collection'),
               ),
             ],
           ),

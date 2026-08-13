@@ -42,7 +42,6 @@ class _CollectorEWasteCaptureScreenState
   final ImagePicker _picker = ImagePicker();
   final EWasteDetectionService _detectionService = EWasteDetectionService();
   final TextEditingController _quantity = TextEditingController();
-  final TextEditingController _weight = TextEditingController();
   final TextEditingController _remarks = TextEditingController();
 
   File? _image;
@@ -65,7 +64,6 @@ class _CollectorEWasteCaptureScreenState
   void dispose() {
     _detectionService.dispose();
     _quantity.dispose();
-    _weight.dispose();
     _remarks.dispose();
     super.dispose();
   }
@@ -133,7 +131,6 @@ class _CollectorEWasteCaptureScreenState
   void _saveItem() {
     final image = _image;
     final quantity = int.tryParse(_quantity.text.trim()) ?? 0;
-    final weight = double.tryParse(_weight.text.trim()) ?? 0;
     final confirmed = (_confirmedClass ?? '').trim();
 
     if (image == null || !image.existsSync()) {
@@ -148,10 +145,6 @@ class _CollectorEWasteCaptureScreenState
       setState(() => _message = 'Quantity must be a whole number above zero.');
       return;
     }
-    if (weight <= 0) {
-      setState(() => _message = 'Weight must be greater than zero kilograms.');
-      return;
-    }
 
     Navigator.pop(
       context,
@@ -163,7 +156,6 @@ class _CollectorEWasteCaptureScreenState
         confirmedClass: confirmed,
         mappedCategory: WasteTypeMapper.toBackendWasteType(confirmed),
         quantity: quantity,
-        weightKg: weight,
         condition: _condition,
         remarks: _remarks.text.trim().isEmpty ? null : _remarks.text.trim(),
       ),
@@ -174,7 +166,7 @@ class _CollectorEWasteCaptureScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
-      appBar: AppBar(title: const Text('Identify Item')),
+      appBar: AppBar(title: const Text('Scan / Capture E-Waste')),
       body: ListView(
         padding: EdgeInsets.all(16.w),
         children: [
@@ -224,12 +216,6 @@ class _CollectorEWasteCaptureScreenState
             decoration: _input('Quantity', 'Whole number greater than 0'),
           ),
           SizedBox(height: 12.h),
-          TextField(
-            controller: _weight,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: _input('Weight (kg)', 'Example: 2.5'),
-          ),
-          SizedBox(height: 12.h),
           DropdownButtonFormField<String>(
             initialValue: _condition,
             decoration: _input('Condition', null),
@@ -252,6 +238,11 @@ class _CollectorEWasteCaptureScreenState
             onPressed: _saveItem,
             icon: const Icon(Icons.add),
             label: const Text('Add Item to Collection'),
+          ),
+          SizedBox(height: 8.h),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
         ],
       ),
@@ -313,7 +304,7 @@ class _CollectorEWasteCaptureScreenState
             children: [
               OutlinedButton(
                 onPressed: _confirmPrediction,
-                child: const Text('Confirm Prediction'),
+                child: const Text('Confirm'),
               ),
               OutlinedButton(
                 onPressed: () {

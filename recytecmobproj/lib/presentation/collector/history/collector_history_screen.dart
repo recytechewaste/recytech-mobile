@@ -103,9 +103,8 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
             Text('LGU: ${report.lguName ?? '-'}'),
             Text('Bin: ${report.binName ?? '-'}'),
             Text('Completed: ${_formatDate(report.completedAt)}'),
-            Text('Categories: ${report.totalCategories}'),
-            Text('Quantity: ${report.totalQuantity}'),
-            Text('Weight: ${report.totalWeightKg.toStringAsFixed(2)} kg'),
+            Text('Categories: ${_summaryText(report)}'),
+            Text('Total quantity: ${report.totalQuantity}'),
             Text('Final status: ${report.finalBinStatus ?? '-'}'),
           ],
         ),
@@ -133,7 +132,7 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
                 subtitle: Text(
                   'AI: ${item.aiPredictedClass ?? '-'}\n'
                   'Confirmed: ${item.confirmedClass}\n'
-                  'Qty ${item.quantity}, ${item.weightKg.toStringAsFixed(2)} kg',
+                  'Qty ${item.quantity}',
                 ),
               ),
             ),
@@ -168,5 +167,12 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
     final month = local.month.toString().padLeft(2, '0');
     final day = local.day.toString().padLeft(2, '0');
     return '${local.year}-$month-$day';
+  }
+
+  String _summaryText(CollectionReportDraft report) {
+    if (report.confirmedCategorySummary.isEmpty) return '-';
+    return report.confirmedCategorySummary.entries
+        .map((entry) => '${entry.key} x ${entry.value}')
+        .join(', ');
   }
 }

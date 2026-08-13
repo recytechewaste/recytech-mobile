@@ -80,8 +80,8 @@ class EWasteServicesScreen extends StatelessWidget {
           // 🔹 SECONDARY ACTIONS
           _serviceButton(
             context,
-            label: 'AI-Based Identification',
-            icon: Icons.center_focus_strong,
+            label: 'Manual Submission Guide',
+            icon: Icons.edit_note_outlined,
             color: _secondary,
             filled: false,
             onPressed: () => Navigator.push(
