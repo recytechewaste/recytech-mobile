@@ -1,42 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:recytecmobproj/core/theme/recytechtheme.dart';
-import 'package:recytecmobproj/data/datasources/request_api.dart';
-import 'package:recytecmobproj/data/models/ewaste_request_model.dart';
-import 'package:recytecmobproj/data/repositories/request_repository.dart';
+
+import '../../../core/theme/recytechtheme.dart';
+import '../../../data/models/drop_off_record_model.dart';
+import '../../../data/models/reward_transaction_model.dart';
+import '../../../data/repositories/drop_off_repository.dart';
 
 class RewardsScreen extends StatefulWidget {
-  const RewardsScreen({super.key});
+  const RewardsScreen({
+    super.key,
+    this.repository,
+  });
+
+  final DropOffRepository? repository;
 
   @override
   State<RewardsScreen> createState() => _RewardsScreenState();
 }
 
 class _RewardsScreenState extends State<RewardsScreen> {
-  final RequestRepository _repository = RequestRepository(RequestApi());
-  late Future<_PayoutHistoryData> _historyFuture;
+  late final DropOffRepository _repository;
+  late Future<_RewardHistoryData> _historyFuture;
 
   @override
   void initState() {
     super.initState();
-    _historyFuture = _loadPayoutHistory();
+    _repository = widget.repository ?? MockDropOffRepository();
+    _historyFuture = _loadRewardHistory();
   }
 
-  Future<_PayoutHistoryData> _loadPayoutHistory() async {
-    final requestsFuture = _repository.fetchMyRequests();
-    final transactionsFuture = _repository.fetchMyTransactions();
-
-    return _PayoutHistoryData(
-      requests: await requestsFuture,
-      transactions: await transactionsFuture,
-    );
+  Future<_RewardHistoryData> _loadRewardHistory() async {
+    final dropOffs = await _repository.getMyDropOffHistory();
+    final rewards = await _repository.getMyRewards();
+    return _RewardHistoryData(dropOffs: dropOffs, rewards: rewards);
   }
 
   Future<void> _refresh() async {
-    final future = _loadPayoutHistory();
-    setState(() {
-      _historyFuture = future;
-    });
+    final future = _loadRewardHistory();
+    setState(() => _historyFuture = future);
     await future;
   }
 
@@ -46,9 +47,9 @@ class _RewardsScreenState extends State<RewardsScreen> {
       child: Scaffold(
         backgroundColor: RecyTechTheme.bg,
         appBar: AppBar(
-          title: const Text('Payout History'),
+          title: const Text('Rewards'),
         ),
-        body: FutureBuilder<_PayoutHistoryData>(
+        body: FutureBuilder<_RewardHistoryData>(
           future: _historyFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -57,24 +58,18 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
             if (snapshot.hasError) {
               return _messageState(
-                'Unable to load payout history. Please try again.',
+                'Unable to load rewards. Please try again.',
               );
             }
 
-            final data = snapshot.data ?? const _PayoutHistoryData();
-            final rows = _buildRows(data);
-            final releasedTotal = data.transactions.fold<double>(
-              0,
-              (sum, tx) => sum + _asDouble(tx['amount']),
-            );
-
+            final data = snapshot.data ?? const _RewardHistoryData();
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(
                 padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
                 children: [
                   Text(
-                    'Monetary Rewards',
+                    'Drop-Off Rewards',
                     style: TextStyle(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w900,
@@ -83,17 +78,18 @@ class _RewardsScreenState extends State<RewardsScreen> {
                   ),
                   SizedBox(height: 6.h),
                   Text(
-                    'Released payouts and pending reward status from your real recycling requests.',
+                    'Reward values are displayed only when returned by the drop-off reward service.',
                     style: TextStyle(
                       fontSize: 11.sp,
                       color: RecyTechTheme.textMuted,
+                      height: 1.35,
                     ),
                   ),
                   SizedBox(height: 18.h),
-                  _summaryCard(releasedTotal, data.pendingPayoutCount),
+                  _summaryCard(data),
                   SizedBox(height: 22.h),
                   Text(
-                    'Payout records',
+                    'Reward History',
                     style: TextStyle(
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w800,
@@ -101,7 +97,10 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     ),
                   ),
                   SizedBox(height: 10.h),
-                  if (rows.isEmpty) _emptyCard() else ...rows.map(_historyRow),
+                  if (data.rewards.isEmpty)
+                    _emptyCard()
+                  else
+                    ...data.rewards.map(_rewardRow),
                 ],
               ),
             );
@@ -111,88 +110,13 @@ class _RewardsScreenState extends State<RewardsScreen> {
     );
   }
 
-  List<_PayoutRow> _buildRows(_PayoutHistoryData data) {
-    final rows = <_PayoutRow>[];
-
-    for (final tx in data.transactions) {
-      final request = _asMap(tx['requestId']);
-      final requestId = (request['_id'] ?? tx['requestId'] ?? '').toString();
-      rows.add(
-        _PayoutRow(
-          title: '${_requestCode(requestId)} - ${_displayItem(request, tx)}',
-          subtitle: _formatDate(
-            (tx['releasedAt'] ?? tx['createdAt'] ?? '').toString(),
-            fallback: 'Released',
-          ),
-          amount: _formatMoney(_asDouble(tx['amount'])),
-          status: (tx['status'] ?? 'Released').toString(),
-          released: true,
-        ),
-      );
-    }
-
-    final releasedRequestIds = data.transactions
-        .map((tx) => _asMap(tx['requestId'])['_id'] ?? tx['requestId'])
-        .map((id) => id.toString())
-        .where((id) => id.isNotEmpty)
-        .toSet();
-
-    for (final request in data.requests) {
-      if (request.hasReleasedPayout ||
-          releasedRequestIds.contains(request.id)) {
-        continue;
-      }
-
-      if (!_isPendingPayoutRequest(request)) continue;
-
-      rows.add(
-        _PayoutRow(
-          title: '${request.requestCode} - ${request.description}',
-          subtitle: _formatDate(request.updatedAt, fallback: request.status),
-          amount: request.monetaryValue > 0
-              ? _formatMoney(request.monetaryValue)
-              : 'Pending',
-          status: _pendingPayoutLabel(request),
-          released: false,
-        ),
-      );
-    }
-
-    return rows;
-  }
-
-  bool _isPendingPayoutRequest(EWasteRequestModel request) {
-    final status = request.status.toLowerCase();
-    return status == 'collected' ||
-        status == 'drop-off confirmed' ||
-        status == 'received' ||
-        request.payoutStatus.toLowerCase() == 'pending' ||
-        request.payoutStatus.toLowerCase() == 'processing';
-  }
-
-  String _pendingPayoutLabel(EWasteRequestModel request) {
-    final status = request.status.toLowerCase();
-    if (status == 'collected') return 'Awaiting drop-off confirmation';
-    if (status == 'drop-off confirmed' || status == 'received') {
-      return 'Ready for payout';
-    }
-    return request.payoutStatus;
-  }
-
-  Widget _summaryCard(double releasedTotal, int pendingCount) {
+  Widget _summaryCard(_RewardHistoryData data) {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(18.r),
         border: Border.all(color: RecyTechTheme.border),
-        boxShadow: [
-          BoxShadow(
-            color: RecyTechTheme.primary.withValues(alpha: 0.07),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Row(
         children: [
@@ -204,7 +128,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               borderRadius: BorderRadius.circular(16.r),
             ),
             child: Icon(
-              Icons.payments_outlined,
+              Icons.emoji_events_outlined,
               color: RecyTechTheme.primary,
               size: 26.sp,
             ),
@@ -215,7 +139,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Total Released',
+                  'Eligible Drop-Offs',
                   style: TextStyle(
                     fontSize: 11.sp,
                     color: RecyTechTheme.textMuted,
@@ -223,7 +147,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 ),
                 SizedBox(height: 2.h),
                 Text(
-                  _formatMoney(releasedTotal),
+                  '${data.eligibleDropOffs}',
                   style: TextStyle(
                     fontSize: 22.sp,
                     fontWeight: FontWeight.w900,
@@ -232,7 +156,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 ),
                 SizedBox(height: 4.h),
                 Text(
-                  '$pendingCount payout${pendingCount == 1 ? '' : 's'} pending confirmation or release.',
+                  '${data.dropOffs.length} drop-off${data.dropOffs.length == 1 ? '' : 's'} recorded.',
                   style: TextStyle(
                     fontSize: 10.sp,
                     color: RecyTechTheme.textMuted,
@@ -247,7 +171,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
     );
   }
 
-  Widget _historyRow(_PayoutRow row) {
+  Widget _rewardRow(RewardTransaction reward) {
     return Container(
       margin: EdgeInsets.only(bottom: 10.h),
       padding: EdgeInsets.all(14.w),
@@ -263,7 +187,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  row.title,
+                  reward.binName ?? 'RecyTech Bin',
                   style: TextStyle(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w900,
@@ -272,7 +196,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 ),
                 SizedBox(height: 3.h),
                 Text(
-                  row.subtitle,
+                  reward.locationDescription ?? _formatDate(reward.createdAt),
                   style: TextStyle(
                     fontSize: 9.5.sp,
                     color: RecyTechTheme.textMuted,
@@ -280,12 +204,10 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 ),
                 SizedBox(height: 4.h),
                 Text(
-                  row.status,
+                  '${reward.status} - ${_formatDate(reward.createdAt)}',
                   style: TextStyle(
                     fontSize: 9.5.sp,
-                    color: row.released
-                        ? RecyTechTheme.primary
-                        : Colors.orange.shade800,
+                    color: RecyTechTheme.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -293,13 +215,11 @@ class _RewardsScreenState extends State<RewardsScreen> {
             ),
           ),
           Text(
-            row.amount,
+            reward.rewardLabel,
             style: TextStyle(
               fontSize: 11.sp,
               fontWeight: FontWeight.w800,
-              color: row.released
-                  ? RecyTechTheme.primary
-                  : RecyTechTheme.textMuted,
+              color: RecyTechTheme.primary,
             ),
           ),
         ],
@@ -317,7 +237,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
         border: Border.all(color: RecyTechTheme.border),
       ),
       child: Text(
-        'No payout history yet.',
+        'No reward records yet.',
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 11.sp, color: RecyTechTheme.textMuted),
       ),
@@ -337,75 +257,23 @@ class _RewardsScreenState extends State<RewardsScreen> {
     );
   }
 
-  Map<String, dynamic> _asMap(dynamic value) {
-    if (value is Map) return value.cast<String, dynamic>();
-    return <String, dynamic>{};
-  }
-
-  double _asDouble(dynamic value) {
-    if (value is num) return value.toDouble();
-    return double.tryParse((value ?? '').toString()) ?? 0;
-  }
-
-  String _displayItem(Map<String, dynamic> request, Map<String, dynamic> tx) {
-    return (request['itemCategory'] ??
-            request['detectedClass'] ??
-            request['wasteType'] ??
-            tx['wasteType'] ??
-            'E-waste item')
-        .toString();
-  }
-
-  String _requestCode(String id) {
-    final clean = id.trim();
-    if (clean.isEmpty) return 'Request';
-    return 'REQ-${clean.substring(0, clean.length < 6 ? clean.length : 6).toUpperCase()}';
-  }
-
-  String _formatMoney(double value) => 'PHP ${value.toStringAsFixed(2)}';
-
-  String _formatDate(String value, {required String fallback}) {
-    final date = DateTime.tryParse(value);
-    if (date == null) return fallback;
-    final local = date.toLocal();
+  String _formatDate(DateTime value) {
+    final local = value.toLocal();
     final month = local.month.toString().padLeft(2, '0');
     final day = local.day.toString().padLeft(2, '0');
     return '${local.year}-$month-$day';
   }
 }
 
-class _PayoutHistoryData {
-  const _PayoutHistoryData({
-    this.requests = const <EWasteRequestModel>[],
-    this.transactions = const <Map<String, dynamic>>[],
+class _RewardHistoryData {
+  const _RewardHistoryData({
+    this.dropOffs = const <DropOffRecord>[],
+    this.rewards = const <RewardTransaction>[],
   });
 
-  final List<EWasteRequestModel> requests;
-  final List<Map<String, dynamic>> transactions;
+  final List<DropOffRecord> dropOffs;
+  final List<RewardTransaction> rewards;
 
-  int get pendingPayoutCount => requests.where((request) {
-        final status = request.status.toLowerCase();
-        return !request.hasReleasedPayout &&
-            (status == 'collected' ||
-                status == 'drop-off confirmed' ||
-                status == 'received' ||
-                request.payoutStatus.toLowerCase() == 'pending' ||
-                request.payoutStatus.toLowerCase() == 'processing');
-      }).length;
-}
-
-class _PayoutRow {
-  const _PayoutRow({
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.status,
-    required this.released,
-  });
-
-  final String title;
-  final String subtitle;
-  final String amount;
-  final String status;
-  final bool released;
+  int get eligibleDropOffs =>
+      dropOffs.where((record) => record.rewardEligible).length;
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 
+import '../core/network/api_exceptions.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/models/user_model.dart';
 
@@ -69,7 +71,8 @@ class AuthProvider extends ChangeNotifier {
         fullName: fullName,
       );
       if (user == null) {
-        throw StateError('Registration response did not include a user profile.');
+        throw StateError(
+            'Registration response did not include a user profile.');
       }
       return true;
     } catch (e) {
@@ -104,6 +107,14 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _messageForAuthError(Object exception, {required String fallback}) {
+    if (exception is ApiException) {
+      return exception.message;
+    }
+
+    if (exception is DioException && exception.error is ApiException) {
+      return (exception.error as ApiException).message;
+    }
+
     final text = exception.toString();
     const marker = 'message: ';
     if (text.contains(marker)) {

@@ -30,22 +30,22 @@ class EducationContentScreen extends StatelessWidget {
           'Electronic waste can release harmful substances when it is burned, dumped, or dismantled without care. Proper disposal sends items to collection and recycling channels that can separate reusable materials from parts that need safer treatment.\n\nChoosing responsible disposal reduces landfill waste, lowers pollution risk, and helps communities build cleaner collection habits.',
     ),
     EducationContentItem(
-      title: 'How RecyTech Helps Reduce Environmental Impact',
+      title: 'How RecyTech Drop-Off Works',
       summary:
-          'See how AI-assisted submissions and collection workflows support e-waste recovery.',
+          'Find a designated bin, scan its QR code, and record your drop-off.',
       category: 'RecyTech',
       dateLabel: 'Learning guide',
       body:
-          'RecyTech helps users identify and submit e-waste through the mobile app, then supports collector workflows for pickup and status updates. This makes it easier to move items from households to proper collection channels.\n\nBy improving visibility and coordination, RecyTech can help reduce missed pickups, encourage repeat recycling, and make e-waste management easier for users and collectors.',
+          'Household users bring accepted e-waste to designated RecyTech bins in approved buildings, communities, and facilities. Use the Bin Locator to find a bin, open directions, and scan the QR code attached to the bin before depositing your items.\n\nThe QR check-in records your account and the bin used. Later collection and item verification are handled through RecyTech collection workflows.',
     ),
     EducationContentItem(
-      title: 'Safe Handling Tips for Electronic Waste',
+      title: 'Preparing Items for a Designated Bin',
       summary:
-          'Practical reminders before storing, moving, or submitting old electronics.',
+          'Practical reminders before bringing old electronics to a drop-off bin.',
       category: 'Safety',
       dateLabel: 'Learning guide',
       body:
-          'Before submitting e-waste, keep items dry and avoid breaking batteries, screens, or circuit boards. If an item is swollen, leaking, sharp, or damaged, handle it carefully and keep it away from children.\n\nRemove personal data from devices when possible, bundle small accessories together, and provide clear pickup details so collectors can prepare for safe handling.',
+          'Before bringing e-waste to a designated bin, keep items dry and avoid breaking batteries, screens, or circuit boards. If an item is swollen, leaking, sharp, or damaged, handle it carefully and keep it away from children.\n\nRemove personal data from devices when possible, bundle small accessories together, and follow the access instructions shown for the selected RecyTech bin.',
     ),
   ];
 
@@ -70,7 +70,7 @@ class EducationContentScreen extends StatelessWidget {
             ),
             SizedBox(height: 4.h),
             Text(
-              'Read simple guides about e-waste, recycling, and safer handling.',
+              'Read simple guides about e-waste, designated bins, and safer handling.',
               style: TextStyle(
                 color: RecyTechTheme.textMuted,
                 fontSize: 11.sp,

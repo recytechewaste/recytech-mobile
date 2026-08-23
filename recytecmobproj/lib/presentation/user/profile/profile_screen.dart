@@ -4,12 +4,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
+import 'package:recytecmobproj/data/models/drop_off_record_model.dart';
 import 'package:recytecmobproj/data/models/user_model.dart';
+import 'package:recytecmobproj/data/repositories/drop_off_repository.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 
 import '../../../widgets/primary_button.dart';
-import '../contributions/contribution_screen.dart';
 import '../../auth/login_screen.dart';
+import '../history/history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,6 +22,14 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   File? _profileImage;
+  final DropOffRepository _dropOffRepository = MockDropOffRepository();
+  late Future<List<DropOffRecord>> _dropOffsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _dropOffsFuture = _dropOffRepository.getMyDropOffHistory();
+  }
 
   Future<void> _pickProfileImage() async {
     final picker = ImagePicker();
@@ -43,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _recentRow(String title, String date, String status) {
+  Widget _recentRow(DropOffRecord record) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8.h),
       child: Row(
@@ -52,17 +62,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
+                Text(record.binName,
                     style: TextStyle(
                         fontSize: 11.sp, fontWeight: FontWeight.w800)),
                 SizedBox(height: 2.h),
-                Text(date,
+                Text(_formatDate(record.createdAt),
                     style: TextStyle(
                         fontSize: 9.5.sp, color: RecyTechTheme.textMuted)),
               ],
             ),
           ),
-          Text(status,
+          Text(record.status,
               style: TextStyle(fontSize: 10.5.sp, fontWeight: FontWeight.w700)),
         ],
       ),
@@ -119,7 +129,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted)),
             SizedBox(height: 10.h),
 
-            // ✅ CLICKABLE PROFILE IMAGE
             Center(
               child: GestureDetector(
                 onTap: _pickProfileImage,
@@ -163,7 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 8.h),
 
             Center(
-                child: Text('Top Contributor',
+                child: Text('Designated-bin drop-off member',
                     style: TextStyle(
                         fontSize: 10.sp, color: RecyTechTheme.textMuted))),
             SizedBox(height: 8.h),
@@ -175,48 +184,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 14.h),
             const Divider(),
 
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 12.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _stat('78', 'Contributions'),
-                  _stat('56', 'Recycles'),
-                  _stat('45', 'Requests'),
-                ],
-              ),
+            FutureBuilder<List<DropOffRecord>>(
+              future: _dropOffsFuture,
+              builder: (context, snapshot) {
+                final dropOffs = snapshot.data ?? <DropOffRecord>[];
+                final eligible =
+                    dropOffs.where((record) => record.rewardEligible).length;
+                return Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _stat('${dropOffs.length}', 'Drop-Offs'),
+                      _stat('$eligible', 'Rewards'),
+                      _stat(user?.role.trim().isEmpty == false
+                          ? 'Active'
+                          : 'Member', 'Status'),
+                    ],
+                  ),
+                );
+              },
             ),
 
             const Divider(),
             SizedBox(height: 12.h),
 
             Center(
-                child: Text('Recent Contributions',
+                child: Text('Recent Drop-Offs',
                     style: TextStyle(
                         fontSize: 11.sp, fontWeight: FontWeight.w900))),
             SizedBox(height: 10.h),
 
-            Container(
-              padding: EdgeInsets.all(12.w),
-              decoration: BoxDecoration(
-                border: Border.all(color: RecyTechTheme.border),
-                borderRadius: BorderRadius.circular(20.r),
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: RecyTechTheme.primary.withValues(alpha: 0.07),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
+            FutureBuilder<List<DropOffRecord>>(
+              future: _dropOffsFuture,
+              builder: (context, snapshot) {
+                final dropOffs = snapshot.data ?? <DropOffRecord>[];
+                final recentDropOffs = dropOffs.take(2).toList();
+                return Container(
+                  padding: EdgeInsets.all(12.w),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: RecyTechTheme.border),
+                    borderRadius: BorderRadius.circular(20.r),
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: RecyTechTheme.primary.withValues(alpha: 0.07),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  _recentRow('Old Laptop', 'July 23, 2025', 'Completed'),
-                  const Divider(),
-                  _recentRow('Tablet', 'Aug 25, 2025', 'Completed'),
-                ],
-              ),
+                  child: dropOffs.isEmpty
+                      ? Text(
+                          'No drop-offs recorded yet.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10.5.sp,
+                            color: RecyTechTheme.textMuted,
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            for (final record in recentDropOffs) ...[
+                              _recentRow(record),
+                              if (record != recentDropOffs.last)
+                                const Divider(),
+                            ],
+                          ],
+                        ),
+                );
+              },
             ),
 
             SizedBox(height: 10.h),
@@ -224,10 +261,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: TextButton(
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ContributionScreen()),
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
                 ),
                 child: Text(
-                  'View all contributions >',
+                  'View drop-off history >',
                   style: TextStyle(fontSize: 10.5.sp),
                 ),
               ),
@@ -307,5 +344,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  String _formatDate(DateTime value) {
+    final local = value.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return '${local.year}-$month-$day';
   }
 }

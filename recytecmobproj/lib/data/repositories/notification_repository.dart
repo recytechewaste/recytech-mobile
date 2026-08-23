@@ -5,16 +5,30 @@ class NotificationRepository {
   static final List<NotificationModel> _notifications = [
     NotificationModel(
       id: 'household-1',
-      title: 'Submission received',
-      message: 'Your e-waste request was received and is pending review.',
+      title: 'Drop-off recorded',
+      message: 'Your designated-bin QR check-in was recorded.',
       timestamp: DateTime(2026, 8, 12, 9, 15),
       isRead: false,
       role: UserRole.household,
-      type: 'submission_received',
-      relatedEntityId: 'REQ-DEMO-001',
+      type: 'drop_off_recorded',
+      relatedEntityId: 'DROP-DEMO-001',
       destination: const NotificationDestination(
-        kind: NotificationDestinationKind.householdRequest,
-        entityId: 'REQ-DEMO-001',
+        kind: NotificationDestinationKind.householdDropOff,
+        entityId: 'DROP-DEMO-001',
+      ),
+    ),
+    NotificationModel(
+      id: 'household-2',
+      title: 'Reward credited',
+      message: 'A reward was credited for an eligible RecyTech bin check-in.',
+      timestamp: DateTime(2026, 8, 12, 9, 18),
+      isRead: true,
+      role: UserRole.household,
+      type: 'reward_credited',
+      relatedEntityId: 'REWARD-DROP-DEMO-001',
+      destination: const NotificationDestination(
+        kind: NotificationDestinationKind.householdDropOff,
+        entityId: 'DROP-DEMO-001',
       ),
     ),
     NotificationModel(
@@ -33,8 +47,8 @@ class NotificationRepository {
     ),
     NotificationModel(
       id: 'collector-1',
-      title: 'Pickup Assigned',
-      message: 'You have a new pickup assignment.',
+      title: 'Collection Assigned',
+      message: 'You have a new assigned bin collection.',
       timestamp: DateTime(2026, 8, 12, 10, 5),
       isRead: false,
       role: UserRole.collector,

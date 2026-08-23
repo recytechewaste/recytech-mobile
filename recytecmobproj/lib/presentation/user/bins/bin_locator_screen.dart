@@ -6,6 +6,7 @@ import '../../../core/utils/map_launcher.dart';
 import '../../../data/models/public_bin_model.dart';
 import '../../../data/repositories/public_bin_repository.dart';
 import '../../../widgets/empty_state.dart';
+import 'bin_qr_scanner_screen.dart';
 
 class BinLocatorScreen extends StatefulWidget {
   const BinLocatorScreen({super.key});
@@ -46,6 +47,87 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
         const SnackBar(content: Text('No maps app is available.')),
       );
     }
+  }
+
+  Future<void> _scanBinQr(PublicBin bin) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BinQrScannerScreen(expectedBin: bin),
+      ),
+    );
+  }
+
+  void _showBinDetails(PublicBin bin) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(18.w, 8.h, 18.w, 18.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  bin.name,
+                  style: TextStyle(
+                    fontSize: 17.sp,
+                    fontWeight: FontWeight.w900,
+                    color: RecyTechTheme.textDark,
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                _detailRow(
+                  Icons.apartment_outlined,
+                  'Building',
+                  bin.building ?? '-',
+                ),
+                _detailRow(
+                  Icons.place_outlined,
+                  'Location',
+                  bin.locationDescription ?? bin.address,
+                ),
+                _detailRow(Icons.map_outlined, 'Address', bin.address),
+                if ((bin.accessInfo ?? '').trim().isNotEmpty)
+                  _detailRow(
+                    Icons.schedule_outlined,
+                    'Access',
+                    bin.accessInfo!,
+                  ),
+                if ((bin.publicStatus ?? '').trim().isNotEmpty)
+                  _detailRow(
+                    Icons.info_outline,
+                    'Status',
+                    bin.publicStatus!,
+                  ),
+                SizedBox(height: 14.h),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _openMaps(bin),
+                        icon: const Icon(Icons.directions_outlined),
+                        label: const Text('Directions'),
+                      ),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: bin.isActive ? () => _scanBinQr(bin) : null,
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: const Text('Scan Bin QR'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -103,48 +185,115 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
   }
 
   Widget _binCard(PublicBin bin) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RecyTechTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  bin.name,
-                  style: TextStyle(
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w900,
-                    color: RecyTechTheme.textDark,
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _showBinDetails(bin),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(14.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: RecyTechTheme.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    bin.name,
+                    style: TextStyle(
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w900,
+                      color: RecyTechTheme.textDark,
+                    ),
                   ),
                 ),
-              ),
-              if ((bin.publicStatus ?? '').trim().isNotEmpty)
-                Chip(
-                  label: Text(bin.publicStatus!),
-                  visualDensity: VisualDensity.compact,
+                if ((bin.publicStatus ?? '').trim().isNotEmpty)
+                  Chip(
+                    label: Text(bin.publicStatus!),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              bin.locationLabel,
+              style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              bin.address,
+              style:
+                  TextStyle(fontSize: 10.5.sp, color: RecyTechTheme.textMuted),
+            ),
+            if ((bin.accessInfo ?? '').trim().isNotEmpty) ...[
+              SizedBox(height: 6.h),
+              Text(
+                bin.accessInfo!,
+                style: TextStyle(
+                  fontSize: 10.5.sp,
+                  color: RecyTechTheme.textMuted,
                 ),
+              ),
             ],
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openMaps(bin),
+                    icon: const Icon(Icons.directions_outlined),
+                    label: const Text('Directions'),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: bin.isActive ? () => _scanBinQr(bin) : null,
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('Scan QR'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 10.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: RecyTechTheme.primary, size: 18.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            flex: 3,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.sp,
+                color: RecyTechTheme.textMuted,
+              ),
+            ),
           ),
-          SizedBox(height: 8.h),
-          Text(
-            bin.address,
-            style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted),
-          ),
-          SizedBox(height: 12.h),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _openMaps(bin),
-              icon: const Icon(Icons.directions_outlined),
-              label: const Text('Get Directions'),
+          SizedBox(width: 8.w),
+          Expanded(
+            flex: 5,
+            child: Text(
+              value.trim().isEmpty ? '-' : value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 11.sp,
+                color: RecyTechTheme.textDark,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],

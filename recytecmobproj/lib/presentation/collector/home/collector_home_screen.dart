@@ -186,7 +186,7 @@ class _CollectorHomeScreenState extends State<CollectorHomeScreen> {
                     ),
                     _summaryCard(
                       context,
-                      'Next Pickup',
+                      'Next Collection',
                       nextJob?.requestCode ?? 'None',
                       Icons.check_circle_outline,
                     ),

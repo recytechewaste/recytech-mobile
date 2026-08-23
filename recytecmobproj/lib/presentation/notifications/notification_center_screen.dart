@@ -7,6 +7,7 @@ import '../../data/models/notification_model.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../widgets/empty_state.dart';
 import '../lgu/bins/bin_details_screen.dart';
+import '../user/history/history_screen.dart';
 
 class NotificationCenterScreen extends StatefulWidget {
   const NotificationCenterScreen({
@@ -81,8 +82,15 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     }
 
     switch (destination.kind) {
-      case NotificationDestinationKind.householdRequest:
-        _showMessage('Open History to view this household request.');
+      case NotificationDestinationKind.householdDropOff:
+        if (widget.role != UserRole.household) {
+          _showMessage('This notification is outside your role permissions.');
+          return;
+        }
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const HistoryScreen()),
+        );
       case NotificationDestinationKind.lguRequest:
         _showMessage('Open Requests to view this LGU collection request.');
       case NotificationDestinationKind.lguBin:

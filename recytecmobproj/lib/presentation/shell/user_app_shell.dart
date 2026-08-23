@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../../core/theme/recytechtheme.dart';
 import '../user/bins/bin_locator_screen.dart';
 import '../user/dashboard/dashboard_screen.dart';
-import '../user/ewaste_service/submission_form_screen.dart';
-import '../user/rewards/rewards_screen.dart';
+import '../user/education/education_content_screen.dart';
 import '../user/history/history_screen.dart';
 import '../user/profile/profile_screen.dart';
+import '../user/rewards/rewards_screen.dart';
 
 class UserAppShell extends StatefulWidget {
   static const route = '/user-app';
@@ -21,10 +21,10 @@ class _UserAppShellState extends State<UserAppShell> {
 
   final screens = const [
     UserDashboardScreen(),
-    SubmissionFormScreen(),
     BinLocatorScreen(),
     RewardsScreen(),
     HistoryScreen(),
+    EducationContentScreen(),
     ProfileScreen(),
   ];
 
@@ -66,11 +66,6 @@ class _UserAppShellState extends State<UserAppShell> {
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.send_outlined),
-              activeIcon: _NavPill(icon: Icons.send_outlined),
-              label: 'Submit',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.location_on_outlined),
               activeIcon: _NavPill(icon: Icons.location_on_outlined),
               label: 'Locator',
@@ -84,6 +79,11 @@ class _UserAppShellState extends State<UserAppShell> {
               icon: Icon(Icons.history),
               activeIcon: _NavPill(icon: Icons.history),
               label: 'History',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.menu_book_outlined),
+              activeIcon: _NavPill(icon: Icons.menu_book_outlined),
+              label: 'Education',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),

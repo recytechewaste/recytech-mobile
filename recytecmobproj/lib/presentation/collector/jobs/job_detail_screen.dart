@@ -111,7 +111,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
     if (query.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No pickup location available.')),
+        const SnackBar(content: Text('No collection location available.')),
       );
       return;
     }

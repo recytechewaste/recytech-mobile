@@ -101,7 +101,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                     children: [
                       _messageState(
                         context,
-                        'No assigned pickup tasks yet.',
+                        'No assigned collection tasks yet.',
                       ),
                     ],
                   )
@@ -130,7 +130,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
         border: Border.all(color: RecyTechTheme.primary.withValues(alpha: 0.2)),
       ),
       child: Text(
-        '$count assigned pickup task${count == 1 ? '' : 's'}. Nearest scheduled tasks appear first.',
+        '$count assigned collection task${count == 1 ? '' : 's'}. Nearest scheduled tasks appear first.',
         style: TextStyle(
           fontSize: 11.sp,
           color: RecyTechTheme.primary,

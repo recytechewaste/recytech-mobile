@@ -1,15 +1,16 @@
 # RecyTech Mobile Integration Contracts
 
-Phase 4 status: this document separates actual mobile API usage from recommended backend work that is not yet implemented in the Flutter app.
+Phase 5 status: this document separates actual mobile API usage from recommended backend work that is not yet implemented in the Flutter app.
 
 ## Actual Existing API Usage
 
 | Module | Mobile code | Operation |
 | --- | --- | --- |
 | Auth | `AuthApi`, `AuthRepository` | login, household registration, logout, forgot password, PIN verification, password reset |
-| Household requests | `RequestApi`, `RequestRepository` | create request, fetch my requests, fetch active categories, fetch transactions |
 | Collector jobs | `CollectorApi`, `CollectorRepository` | fetch requests/jobs, update request status and assigned collector fields |
 | Contributions | `ContributionApi`, `ContributionRepository` | fetch contribution records |
+
+Household pickup/request submission is no longer exposed in the mobile Household UI. Legacy request API classes remain in code only so shared Collector/Admin/LGU-related backend workflows are not broken during migration.
 
 API base URL is centralized in `Env.baseUrl` and can be overridden with:
 
@@ -31,6 +32,75 @@ flutter run --dart-define=RECYTECH_API_BASE_URL=http://<host>:5000/api
 | Images/multipart | None required |
 | Auth required | No, unless bins are municipality-specific |
 | Status | Waiting for backend |
+
+### HOUSEHOLD QR DROP-OFF / REWARD
+
+PROPOSED / REQUIRED BACKEND CONTRACT. The current Flutter implementation uses `DropOffRepository` with `MockDropOffRepository` for development.
+
+#### QR Validation
+
+| Field | Requirement |
+| --- | --- |
+| Purpose | Validate that a scanned QR identifies a designated RecyTech bin |
+| Recommended request | `POST /api/household/drop-offs/validate-bin-qr` |
+| Auth required | Yes, Household |
+| Request data | `{ "version": 1, "publicBinCode": "opaque-public-code" }` |
+| Response data | `{ "binId": "...", "binName": "...", "building": "...", "locationDescription": "...", "address": "...", "active": true, "publicStatus": "Open" }` |
+| Validation | Reject malformed payloads, non-RecyTech QR values, unknown public codes, inactive bins, and expired sessions |
+| Duplicate protection | No reward or drop-off record should be created by validation alone |
+
+#### Drop-Off Registration
+
+| Field | Requirement |
+| --- | --- |
+| Purpose | Record an authenticated account-to-bin drop-off/check-in after the user confirms the scanned bin |
+| Recommended request | `POST /api/household/drop-offs` |
+| Auth required | Yes, Household |
+| Request data | `{ "version": 1, "publicBinCode": "opaque-public-code", "idempotencyKey": "client-generated-uuid" }` |
+| Response data | `{ "id": "...", "binId": "...", "binName": "...", "createdAt": "...", "status": "Recorded", "rewardEligible": true, "rewardValue": "...", "rewardPoints": 10, "rewardStatus": "Credited" }` |
+| Validation | User identity comes from auth token/session, never from the QR payload; backend validates bin active status |
+| Duplicate protection | Backend must enforce idempotency, duplicate request handling, configured reward window/cooldown, server timestamp, and unique drop-off records |
+
+#### Reward Eligibility
+
+| Field | Requirement |
+| --- | --- |
+| Purpose | Determine whether a drop-off check-in earns a reward |
+| Auth required | Yes, Household |
+| Input source | Backend-owned drop-off record and reward rules |
+| Output source | Backend-generated reward value/points and status |
+| Validation | Mobile must not compute reward value, exchange rates, categories, quantities, or weights |
+| Duplicate protection | Backend must be authoritative for one eligible reward per configured window |
+
+#### Drop-Off History
+
+| Field | Requirement |
+| --- | --- |
+| Purpose | Show Household designated-bin check-ins |
+| Recommended request | `GET /api/household/drop-offs` |
+| Auth required | Yes, Household |
+| Response data | `[{ "id": "...", "binId": "...", "binName": "...", "building": "...", "locationDescription": "...", "createdAt": "...", "status": "Recorded", "rewardEligible": true, "rewardValue": "...", "rewardPoints": 10, "rewardStatus": "Credited" }]` |
+| Validation | Return only the authenticated user's records |
+| Duplicate protection | History is read-only; duplicate prevention belongs to registration |
+
+#### Reward History
+
+| Field | Requirement |
+| --- | --- |
+| Purpose | Show rewards generated from eligible QR drop-off records |
+| Recommended request | `GET /api/household/rewards` |
+| Auth required | Yes, Household |
+| Response data | `[{ "id": "...", "dropOffId": "...", "createdAt": "...", "status": "Credited", "rewardValue": "...", "rewardPoints": 10, "binName": "...", "locationDescription": "..." }]` |
+| Validation | Return backend-created transactions only |
+| Duplicate protection | Backend must not create duplicate reward transactions for duplicate scans |
+
+QR payload format currently parsed by mobile:
+
+```text
+recytech://bin/<opaque-public-code>
+```
+
+The QR payload must not contain user IDs, reward values, e-waste categories, quantities, weights, private backend IDs, or secrets. A static printed QR establishes an authenticated account-to-bin check-in only. It is not cryptographic proof that physical e-waste was deposited. For the capstone prototype, use server-side validation, idempotency, and duplicate/cooldown controls. Do not add NFC, weighing hardware, bin cameras, dynamic QR displays, or biometric verification unless requested in a future scope.
 
 ### LGU Bins and ToF Readings
 
@@ -115,7 +185,7 @@ flutter run --dart-define=RECYTECH_API_BASE_URL=http://<host>:5000/api
 
 Current image handling:
 
-- Household submission photo is converted to a base64 data URL before request submission.
+- Household has no e-waste image capture, upload, AI identification, category claim, quantity claim, weight claim, pickup address, or pickup request workflow.
 - Collector before evidence, item scan images, and after evidence are local file paths inside the mock completion report.
 - Collector YOLO item images are local runtime evidence for the active workflow.
 
@@ -124,3 +194,21 @@ Production requirement:
 - Add a backend-supported upload mechanism before persisting collector reports.
 - Prefer multipart/form-data fields such as `beforeImage`, `afterImage`, and `itemImages[]`, or a separate upload endpoint returning stable file IDs/URLs.
 - Mobile should submit backend image references in final report payloads, not permanent local file paths.
+
+## Analytics Separation
+
+Household QR data:
+
+- authenticated user/account
+- designated bin
+- drop-off/check-in timestamp
+- backend reward/check-in result
+
+Collector verified collection data:
+
+- confirmed e-waste category
+- quantity
+- bin/LGU/Collector context
+- completion timestamp
+
+Official e-waste category and quantity analytics must use Collector-confirmed collection reports, not Household QR check-in data.

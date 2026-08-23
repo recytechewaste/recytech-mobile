@@ -23,8 +23,11 @@ dependencies:
   # Responsive UI (based on Figma design size)
   flutter_screenutil: ^5.9.3
 
-  # Image capture and selection (e-waste proof, AI input)
+  # Image capture and selection (collector evidence/profile images)
   image_picker: ^1.1.2
+
+  # QR scanning for designated-bin household drop-off check-ins
+  mobile_scanner: ^7.0.1
 
   # Open external navigation apps (Google Maps)
   url_launcher: ^6.3.0

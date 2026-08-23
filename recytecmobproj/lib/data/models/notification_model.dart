@@ -49,7 +49,7 @@ class NotificationDestination {
 }
 
 enum NotificationDestinationKind {
-  householdRequest,
+  householdDropOff,
   lguRequest,
   lguBin,
   collectorAssignment,

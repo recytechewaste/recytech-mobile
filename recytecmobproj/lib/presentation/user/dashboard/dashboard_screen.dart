@@ -7,8 +7,8 @@ import '../../../services/auth_provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../notifications/notification_center_screen.dart';
 import '../bins/bin_locator_screen.dart';
+import '../bins/bin_qr_scanner_screen.dart';
 import '../education/education_content_screen.dart';
-import '../ewaste_service/submission_form_screen.dart';
 import '../history/history_screen.dart';
 import '../rewards/rewards_screen.dart';
 
@@ -144,30 +144,15 @@ class UserDashboardScreen extends StatelessWidget {
             ),
             SizedBox(height: 4.h),
             Text(
-              'Manage your e-waste responsibly today',
+              'Find a designated bin, scan its QR code, and track drop-off rewards.',
               style: TextStyle(fontSize: 11.sp, color: _textMuted),
             ),
             SizedBox(height: 16.h),
             _infoCard(
-              title: 'Submit E-Waste',
-              body: 'Manually enter item details and request information.',
-              icon: Icons.send_outlined,
-              tint: _primary,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SubmissionFormScreen(),
-                  ),
-                );
-              },
-            ),
-            SizedBox(height: 12.h),
-            _infoCard(
-              title: 'Bin Locator',
-              body: 'Find designated public drop-off points and directions.',
+              title: 'Find a Bin',
+              body: 'Locate designated RecyTech bins and open directions.',
               icon: Icons.location_on_outlined,
-              tint: Colors.teal,
+              tint: _primary,
               onTap: () {
                 Navigator.push(
                   context,
@@ -179,8 +164,23 @@ class UserDashboardScreen extends StatelessWidget {
             ),
             SizedBox(height: 12.h),
             _infoCard(
+              title: 'Scan Bin QR',
+              body: 'Check in at the designated bin before depositing e-waste.',
+              icon: Icons.qr_code_scanner,
+              tint: Colors.teal,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BinQrScannerScreen(),
+                  ),
+                );
+              },
+            ),
+            SizedBox(height: 12.h),
+            _infoCard(
               title: 'Rewards',
-              body: 'View contribution payouts where backend data exists.',
+              body: 'View rewards returned by drop-off check-in records.',
               icon: Icons.emoji_events_outlined,
               tint: Colors.orange,
               onTap: () {
@@ -192,8 +192,8 @@ class UserDashboardScreen extends StatelessWidget {
             ),
             SizedBox(height: 12.h),
             _infoCard(
-              title: 'History',
-              body: 'Review submitted requests and backend status history.',
+              title: 'Drop-Off History',
+              body: 'Review designated-bin check-ins and reward status.',
               icon: Icons.history,
               tint: Colors.blueGrey,
               onTap: () {
