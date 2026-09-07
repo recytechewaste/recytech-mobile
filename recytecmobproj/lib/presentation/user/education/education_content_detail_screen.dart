@@ -26,7 +26,7 @@ class EducationContentDetailScreen extends StatelessWidget {
             Container(
               padding: EdgeInsets.all(16.w),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: RecyTechTheme.card,
                 borderRadius: BorderRadius.circular(22.r),
                 border: Border.all(color: RecyTechTheme.border),
                 boxShadow: [

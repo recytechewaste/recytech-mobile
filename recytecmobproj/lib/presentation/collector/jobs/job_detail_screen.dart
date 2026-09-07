@@ -1,15 +1,12 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
+import 'package:recytecmobproj/core/utils/helpers.dart';
 import 'package:recytecmobproj/core/utils/map_launcher.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
-import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
-import 'package:provider/provider.dart';
 import 'package:recytecmobproj/presentation/collector/collection/collection_workflow_screen.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 
@@ -38,35 +35,62 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     job = widget.job;
   }
 
-  Future<void> _updateStatus(String logicalStatus) async {
+  Future<void> _startCollection() async {
     if (isUpdating) return;
-
-    final current = CollectorJobStatuses.normalize(job.status);
-    final next = CollectorJobStatuses.normalize(logicalStatus);
-    if (current == next) return;
-
-    if (!CollectorJobStatuses.canTransition(current, next)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Complete the required prior step first.')),
-      );
-      return;
-    }
 
     setState(() {
       isUpdating = true;
     });
 
     try {
-      final collector = next == CollectorJobStatuses.onTheWay
-          ? context.read<AuthProvider>().currentUser
-          : null;
-      final collectorName = _collectorName(collector);
+      final updated = await _repository.startCollection(requestId: job.id);
+
+      if (!mounted) return;
+
+      setState(() {
+        job = updated.id.isEmpty
+            ? job.copyWith(
+                status: CollectorJobStatuses.backendValue(
+                  CollectorJobStatuses.inProgress,
+                ),
+                startedAt: DateTime.now().toIso8601String(),
+              )
+            : updated;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Collection started.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_messageForError(e))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUpdating = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _updateStatus(String status, String successMessage) async {
+    if (isUpdating) return;
+
+    final collector = context.read<AuthProvider>().currentUser;
+
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
       final updated = await _repository.updateJobStatus(
         requestId: job.id,
-        status: CollectorJobStatuses.backendValue(logicalStatus),
+        status: CollectorJobStatuses.backendValue(status),
         collectorId: collector?.id,
-        collectorName: collectorName,
+        collectorName: _collectorName(collector),
         collectorEmail: collector?.email,
       );
 
@@ -75,21 +99,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       setState(() {
         job = updated.id.isEmpty
             ? job.copyWith(
-                status: CollectorJobStatuses.backendValue(logicalStatus),
-                assignedCollector: collectorName.isEmpty
-                    ? job.assignedCollector
-                    : collectorName,
-                assignedCollectorId: collector?.id,
+                status: CollectorJobStatuses.backendValue(status),
+                updatedAt: DateTime.now().toIso8601String(),
               )
             : updated;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Request marked as ${CollectorJobStatuses.label(logicalStatus)}.',
-          ),
-        ),
+        SnackBar(content: Text(successMessage)),
       );
     } catch (e) {
       if (!mounted) return;
@@ -107,9 +124,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _openLocationInMaps() async {
-    final query = job.location.trim();
-
-    if (query.isEmpty) {
+    if (job.location.trim().isEmpty &&
+        (job.latitude == null || job.longitude == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No collection location available.')),
       );
@@ -117,7 +133,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
 
     final launched = await _mapLauncher.open(
-      MapLaunchTarget(address: query),
+      MapLaunchTarget(
+        label: job.displayItem,
+        address: job.location,
+        latitude: job.latitude,
+        longitude: job.longitude,
+      ),
     );
 
     if (!launched && mounted) {
@@ -127,13 +148,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
-  Future<void> _startOrContinueCollection() async {
-    final current = CollectorJobStatuses.normalize(job.status);
-    if (current == CollectorJobStatuses.arrived) {
-      await _updateStatus(CollectorJobStatuses.inProgress);
-    }
-
-    if (!mounted) return;
+  Future<void> _continueCollection() async {
     final completed = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => CollectionWorkflowScreen(job: job)),
@@ -145,6 +160,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           status: CollectorJobStatuses.backendValue(
             CollectorJobStatuses.completed,
           ),
+          updatedAt: DateTime.now().toIso8601String(),
         );
       });
     }
@@ -173,7 +189,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             Container(
               padding: EdgeInsets.all(14.w),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: RecyTechTheme.card,
                 borderRadius: BorderRadius.circular(20.r),
                 border: Border.all(color: RecyTechTheme.border),
                 boxShadow: [
@@ -186,36 +202,27 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
               child: Column(
                 children: [
-                  _infoRow('Resident', _valueOrDash(job.residentName)),
-                  _infoRow('LGU', _valueOrDash(job.assignedCollector)),
+                  _infoRow(
+                    'Partner Organization',
+                    _valueOrDash(job.partnerOrganizationName),
+                  ),
                   _infoRow('Bin', _valueOrDash(job.displayItem)),
-                  _infoRow('Item', _valueOrDash(job.displayItem)),
-                  _infoRow('Waste Type', _valueOrDash(job.wasteType)),
                   _infoRow('Bin Location', _valueOrDash(job.location)),
+                  _infoRow('Coordinates', _coordinatesLabel()),
                   _locationAction(),
-                  _infoRow('Quantity', job.quantity.toString()),
-                  _infoRow('Rate / kg', _formatMoney(job.ratePerKg)),
-                  _infoRow('Email', _valueOrDash(job.residentEmail)),
-                  _infoRow('Phone', _valueOrDash(job.phone)),
+                  _infoRow('Requested', _formatDate(job.schedule)),
                   _infoRow('Status', CollectorJobStatuses.label(job.status)),
                   _infoRow('Collector', _valueOrDash(job.assignedCollector)),
-                  _infoRow('Scheduled', _formatDate(job.scheduledAt)),
-                  _infoRow('Priority', _priorityLabel()),
-                  _infoRow('Remarks', _valueOrDash(job.detectedClass)),
+                  _infoRow(
+                    'Fill',
+                    job.fillPercentage == null
+                        ? '-'
+                        : '${job.fillPercentage!.round()}%',
+                  ),
+                  _infoRow('Remarks', _valueOrDash(job.remarks)),
                 ],
               ),
             ),
-            SizedBox(height: 24.h),
-            Text(
-              'Waste Image',
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w800,
-                color: RecyTechTheme.textDark,
-              ),
-            ),
-            SizedBox(height: 8.h),
-            _imagePreview(),
             SizedBox(height: 24.h),
             _workflowActions(),
           ],
@@ -225,7 +232,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Widget _locationAction() {
-    if (job.location.trim().isEmpty) {
+    if (job.location.trim().isEmpty &&
+        (job.latitude == null || job.longitude == null)) {
       return const SizedBox.shrink();
     }
 
@@ -236,7 +244,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         child: OutlinedButton.icon(
           onPressed: _openLocationInMaps,
           icon: const Icon(Icons.map_outlined),
-          label: const Text('Open in Google Maps'),
+          label: const Text('View location on map'),
         ),
       ),
     );
@@ -244,129 +252,74 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Widget _workflowActions() {
     final normalized = CollectorJobStatuses.normalize(job.status);
-    final next = CollectorJobStatuses.next(normalized);
     final canUpdate = !isUpdating && job.id.isNotEmpty;
 
-    if (normalized == CollectorJobStatuses.completed) {
-      return const _InfoPanel(message: 'This collection is completed.');
+    switch (normalized) {
+      case CollectorJobStatuses.assigned:
+        return _primaryAction(
+          label: 'Accept',
+          icon: Icons.check_circle_outline,
+          onPressed: canUpdate
+              ? () => _updateStatus(
+                    CollectorJobStatuses.onTheWay,
+                    'Request accepted.',
+                  )
+              : null,
+        );
+      case CollectorJobStatuses.onTheWay:
+        return _primaryAction(
+          label: 'Arrived',
+          icon: Icons.location_on_outlined,
+          onPressed: canUpdate
+              ? () => _updateStatus(
+                    CollectorJobStatuses.arrived,
+                    'Arrival marked.',
+                  )
+              : null,
+        );
+      case CollectorJobStatuses.arrived:
+        return _primaryAction(
+          label: 'Start Collection',
+          icon: Icons.arrow_forward,
+          onPressed: canUpdate ? _startCollection : null,
+        );
+      case CollectorJobStatuses.inProgress:
+      case CollectorJobStatuses.readyForCompletion:
+        return _primaryAction(
+          label: 'Continue Collection',
+          icon: Icons.assignment_turned_in_outlined,
+          onPressed: canUpdate ? _continueCollection : null,
+        );
+      case CollectorJobStatuses.completed:
+        return const _InfoPanel(message: 'This collection is completed.');
+      case CollectorJobStatuses.cancelled:
+        return const _InfoPanel(
+          message: 'No action is available for this status.',
+        );
+      default:
+        return const _InfoPanel(
+          message: 'No action is available for this status.',
+        );
     }
+  }
 
-    if (normalized == CollectorJobStatuses.inProgress ||
-        normalized == CollectorJobStatuses.readyForCompletion) {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: canUpdate ? _startOrContinueCollection : null,
-          icon: const Icon(Icons.assignment_turned_in_outlined),
-          label: Text(
-            normalized == CollectorJobStatuses.readyForCompletion
-                ? 'Review Report'
-                : 'Continue Collection',
-          ),
-        ),
-      );
-    }
-
-    final label = next == CollectorJobStatuses.onTheWay
-        ? 'On The Way'
-        : next == CollectorJobStatuses.arrived
-            ? 'Arrived'
-            : next == CollectorJobStatuses.inProgress
-                ? 'Start Collection'
-                : null;
-
-    if (label == null) {
-      return const _InfoPanel(
-          message: 'No action is available for this status.');
-    }
-
+  Widget _primaryAction({
+    required String label,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: canUpdate
-            ? () {
-                if (next == CollectorJobStatuses.inProgress) {
-                  _startOrContinueCollection();
-                } else {
-                  _updateStatus(next!);
-                }
-              }
-            : null,
+        onPressed: onPressed,
         icon: isUpdating
             ? SizedBox(
                 width: 16.w,
                 height: 16.w,
                 child: const CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Icon(Icons.arrow_forward),
+            : Icon(icon),
         label: Text(label),
-      ),
-    );
-  }
-
-  Widget _imagePreview() {
-    final image = job.wasteImage.trim();
-
-    if (image.isEmpty) {
-      return _placeholderBox('No waste image available.');
-    }
-
-    if (image.startsWith('data:image/')) {
-      final bytes = _decodeDataImage(image);
-      if (bytes == null) return _placeholderBox('Unable to display image.');
-
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Image.memory(
-          bytes,
-          width: double.infinity,
-          height: 170.h,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _placeholderBox('Unable to display image.'),
-        ),
-      );
-    }
-
-    if (!image.startsWith('http://') && !image.startsWith('https://')) {
-      return _placeholderBox(image);
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Image.network(
-        image,
-        width: double.infinity,
-        height: 170.h,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _placeholderBox(image),
-      ),
-    );
-  }
-
-  Uint8List? _decodeDataImage(String value) {
-    final commaIndex = value.indexOf(',');
-    if (commaIndex < 0 || commaIndex == value.length - 1) return null;
-
-    try {
-      return base64Decode(value.substring(commaIndex + 1));
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Widget _placeholderBox(String text) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(12.w),
-      decoration: BoxDecoration(
-        color: RecyTechTheme.pill,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: RecyTechTheme.border),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted),
       ),
     );
   }
@@ -402,14 +355,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     return value.trim().isEmpty ? '-' : value;
   }
 
-  String _collectorName(UserModel? user) {
-    if (user == null) return '';
-    if (user.fullName.trim().isNotEmpty) return user.fullName.trim();
-
-    return [
-      user.firstName,
-      user.lastName,
-    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
+  String _coordinatesLabel() {
+    if (job.latitude == null || job.longitude == null) return '-';
+    return '${job.latitude!.toStringAsFixed(5)}, ${job.longitude!.toStringAsFixed(5)}';
   }
 
   String _formatDate(String value) {
@@ -427,25 +375,21 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     return '${local.year}-$month-$day $hour:$minute';
   }
 
-  String _formatMoney(double value) {
-    if (value <= 0) return '-';
-    return 'PHP ${value.toStringAsFixed(2)}';
-  }
+  String _collectorName(user) {
+    if (user == null) return '';
+    if (user.fullName.trim().isNotEmpty) return user.fullName.trim();
 
-  String _priorityLabel() {
-    if (job.quantity >= 5) return 'High';
-    if (job.quantity >= 2) return 'Normal';
-    return 'Standard';
+    return [
+      user.firstName,
+      user.lastName,
+    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
   }
 
   String _messageForError(Object error) {
-    final text = error.toString();
-    const marker = 'message: ';
-    if (text.contains(marker)) {
-      return text.split(marker).last.replaceAll(')', '').trim();
-    }
-
-    return 'Status update failed. Please try again.';
+    return userFacingError(
+      error,
+      fallback: 'Status update failed. Please try again.',
+    );
   }
 }
 

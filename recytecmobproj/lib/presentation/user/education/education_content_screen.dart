@@ -32,11 +32,11 @@ class EducationContentScreen extends StatelessWidget {
     EducationContentItem(
       title: 'How RecyTech Drop-Off Works',
       summary:
-          'Find a designated bin, scan its QR code, and record your drop-off.',
+          'Find a designated bin, then submit your e-waste category and quantity.',
       category: 'RecyTech',
       dateLabel: 'Learning guide',
       body:
-          'Household users bring accepted e-waste to designated RecyTech bins in approved buildings, communities, and facilities. Use the Bin Locator to find a bin, open directions, and scan the QR code attached to the bin before depositing your items.\n\nThe QR check-in records your account and the bin used. Later collection and item verification are handled through RecyTech collection workflows.',
+          'Household users bring accepted e-waste to designated RecyTech bins in approved buildings, communities, and facilities. Use the Bin Locator to find a bin, view its location on the map, and submit a drop-off with the category and quantity accepted by that bin.\n\nScanning the QR code identifies the bin before opening the same drop-off form. Later collection, item verification, and points processing are handled through future RecyTech workflows.',
     ),
     EducationContentItem(
       title: 'Preparing Items for a Designated Bin',
@@ -109,7 +109,7 @@ class _EducationContentCard extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(20.r),
           border: Border.all(color: RecyTechTheme.border),
           boxShadow: [

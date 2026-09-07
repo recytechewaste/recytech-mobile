@@ -4,6 +4,36 @@ import '../../core/storage/secure_storage.dart';
 import '../datasources/auth_api.dart';
 import '../models/user_model.dart';
 
+class RegistrationResult {
+  const RegistrationResult({
+    required this.email,
+    required this.message,
+    required this.role,
+    required this.accountStatus,
+    required this.emailVerificationRequired,
+    required this.emailSent,
+  });
+
+  final String email;
+  final String message;
+  final String role;
+  final String accountStatus;
+  final bool emailVerificationRequired;
+  final bool emailSent;
+}
+
+class EmailVerificationResult {
+  const EmailVerificationResult({
+    required this.message,
+    required this.accountStatus,
+    this.user,
+  });
+
+  final String message;
+  final String accountStatus;
+  final UserModel? user;
+}
+
 class AuthRepository {
   final AuthApi _api;
   final SecureStorage _storage;
@@ -28,48 +58,75 @@ class AuthRepository {
     return response.user;
   }
 
-  Future<UserModel?> register(
+  Future<RegistrationResult> register(
     String email,
     String password, {
     String? fullName,
+    String role = 'household',
+    String? organizationName,
+    String? contactPerson,
+    String? contactNumber,
+    String? phone,
+    String? vehicleType,
+    String? plateNumber,
   }) async {
     final response = await _api.register(
       fullName: fullName,
       email: email,
       password: password,
+      role: role,
+      organizationName: organizationName,
+      contactPerson: contactPerson,
+      contactNumber: contactNumber,
+      phone: phone,
+      vehicleType: vehicleType,
+      plateNumber: plateNumber,
     );
 
-    await _saveTokenIfPresent(response.token);
-    await _saveUserIfPresent(response.user);
-    if (response.user == null) {
-      await _storage.clearAuthSession();
-    }
-    return response.user;
+    await _storage.clearAuthSession();
+    return RegistrationResult(
+      email: response.email,
+      message: response.message,
+      role: response.role,
+      accountStatus: response.accountStatus,
+      emailVerificationRequired: response.emailVerificationRequired,
+      emailSent: response.emailSent,
+    );
+  }
+
+  Future<EmailVerificationResult> verifyEmail({
+    required String email,
+    required String pin,
+  }) async {
+    final response = await _api.verifyEmail(email: email, pin: pin);
+    return EmailVerificationResult(
+      message: response.message,
+      accountStatus: response.accountStatus,
+      user: response.user,
+    );
+  }
+
+  Future<String> resendVerification(String email) async {
+    final response = await _api.resendVerification(email: email);
+    return _messageFromResponse(
+      response,
+      fallback: 'A new verification PIN has been sent.',
+    );
   }
 
   Future<UserModel?> currentUser() async {
     final token = await _storage.readToken();
     if (token == null || token.isEmpty) return null;
 
-    // The confirmed backend auth routes do not expose /auth/me.
-    final userJson = await _storage.readUserJson();
-    if (userJson == null || userJson.isEmpty) {
-      await _storage.clearAuthSession();
-      return null;
-    }
-
     try {
-      final decoded = jsonDecode(userJson);
-      if (decoded is! Map) {
-        await _storage.clearAuthSession();
-        return null;
-      }
-
-      return UserModel.fromJson(decoded.cast<String, dynamic>());
+      final response = await _api.me();
+      await _saveTokenIfPresent(response.token);
+      await _saveUserIfPresent(response.user);
+      if (response.user != null) return response.user;
     } catch (_) {
       await _storage.clearAuthSession();
-      return null;
     }
+    return null;
   }
 
   Future<void> logout() async {

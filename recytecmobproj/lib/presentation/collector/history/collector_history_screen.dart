@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
-
 import '../../../core/theme/recytechtheme.dart';
 import '../../../data/models/collected_item_model.dart';
 import '../../../data/repositories/collection_completion_repository.dart';
-import '../../../services/auth_provider.dart';
 import '../../../widgets/empty_state.dart';
 
 class CollectorHistoryScreen extends StatefulWidget {
@@ -17,7 +14,7 @@ class CollectorHistoryScreen extends StatefulWidget {
 
 class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
   final CollectionCompletionRepository _repository =
-      MockCollectionCompletionRepository();
+      ApiCollectionCompletionRepository();
   late Future<List<CollectionReportDraft>> _future;
 
   @override
@@ -34,8 +31,6 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().currentUser;
-
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(title: const Text('Collection History')),
@@ -43,28 +38,22 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingState(
+                message: 'Loading collection history…');
           }
           if (snapshot.hasError) {
-            return _state(
-              icon: Icons.error_outline,
-              title: 'Unable to load history',
-              action: OutlinedButton(
-                onPressed: _refresh,
-                child: const Text('Retry'),
-              ),
+            return AppErrorState(
+              title: 'Unable to load collection history. Please try again.',
+              onRetry: _refresh,
             );
           }
 
-          final reports = (snapshot.data ?? <CollectionReportDraft>[])
-              .where((report) =>
-                  user == null || report.collectorName == user.fullName)
-              .toList();
+          final reports = snapshot.data ?? <CollectionReportDraft>[];
           if (reports.isEmpty) {
             return _state(
               icon: Icons.history,
-              title: 'No completed collections',
-              message: 'Completed collection reports will appear here.',
+              title: 'You have no completed collection requests yet.',
+              message: 'Completed collections will appear here.',
             );
           }
 
@@ -88,7 +77,7 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
         margin: EdgeInsets.only(bottom: 12.h),
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: RecyTechTheme.border),
         ),
@@ -100,7 +89,7 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
               style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w900),
             ),
             SizedBox(height: 6.h),
-            Text('LGU: ${report.lguName ?? '-'}'),
+            Text('Partner Organization: ${report.lguName ?? '-'}'),
             Text('Bin: ${report.binName ?? '-'}'),
             Text('Completed: ${_formatDate(report.completedAt)}'),
             Text('Categories: ${_summaryText(report)}'),

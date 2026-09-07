@@ -55,6 +55,8 @@ test/
 **/train/
 **/valid/
 **/test/
+!recytecmobproj/test/
+!recytecmobproj/test/**
 
 # Large model/checkpoint files
 *.pt

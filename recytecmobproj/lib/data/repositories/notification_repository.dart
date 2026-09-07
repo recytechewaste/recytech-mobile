@@ -6,7 +6,7 @@ class NotificationRepository {
     NotificationModel(
       id: 'household-1',
       title: 'Drop-off recorded',
-      message: 'Your designated-bin QR check-in was recorded.',
+      message: 'Your designated-bin drop-off submission was recorded.',
       timestamp: DateTime(2026, 8, 12, 9, 15),
       isRead: false,
       role: UserRole.household,
@@ -19,12 +19,13 @@ class NotificationRepository {
     ),
     NotificationModel(
       id: 'household-2',
-      title: 'Reward credited',
-      message: 'A reward was credited for an eligible RecyTech bin check-in.',
+      title: 'Points pending',
+      message:
+          'Drop-off points processing will be available in a later update.',
       timestamp: DateTime(2026, 8, 12, 9, 18),
       isRead: true,
       role: UserRole.household,
-      type: 'reward_credited',
+      type: 'points_pending',
       relatedEntityId: 'REWARD-DROP-DEMO-001',
       destination: const NotificationDestination(
         kind: NotificationDestinationKind.householdDropOff,
@@ -37,7 +38,7 @@ class NotificationRepository {
       message: 'Municipal Hall Bin is full and ready for collection review.',
       timestamp: DateTime(2026, 8, 12, 8, 40),
       isRead: false,
-      role: UserRole.lgu,
+      role: UserRole.partnerOrg,
       type: 'sensor_bin_alert',
       relatedEntityId: 'BIN-LGU-001',
       destination: const NotificationDestination(

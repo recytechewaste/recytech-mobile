@@ -32,7 +32,7 @@ class AccessDeniedScreen extends StatelessWidget {
                 Container(
                   width: 58.w,
                   height: 58.w,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: RecyTechTheme.pill,
                     shape: BoxShape.circle,
                   ),
@@ -54,7 +54,7 @@ class AccessDeniedScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 8.h),
                 Text(
-                  'This mobile app currently supports LGU and Collector accounts. Your account role is $displayRole.',
+                  'This mobile app currently supports Household, Partner Organization, and Collector accounts. Your account role is $displayRole.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12.sp,

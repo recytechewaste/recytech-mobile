@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/theme/recytechtheme.dart';
+import '../../core/utils/helpers.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../widgets/labeled_textfied.dart';
 import '../../widgets/primary_button.dart';
@@ -31,6 +32,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   _ResetStep _step = _ResetStep.email;
   bool _submitting = false;
+  bool _newPasswordVisible = false;
+  bool _confirmPasswordVisible = false;
   String? _resetToken;
   String? _statusMessage;
 
@@ -139,12 +142,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   String _messageForError(Object error) {
-    final text = error.toString();
-    const marker = 'message: ';
-    if (text.contains(marker)) {
-      return text.split(marker).last.replaceAll(')', '').trim();
-    }
-    return text.replaceFirst('Exception: ', '').replaceFirst('StateError: ', '');
+    return userFacingError(
+      error,
+      fallback: 'Unable to reset the password. Please try again.',
+    );
   }
 
   void _showMessage(String message) {
@@ -175,8 +176,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             SizedBox(height: 12.h),
             Center(
               child: TextButton(
-                onPressed:
-                    _submitting ? null : () => Navigator.pop(context),
+                onPressed: _submitting ? null : () => Navigator.pop(context),
                 child: const Text('Back to login'),
               ),
             ),
@@ -192,7 +192,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         Container(
           width: 58.w,
           height: 58.w,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: RecyTechTheme.pill,
             shape: BoxShape.circle,
           ),
@@ -241,7 +241,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   decoration: BoxDecoration(
                     color: i <= activeIndex
                         ? RecyTechTheme.primary
-                        : Colors.white,
+                        : RecyTechTheme.card,
                     shape: BoxShape.circle,
                     border: Border.all(color: RecyTechTheme.border),
                   ),
@@ -249,7 +249,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: Text(
                     '${i + 1}',
                     style: TextStyle(
-                      color: i <= activeIndex ? Colors.white : Colors.black54,
+                      color: i <= activeIndex
+                          ? Colors.white
+                          : RecyTechTheme.textMuted,
                       fontWeight: FontWeight.w900,
                       fontSize: 11.sp,
                     ),
@@ -271,8 +273,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             Container(
               width: 28.w,
               height: 2,
-              color:
-                  i < activeIndex ? RecyTechTheme.primary : RecyTechTheme.border,
+              color: i < activeIndex
+                  ? RecyTechTheme.primary
+                  : RecyTechTheme.border,
             ),
         ],
       ],
@@ -283,7 +286,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -363,22 +366,42 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           label: 'New Password',
           hintText: 'Enter new password',
           controller: _newPassword,
-          obscureText: true,
+          obscureText: !_newPasswordVisible,
           enableSuggestions: false,
           autocorrect: false,
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.newPassword],
+          suffixIcon: IconButton(
+            tooltip: _newPasswordVisible ? 'Hide password' : 'Show password',
+            onPressed: () => setState(
+              () => _newPasswordVisible = !_newPasswordVisible,
+            ),
+            icon: Icon(
+              _newPasswordVisible ? Icons.visibility_off : Icons.visibility,
+            ),
+          ),
         ),
         SizedBox(height: 14.h),
         LabeledTextField(
           label: 'Confirm Password',
           hintText: 'Re-enter new password',
           controller: _confirmPassword,
-          obscureText: true,
+          obscureText: !_confirmPasswordVisible,
           enableSuggestions: false,
           autocorrect: false,
           textInputAction: TextInputAction.done,
           autofillHints: const [AutofillHints.newPassword],
+          suffixIcon: IconButton(
+            tooltip: _confirmPasswordVisible
+                ? 'Hide confirm password'
+                : 'Show confirm password',
+            onPressed: () => setState(
+              () => _confirmPasswordVisible = !_confirmPasswordVisible,
+            ),
+            icon: Icon(
+              _confirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
+            ),
+          ),
         ),
         SizedBox(height: 16.h),
         _submitButton('Reset Password', _resetPassword),
@@ -423,7 +446,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: RecyTechTheme.border),
       ),

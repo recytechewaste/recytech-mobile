@@ -8,70 +8,102 @@ import 'services/auth_provider.dart';
 import 'presentation/auth/login_screen.dart';
 import 'presentation/auth/register_screen.dart';
 import 'presentation/auth/forgot_password_screen.dart';
+import 'presentation/auth/verify_email_screen.dart';
 import 'presentation/collector/shell/collector_home_shell.dart';
 import 'presentation/lgu/shell/lgu_home_shell.dart';
 import 'presentation/shell/access_denied_screen.dart';
 import 'presentation/shell/user_app_shell.dart';
+import 'presentation/settings/settings_screen.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/recytechtheme.dart';
+import 'core/theme/theme_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  runApp(const RecyTechApp());
+  final themeController = ThemeController();
+  await themeController.load();
+
+  runApp(RecyTechApp(themeController: themeController));
 }
 
 class RecyTechApp extends StatelessWidget {
-  const RecyTechApp({super.key});
+  const RecyTechApp({
+    super.key,
+    required this.themeController,
+  });
+
+  final ThemeController themeController;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AuthProvider>(
-      create: (_) => AuthProvider(AuthRepository()),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>(
+          create: (_) => AuthProvider(AuthRepository()),
+        ),
+        ChangeNotifierProvider<ThemeController>.value(
+          value: themeController,
+        ),
+      ],
       child: ScreenUtilInit(
         designSize: const Size(375, 812),
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (_, __) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: 'RecyTech Mobile',
-            theme: RecyTechTheme.light(),
-            home: Consumer<AuthProvider>(
-              builder: (context, auth, _) {
-                if (auth.isLoading) {
-                  return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                if (auth.user != null) {
-                  switch (AppRoles.shellTargetFor(auth.user!.role)) {
-                    case AppShellTarget.household:
-                      return const UserAppShell();
-                    case AppShellTarget.lgu:
-                      return const LguHomeShell();
-                    case AppShellTarget.collector:
-                      return const CollectorHomeShell();
-                    case AppShellTarget.accessDenied:
-                      return AccessDeniedScreen(role: auth.user!.role);
+          return Consumer<ThemeController>(
+            builder: (context, theme, _) => MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: 'RecyTech Mobile',
+              theme: RecyTechTheme.light(),
+              darkTheme: RecyTechTheme.dark(),
+              themeMode: theme.themeMode,
+              home: Consumer<AuthProvider>(
+                builder: (context, auth, _) {
+                  if (auth.isLoading) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
                   }
-                }
 
-                return const LoginScreen();
+                  if (auth.user != null) {
+                    switch (AppRoles.shellTargetFor(auth.user!.role)) {
+                      case AppShellTarget.household:
+                        return const UserAppShell();
+                      case AppShellTarget.partnerOrg:
+                        return const LguHomeShell();
+                      case AppShellTarget.collector:
+                        return const CollectorHomeShell();
+                      case AppShellTarget.accessDenied:
+                        return AccessDeniedScreen(role: auth.user!.role);
+                    }
+                  }
+
+                  return const LoginScreen();
+                },
+              ),
+              routes: {
+                LoginScreen.route: (_) => const LoginScreen(),
+                RegisterScreen.route: (_) => const RegisterScreen(),
+                ForgotPasswordScreen.route: (_) => const ForgotPasswordScreen(),
+                VerifyEmailScreen.route: (context) {
+                  final email = ModalRoute.of(context)
+                          ?.settings
+                          .arguments
+                          ?.toString() ??
+                      context.read<AuthProvider>().pendingVerificationEmail ??
+                      '';
+                  return VerifyEmailScreen(email: email);
+                },
+                CollectorHomeShell.route: (_) => const CollectorHomeShell(),
+                LguHomeShell.route: (_) => const LguHomeShell(),
+                AccessDeniedScreen.route: (_) => const AccessDeniedScreen(),
+                SettingsScreen.route: (_) => const SettingsScreen(),
+                // Legacy household shell kept for comparison/debug during migration.
+                UserAppShell.route: (_) => const UserAppShell(),
               },
             ),
-            routes: {
-              LoginScreen.route: (_) => const LoginScreen(),
-              RegisterScreen.route: (_) => const RegisterScreen(),
-              ForgotPasswordScreen.route: (_) => const ForgotPasswordScreen(),
-              CollectorHomeShell.route: (_) => const CollectorHomeShell(),
-              LguHomeShell.route: (_) => const LguHomeShell(),
-              AccessDeniedScreen.route: (_) => const AccessDeniedScreen(),
-              // Legacy household shell kept for comparison/debug during migration.
-              UserAppShell.route: (_) => const UserAppShell(),
-            },
           );
         },
       ),

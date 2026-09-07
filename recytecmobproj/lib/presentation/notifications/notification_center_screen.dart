@@ -92,9 +92,12 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           MaterialPageRoute(builder: (_) => const HistoryScreen()),
         );
       case NotificationDestinationKind.lguRequest:
-        _showMessage('Open Requests to view this LGU collection request.');
+        _showMessage(
+          'Open Requests to view this Partner Organization collection request.',
+        );
       case NotificationDestinationKind.lguBin:
-        if (widget.role != UserRole.lgu || destination.entityId == null) {
+        if (widget.role != UserRole.partnerOrg ||
+            destination.entityId == null) {
           _showMessage('This notification is outside your role permissions.');
           return;
         }
@@ -105,7 +108,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           ),
         );
       case NotificationDestinationKind.collectorAssignment:
-        _showMessage('Open Assigned to view this collector job.');
+        _showMessage(
+          'Open Assigned Requests to view this collection request.',
+        );
     }
   }
 
@@ -132,18 +137,13 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingState(message: 'Loading notifications…');
           }
 
           if (snapshot.hasError) {
-            return _state(
-              icon: Icons.error_outline,
-              title: 'Unable to load notifications',
-              message: 'Check the connection and try again.',
-              action: OutlinedButton(
-                onPressed: _refresh,
-                child: const Text('Retry'),
-              ),
+            return AppErrorState(
+              title: 'Unable to load notifications. Please try again.',
+              onRetry: _refresh,
             );
           }
 
@@ -151,8 +151,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           if (notifications.isEmpty) {
             return _state(
               icon: Icons.notifications_none,
-              title: 'No notifications',
-              message: 'Updates for this role will appear here.',
+              title: 'You have no notifications right now.',
             );
           }
 
@@ -178,7 +177,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
         margin: EdgeInsets.only(bottom: 10.h),
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: notification.isRead
@@ -215,7 +214,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                         Container(
                           width: 8.w,
                           height: 8.w,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: RecyTechTheme.primary,
                             shape: BoxShape.circle,
                           ),
@@ -281,10 +280,10 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
 
   Color _iconColor(String type) {
     if (type.contains('alert') || type.contains('urgent')) {
-      return Colors.orange.shade800;
+      return RecyTechTheme.warning;
     }
     if (type.contains('cancel') || type.contains('reject')) {
-      return Colors.redAccent;
+      return RecyTechTheme.danger;
     }
     return RecyTechTheme.primary;
   }

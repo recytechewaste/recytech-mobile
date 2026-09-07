@@ -74,8 +74,32 @@ void main() {
       expect(draft.totalQuantity, 3);
       expect(draft.totalCategories, 2);
       expect(draft.canSubmit, isTrue);
-      expect(draft.toJson(), isNot(contains('totalWeightKg')));
+      expect(draft.toJson()['totalWeightKg'], isNull);
       expect(draft.toJson()['items'].first, isNot(contains('weightKg')));
+    });
+
+    test('keeps optional total weight separate from item quantities', () {
+      final draft = CollectionReportDraft(
+        assignmentId: 'REQ-4',
+        requestReference: 'REQ-4',
+        collectorName: 'Collector One',
+        totalWeightKg: 7.4,
+        items: [
+          CollectedEWasteItem(
+            id: 'scan-1',
+            imagePath: 'battery.jpg',
+            aiPredictedClass: 'monitor',
+            aiConfidence: 0.76,
+            confirmedClass: 'battery',
+            quantity: 5,
+          ),
+        ],
+      );
+
+      expect(draft.toJson()['totalWeightKg'], 7.4);
+      expect(draft.toJson()['items'].first['detectedCategory'], 'monitor');
+      expect(draft.toJson()['items'].first['confirmedCategory'], 'battery');
+      expect(draft.toJson()['items'].first['wasCorrected'], isTrue);
     });
 
     test('rejects invalid item quantities during completion validation', () {
@@ -147,7 +171,7 @@ void main() {
   group('role routing', () {
     test('routes household, LGU, and collector to their own shells', () {
       expect(AppRoles.shellTargetFor('Staff'), AppShellTarget.household);
-      expect(AppRoles.shellTargetFor('lgu'), AppShellTarget.lgu);
+      expect(AppRoles.shellTargetFor('lgu'), AppShellTarget.partnerOrg);
       expect(AppRoles.shellTargetFor('collector'), AppShellTarget.collector);
       expect(AppRoles.shellTargetFor('admin'), AppShellTarget.accessDenied);
     });
@@ -173,7 +197,7 @@ void main() {
         const MapLaunchTarget(latitude: 14.1, longitude: 121.2),
       );
 
-      expect(uri.toString(), contains('/maps/dir/'));
+      expect(uri.toString(), contains('openstreetmap.org/directions'));
       expect(uri.toString(), contains('14.1%2C121.2'));
     });
 

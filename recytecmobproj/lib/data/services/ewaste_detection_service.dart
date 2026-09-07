@@ -38,7 +38,8 @@ class EWasteDetectionService {
         'RecyTech AI: direct TFLite model loaded '
         '(model=$modelAsset, inputShape=$inputShape, outputShape=$outputShape).',
       );
-      debugPrint('RecyTech AI: labels loaded count=${labels.length}, labels=$labels');
+      debugPrint(
+          'RecyTech AI: labels loaded count=${labels.length}, labels=$labels');
       debugPrint(
         'RecyTech AI: output shape assumption=[1, $outputRows, '
         '$anchorCount], threshold=$confidenceThreshold',
@@ -83,8 +84,7 @@ class EWasteDetectionService {
       'anchorIndex=${detection.anchorIndex}',
     );
 
-    if (detection.label.isEmpty ||
-        detection.confidence < confidenceThreshold) {
+    if (detection.label.isEmpty || detection.confidence < confidenceThreshold) {
       debugPrint(
         'RecyTech AI: best score below threshold '
         '(best=${detection.confidence}, threshold=$confidenceThreshold).',
@@ -95,8 +95,7 @@ class EWasteDetectionService {
     return EWasteDetectionResult(
       detectedClass: detection.label,
       confidence: detection.confidence,
-      mappedWasteCategory:
-          WasteTypeMapper.toBackendWasteType(detection.label),
+      mappedWasteCategory: WasteTypeMapper.toBackendWasteType(detection.label),
       imagePath: imagePath,
     );
   }

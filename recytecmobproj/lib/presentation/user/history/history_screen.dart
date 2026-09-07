@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/recytechtheme.dart';
 import '../../../data/models/drop_off_record_model.dart';
 import '../../../data/repositories/drop_off_repository.dart';
+import '../../../widgets/empty_state.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({
@@ -24,7 +25,7 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _repository = widget.repository ?? MockDropOffRepository();
+    _repository = widget.repository ?? ApiDropOffRepository();
     _historyFuture = _repository.getMyDropOffHistory();
   }
 
@@ -46,12 +47,15 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
           future: _historyFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const AppLoadingState(
+                  message: 'Loading drop-off history…');
             }
 
             if (snapshot.hasError) {
-              return _messageState(
-                'Unable to load your drop-off history. Please try again.',
+              return AppErrorState(
+                title:
+                    'Unable to load your drop-off history. Please try again.',
+                onRetry: _refresh,
               );
             }
 
@@ -71,7 +75,7 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
                   ),
                   SizedBox(height: 6.h),
                   Text(
-                    'Check-ins recorded after scanning a RecyTech bin QR code.',
+                    'Manual and QR submissions recorded at designated RecyTech bins.',
                     style: TextStyle(
                       fontSize: 11.sp,
                       color: RecyTechTheme.textMuted,
@@ -80,7 +84,12 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
                   ),
                   SizedBox(height: 16.h),
                   if (records.isEmpty)
-                    _emptyCard()
+                    const EmptyState(
+                      icon: Icons.history,
+                      title: 'No drop-offs recorded yet.',
+                      message:
+                          'Your completed designated-bin drop-offs will appear here.',
+                    )
                   else
                     ...records.map(_dropOffCard),
                 ],
@@ -97,7 +106,7 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(18.r),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -107,12 +116,36 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
           _divider(),
           _row(Icons.place_outlined, 'Location', record.locationLabel),
           _divider(),
+          if ((record.partnerOrganizationName ?? '').trim().isNotEmpty) ...[
+            _row(
+              Icons.apartment_outlined,
+              'Partner',
+              record.partnerOrganizationName!,
+            ),
+            _divider(),
+          ],
+          if (record.items.isNotEmpty) ...[
+            _row(Icons.category_outlined, 'Items', _itemsLabel(record)),
+            _divider(),
+          ],
+          if ((record.submissionMethod ?? '').trim().isNotEmpty) ...[
+            _row(
+              Icons.input_outlined,
+              'Method',
+              record.submissionMethod!.toUpperCase(),
+            ),
+            _divider(),
+          ],
           _row(Icons.event_available_outlined, 'Recorded',
               _formatDateTime(record.createdAt)),
           _divider(),
           _row(Icons.info_outline, 'Status', record.status),
           _divider(),
-          _row(Icons.emoji_events_outlined, 'Reward', record.rewardLabel),
+          _row(
+            Icons.emoji_events_outlined,
+            'Points',
+            record.pointsAwarded > 0 ? record.rewardLabel : record.pointsStatus,
+          ),
         ],
       ),
     );
@@ -154,36 +187,6 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
         child: const Divider(height: 1),
       );
 
-  Widget _emptyCard() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: RecyTechTheme.border),
-      ),
-      child: Text(
-        'No drop-offs recorded yet.',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 11.sp, color: RecyTechTheme.textMuted),
-      ),
-    );
-  }
-
-  Widget _messageState(String message) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(24.w),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted),
-        ),
-      ),
-    );
-  }
-
   String _formatDateTime(DateTime value) {
     final local = value.toLocal();
     final month = local.month.toString().padLeft(2, '0');
@@ -191,5 +194,26 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
     final hour = local.hour.toString().padLeft(2, '0');
     final minute = local.minute.toString().padLeft(2, '0');
     return '${local.year}-$month-$day $hour:$minute';
+  }
+
+  String _itemsLabel(DropOffRecord record) {
+    return record.items
+        .map((item) =>
+            '${item.categoryLabel ?? _displayCategory(item.category)} x ${item.quantity}')
+        .join(', ');
+  }
+
+  String _displayCategory(String value) {
+    final normalized = value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
+    if (normalized == 'pcb') return 'PCB';
+    return normalized
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' ');
   }
 }

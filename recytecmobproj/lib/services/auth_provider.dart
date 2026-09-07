@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-
-import '../core/network/api_exceptions.dart';
+import '../core/utils/helpers.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/models/user_model.dart';
 
@@ -15,6 +13,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? user;
   bool isLoading = false;
   String? error;
+  String? pendingVerificationEmail;
 
   UserModel? get currentUser => user;
 
@@ -42,12 +41,16 @@ class AuthProvider extends ChangeNotifier {
       if (user == null) {
         throw StateError('Login response did not include a user profile.');
       }
+      pendingVerificationEmail = null;
       return true;
     } catch (e) {
       error = _messageForAuthError(
         e,
         fallback: 'Login failed. Please try again.',
       );
+      if (_isEmailVerificationError(error)) {
+        pendingVerificationEmail = email.trim();
+      }
       return false;
     } finally {
       isLoading = false;
@@ -55,32 +58,45 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> register(
+  Future<RegistrationResult?> register(
     String email,
     String password, {
     String? fullName,
+    String role = 'household',
+    String? organizationName,
+    String? contactPerson,
+    String? contactNumber,
+    String? phone,
+    String? vehicleType,
+    String? plateNumber,
   }) async {
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
-      user = await _repo.register(
+      final result = await _repo.register(
         email,
         password,
         fullName: fullName,
+        role: role,
+        organizationName: organizationName,
+        contactPerson: contactPerson,
+        contactNumber: contactNumber,
+        phone: phone,
+        vehicleType: vehicleType,
+        plateNumber: plateNumber,
       );
-      if (user == null) {
-        throw StateError(
-            'Registration response did not include a user profile.');
-      }
-      return true;
+      user = null;
+      pendingVerificationEmail =
+          result.emailVerificationRequired ? result.email : null;
+      return result;
     } catch (e) {
       error = _messageForAuthError(
         e,
         fallback: 'Registration failed. Please try again.',
       );
-      return false;
+      return null;
     } finally {
       isLoading = false;
       notifyListeners();
@@ -101,26 +117,65 @@ class AuthProvider extends ChangeNotifier {
       );
     } finally {
       user = null;
+      pendingVerificationEmail = null;
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<EmailVerificationResult?> verifyEmail({
+    required String email,
+    required String pin,
+  }) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      final result = await _repo.verifyEmail(email: email, pin: pin);
+      pendingVerificationEmail = null;
+      return result;
+    } catch (e) {
+      error = _messageForAuthError(
+        e,
+        fallback: 'Email verification failed. Please try again.',
+      );
+      return null;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> resendVerification(String email) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      final message = await _repo.resendVerification(email);
+      pendingVerificationEmail = email.trim();
+      return message;
+    } catch (e) {
+      error = _messageForAuthError(
+        e,
+        fallback: 'Could not resend verification PIN. Please try again.',
+      );
+      return null;
+    } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
   String _messageForAuthError(Object exception, {required String fallback}) {
-    if (exception is ApiException) {
-      return exception.message;
-    }
+    return userFacingError(exception, fallback: fallback);
+  }
 
-    if (exception is DioException && exception.error is ApiException) {
-      return (exception.error as ApiException).message;
-    }
-
-    final text = exception.toString();
-    const marker = 'message: ';
-    if (text.contains(marker)) {
-      return text.split(marker).last.replaceAll(')', '').trim();
-    }
-
-    return fallback;
+  bool _isEmailVerificationError(String? message) {
+    final text = (message ?? '').toLowerCase();
+    return text.contains('email verification') ||
+        text.contains('verify your email') ||
+        text.contains('please verify');
   }
 }

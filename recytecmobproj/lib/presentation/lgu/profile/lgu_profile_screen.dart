@@ -6,6 +6,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
 import '../../../services/auth_provider.dart';
 import '../../auth/login_screen.dart';
+import '../../settings/settings_screen.dart';
 
 class LguProfileScreen extends StatelessWidget {
   const LguProfileScreen({super.key});
@@ -25,7 +26,16 @@ class LguProfileScreen extends StatelessWidget {
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Profile'),
-        centerTitle: false,
+        actions: [
+          IconButton(
+            tooltip: 'Settings',
+            onPressed: () => Navigator.pushNamed(
+              context,
+              SettingsScreen.route,
+            ),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -34,7 +44,7 @@ class LguProfileScreen extends StatelessWidget {
             Container(
               padding: EdgeInsets.all(16.w),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: RecyTechTheme.card,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: RecyTechTheme.border),
               ),
@@ -43,7 +53,7 @@ class LguProfileScreen extends StatelessWidget {
                   Container(
                     width: 62.w,
                     height: 62.w,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: RecyTechTheme.pill,
                       shape: BoxShape.circle,
                     ),
@@ -57,7 +67,7 @@ class LguProfileScreen extends StatelessWidget {
                   Text(
                     user?.fullName.trim().isNotEmpty == true
                         ? user!.fullName.trim()
-                        : 'LGU Account',
+                        : 'Partner Organization Account',
                     style: TextStyle(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w900,

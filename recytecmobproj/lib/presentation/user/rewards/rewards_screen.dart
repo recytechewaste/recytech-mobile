@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/recytechtheme.dart';
-import '../../../data/models/drop_off_record_model.dart';
-import '../../../data/models/reward_transaction_model.dart';
-import '../../../data/repositories/drop_off_repository.dart';
+import '../../../data/models/points_rewards_models.dart';
+import '../../../data/repositories/points_rewards_repository.dart';
+import '../../../widgets/empty_state.dart';
 
 class RewardsScreen extends StatefulWidget {
   const RewardsScreen({
@@ -12,33 +12,60 @@ class RewardsScreen extends StatefulWidget {
     this.repository,
   });
 
-  final DropOffRepository? repository;
+  final PointsRewardsRepository? repository;
 
   @override
   State<RewardsScreen> createState() => _RewardsScreenState();
 }
 
 class _RewardsScreenState extends State<RewardsScreen> {
-  late final DropOffRepository _repository;
-  late Future<_RewardHistoryData> _historyFuture;
+  late final PointsRewardsRepository _repository;
+  late Future<_RewardsData> _future;
+  String? _redeemingId;
 
   @override
   void initState() {
     super.initState();
-    _repository = widget.repository ?? MockDropOffRepository();
-    _historyFuture = _loadRewardHistory();
+    _repository = widget.repository ?? PointsRewardsRepository();
+    _future = _load();
   }
 
-  Future<_RewardHistoryData> _loadRewardHistory() async {
-    final dropOffs = await _repository.getMyDropOffHistory();
-    final rewards = await _repository.getMyRewards();
-    return _RewardHistoryData(dropOffs: dropOffs, rewards: rewards);
+  Future<_RewardsData> _load() async {
+    final summary = await _repository.fetchPointsSummary();
+    final rewards = await _repository.fetchHouseholdRewards();
+    final redemptions = await _repository.fetchHouseholdRedemptions();
+    return _RewardsData(
+      summary: summary,
+      rewards: rewards,
+      redemptions: redemptions,
+    );
   }
 
   Future<void> _refresh() async {
-    final future = _loadRewardHistory();
-    setState(() => _historyFuture = future);
+    final future = _load();
+    setState(() => _future = future);
     await future;
+  }
+
+  Future<void> _redeem(PartnerRewardOffer reward) async {
+    setState(() => _redeemingId = reward.id);
+    try {
+      await _repository.redeemReward(reward.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${reward.title} redemption requested.')),
+      );
+      await _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to redeem this reward. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _redeemingId = null);
+    }
   }
 
   @override
@@ -47,60 +74,63 @@ class _RewardsScreenState extends State<RewardsScreen> {
       child: Scaffold(
         backgroundColor: RecyTechTheme.bg,
         appBar: AppBar(
-          title: const Text('Rewards'),
+          title: const Text('Points & Rewards'),
+          actions: [
+            IconButton(
+              tooltip: 'Refresh rewards',
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
         ),
-        body: FutureBuilder<_RewardHistoryData>(
-          future: _historyFuture,
+        body: FutureBuilder<_RewardsData>(
+          future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const AppLoadingState(
+                  message: 'Loading points and rewards…');
             }
-
             if (snapshot.hasError) {
-              return _messageState(
-                'Unable to load rewards. Please try again.',
+              return AppErrorState(
+                title: 'Unable to load rewards. Please try again.',
+                onRetry: _refresh,
               );
             }
 
-            final data = snapshot.data ?? const _RewardHistoryData();
+            final data = snapshot.data ?? _RewardsData.empty();
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(
                 padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
                 children: [
-                  Text(
-                    'Drop-Off Rewards',
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w900,
-                      color: RecyTechTheme.textDark,
-                    ),
-                  ),
-                  SizedBox(height: 6.h),
-                  Text(
-                    'Reward values are displayed only when returned by the drop-off reward service.',
-                    style: TextStyle(
-                      fontSize: 11.sp,
-                      color: RecyTechTheme.textMuted,
-                      height: 1.35,
-                    ),
-                  ),
+                  _balanceCard(data.summary),
                   SizedBox(height: 18.h),
-                  _summaryCard(data),
-                  SizedBox(height: 22.h),
-                  Text(
-                    'Reward History',
-                    style: TextStyle(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w800,
-                      color: RecyTechTheme.textDark,
-                    ),
-                  ),
+                  _sectionTitle('Available Rewards'),
                   SizedBox(height: 10.h),
                   if (data.rewards.isEmpty)
-                    _emptyCard()
+                    _emptyCard(
+                      'No rewards are available yet.',
+                      supportingText:
+                          'Available rewards from partner organizations will appear here.',
+                    )
                   else
-                    ...data.rewards.map(_rewardRow),
+                    ...data.rewards.map(
+                      (reward) => _rewardCard(reward, data.summary.balance),
+                    ),
+                  SizedBox(height: 18.h),
+                  _sectionTitle('Redemption Requests'),
+                  SizedBox(height: 10.h),
+                  if (data.redemptions.isEmpty)
+                    _emptyCard('Redeemed rewards will appear here.')
+                  else
+                    ...data.redemptions.map(_redemptionCard),
+                  SizedBox(height: 18.h),
+                  _sectionTitle('Recent Point Activity'),
+                  SizedBox(height: 10.h),
+                  if (data.summary.transactions.isEmpty)
+                    _emptyCard('You have no reward activity yet.')
+                  else
+                    ...data.summary.transactions.take(6).map(_ledgerRow),
                 ],
               ),
             );
@@ -110,19 +140,26 @@ class _RewardsScreenState extends State<RewardsScreen> {
     );
   }
 
-  Widget _summaryCard(_RewardHistoryData data) {
+  Widget _balanceCard(PointsSummary summary) {
+    final earned = summary.transactions
+        .where((entry) => entry.signedAmount > 0)
+        .fold<int>(0, (sum, entry) => sum + entry.signedAmount);
+    final spent = summary.transactions
+        .where((entry) => entry.signedAmount < 0)
+        .fold<int>(0, (sum, entry) => sum + entry.signedAmount.abs());
+
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(18.r),
         border: Border.all(color: RecyTechTheme.border),
       ),
       child: Row(
         children: [
           Container(
-            width: 54.w,
-            height: 54.w,
+            width: 56.w,
+            height: 56.w,
             decoration: BoxDecoration(
               color: RecyTechTheme.pill,
               borderRadius: BorderRadius.circular(16.r),
@@ -130,7 +167,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
             child: Icon(
               Icons.emoji_events_outlined,
               color: RecyTechTheme.primary,
-              size: 26.sp,
+              size: 28.sp,
             ),
           ),
           SizedBox(width: 14.w),
@@ -139,7 +176,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Eligible Drop-Offs',
+                  'Current Balance',
                   style: TextStyle(
                     fontSize: 11.sp,
                     color: RecyTechTheme.textMuted,
@@ -147,20 +184,19 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 ),
                 SizedBox(height: 2.h),
                 Text(
-                  '${data.eligibleDropOffs}',
+                  '${summary.balance} pts',
                   style: TextStyle(
-                    fontSize: 22.sp,
+                    fontSize: 24.sp,
                     fontWeight: FontWeight.w900,
                     color: RecyTechTheme.textDark,
                   ),
                 ),
                 SizedBox(height: 4.h),
                 Text(
-                  '${data.dropOffs.length} drop-off${data.dropOffs.length == 1 ? '' : 's'} recorded.',
+                  'Earned $earned pts - Redeemed $spent pts',
                   style: TextStyle(
                     fontSize: 10.sp,
                     color: RecyTechTheme.textMuted,
-                    height: 1.3,
                   ),
                 ),
               ],
@@ -171,12 +207,90 @@ class _RewardsScreenState extends State<RewardsScreen> {
     );
   }
 
-  Widget _rewardRow(RewardTransaction reward) {
+  Widget _rewardCard(PartnerRewardOffer reward, int balance) {
+    final canRedeem = reward.canRedeem ?? balance >= reward.pointsCost;
+    final isBusy = _redeemingId == reward.id;
+    final deficit = reward.pointsCost - balance;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: RecyTechTheme.card,
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(color: RecyTechTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  reward.title,
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w900,
+                    color: RecyTechTheme.textDark,
+                  ),
+                ),
+              ),
+              Text(
+                '${reward.pointsCost} pts',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w900,
+                  color: RecyTechTheme.primary,
+                ),
+              ),
+            ],
+          ),
+          if ((reward.partnerOrganizationName ?? '').trim().isNotEmpty) ...[
+            SizedBox(height: 4.h),
+            Text(
+              reward.partnerOrganizationName!,
+              style: TextStyle(
+                fontSize: 10.5.sp,
+                color: RecyTechTheme.textMuted,
+              ),
+            ),
+          ],
+          if ((reward.description ?? '').trim().isNotEmpty) ...[
+            SizedBox(height: 8.h),
+            Text(
+              reward.description!,
+              style: TextStyle(
+                fontSize: 11.sp,
+                color: RecyTechTheme.textMuted,
+              ),
+            ),
+          ],
+          SizedBox(height: 12.h),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: canRedeem && !isBusy ? () => _redeem(reward) : null,
+              icon: isBusy
+                  ? SizedBox(
+                      width: 16.w,
+                      height: 16.w,
+                      child: const CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.redeem_outlined),
+              label: Text(canRedeem ? 'Redeem' : 'Need $deficit more pts'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _redemptionCard(RewardRedemptionRecord redemption) {
     return Container(
       margin: EdgeInsets.only(bottom: 10.h),
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(18.r),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -187,39 +301,68 @@ class _RewardsScreenState extends State<RewardsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  reward.binName ?? 'RecyTech Bin',
+                  redemption.rewardTitle,
                   style: TextStyle(
-                    fontSize: 11.sp,
+                    fontSize: 12.sp,
                     fontWeight: FontWeight.w900,
-                    color: RecyTechTheme.textDark,
                   ),
                 ),
                 SizedBox(height: 3.h),
                 Text(
-                  reward.locationDescription ?? _formatDate(reward.createdAt),
+                  '${redemption.pointsCost} pts - ${_formatDate(redemption.redeemedAt)}',
                   style: TextStyle(
-                    fontSize: 9.5.sp,
+                    fontSize: 10.sp,
                     color: RecyTechTheme.textMuted,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  '${reward.status} - ${_formatDate(reward.createdAt)}',
-                  style: TextStyle(
-                    fontSize: 9.5.sp,
-                    color: RecyTechTheme.primary,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
             ),
           ),
+          Chip(
+            label: Text(redemption.status),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ledgerRow(PointsLedgerEntry entry) {
+    final positive = entry.signedAmount >= 0;
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: RecyTechTheme.card,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: RecyTechTheme.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            positive ? Icons.add_circle_outline : Icons.remove_circle_outline,
+            color: positive ? RecyTechTheme.primary : RecyTechTheme.danger,
+            size: 18.sp,
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              entry.description.trim().isEmpty ? entry.type : entry.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5.sp,
+                color: RecyTechTheme.textDark,
+              ),
+            ),
+          ),
+          SizedBox(width: 8.w),
           Text(
-            reward.rewardLabel,
+            '${positive ? '+' : ''}${entry.signedAmount}',
             style: TextStyle(
               fontSize: 11.sp,
-              fontWeight: FontWeight.w800,
-              color: RecyTechTheme.primary,
+              fontWeight: FontWeight.w900,
+              color: positive ? RecyTechTheme.primary : RecyTechTheme.danger,
             ),
           ),
         ],
@@ -227,32 +370,49 @@ class _RewardsScreenState extends State<RewardsScreen> {
     );
   }
 
-  Widget _emptyCard() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: RecyTechTheme.border),
-      ),
-      child: Text(
-        'No reward records yet.',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 11.sp, color: RecyTechTheme.textMuted),
+  Widget _sectionTitle(String value) {
+    return Text(
+      value,
+      style: TextStyle(
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w900,
+        color: RecyTechTheme.textDark,
       ),
     );
   }
 
-  Widget _messageState(String message) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(24.w),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted),
-        ),
+  Widget _emptyCard(String message, {String? supportingText}) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: RecyTechTheme.card,
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(color: RecyTechTheme.border),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11.sp,
+              color: RecyTechTheme.textDark,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if ((supportingText ?? '').isNotEmpty) ...[
+            SizedBox(height: 4.h),
+            Text(
+              supportingText!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10.5.sp,
+                color: RecyTechTheme.textMuted,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -265,15 +425,22 @@ class _RewardsScreenState extends State<RewardsScreen> {
   }
 }
 
-class _RewardHistoryData {
-  const _RewardHistoryData({
-    this.dropOffs = const <DropOffRecord>[],
-    this.rewards = const <RewardTransaction>[],
+class _RewardsData {
+  const _RewardsData({
+    required this.summary,
+    required this.rewards,
+    required this.redemptions,
   });
 
-  final List<DropOffRecord> dropOffs;
-  final List<RewardTransaction> rewards;
+  factory _RewardsData.empty() {
+    return const _RewardsData(
+      summary: PointsSummary(balance: 0),
+      rewards: [],
+      redemptions: [],
+    );
+  }
 
-  int get eligibleDropOffs =>
-      dropOffs.where((record) => record.rewardEligible).length;
+  final PointsSummary summary;
+  final List<PartnerRewardOffer> rewards;
+  final List<RewardRedemptionRecord> redemptions;
 }

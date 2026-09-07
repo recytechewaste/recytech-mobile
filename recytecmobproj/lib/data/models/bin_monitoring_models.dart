@@ -7,6 +7,10 @@ class RecyTechBin {
     String? binName,
     String? name,
     this.assignedLguId,
+    this.partnerOrganizationName,
+    this.publicQrCode,
+    this.acceptedCategories = const [],
+    this.acceptedCategoryLabels = const [],
     required this.location,
     this.distanceCm,
     double? fillPercentage,
@@ -35,6 +39,10 @@ class RecyTechBin {
   final String binId;
   final String? binName;
   final String? assignedLguId;
+  final String? partnerOrganizationName;
+  final String? publicQrCode;
+  final List<String> acceptedCategories;
+  final List<String> acceptedCategoryLabels;
   final String location;
   final double? distanceCm;
   final double? fillPercentage;
@@ -69,11 +77,25 @@ class RecyTechBin {
 
   factory RecyTechBin.fromJson(Map<String, dynamic> json) {
     return RecyTechBin(
-      binId: _readString(json, ['binId', 'id', '_id']),
+      binId: _readString(json, ['binId', 'binCode', 'code', 'id', '_id']),
       binName:
           _nullableString(json['binName'] ?? json['name'] ?? json['label']),
       assignedLguId: _nullableString(
-        json['assignedLguId'] ?? json['lguId'] ?? json['assigned_lgu_id'],
+        json['assignedLguId'] ??
+            json['lguId'] ??
+            json['assigned_lgu_id'] ??
+            json['partnerOrganizationId'],
+      ),
+      partnerOrganizationName: _nullableString(
+        json['partnerOrganizationName'] ??
+            json['partnerName'] ??
+            json['organizationName'],
+      ),
+      publicQrCode: _nullableString(json['publicQrCode']),
+      acceptedCategories: _readStringList(json['acceptedCategories']),
+      acceptedCategoryLabels: _readCategoryLabels(
+        json['acceptedCategoryDisplayNames'],
+        json['acceptedCategories'],
       ),
       location: _readString(json, ['location', 'address']),
       distanceCm: _readDouble(json['distanceCm'] ?? json['distance_cm']),
@@ -81,7 +103,8 @@ class RecyTechBin {
         json['fillPercentage'] ??
             json['fill_percentage'] ??
             json['fillLevel'] ??
-            json['fillLevelPercentage'],
+            json['fillLevelPercentage'] ??
+            json['latestFillPercentage'],
       ),
       fullnessStatus: FullnessStatuses.normalize(
         _readString(
@@ -93,7 +116,7 @@ class RecyTechBin {
       sensorStatus: SensorStatuses.normalize(
         _readString(
           json,
-          ['sensorStatus', 'sensorConnectionStatus'],
+          ['sensorStatus', 'sensorConnectionStatus', 'latestSensorStatus'],
           fallback: SensorStatuses.unknown,
         ),
       ),
@@ -103,7 +126,9 @@ class RecyTechBin {
       latitude: _readDouble(json['latitude'] ?? json['lat']),
       longitude: _readDouble(json['longitude'] ?? json['lng'] ?? json['lon']),
       lastUpdatedAt: _readDate(
-        json['lastUpdatedAt'] ?? json['lastMonitoringUpdate'],
+        json['lastUpdatedAt'] ??
+            json['lastMonitoringUpdate'] ??
+            json['lastSensorUpdatedAt'],
       ),
       lastCollectionAt: _readDate(
         json['lastCollectionAt'] ?? json['lastCollectionDate'],
@@ -133,7 +158,7 @@ class BinMonitoringData {
     String? fullnessStatus,
     String? sensorStatus,
     this.controllerStatus,
-    required this.lastUpdatedAt,
+    this.lastUpdatedAt,
     this.activeCollectionRequest,
     this.latestImageUrl,
     this.cameraStatus = 'Legacy camera disabled',
@@ -147,7 +172,7 @@ class BinMonitoringData {
   final String fullnessStatus;
   final String sensorStatus;
   final String? controllerStatus;
-  final DateTime lastUpdatedAt;
+  final DateTime? lastUpdatedAt;
   final CollectionRequestSummary? activeCollectionRequest;
 
   // Legacy fields kept only so old unrouted camera/deposit screens still compile.
@@ -178,7 +203,9 @@ class BinMonitoringData {
         ),
       ),
       controllerStatus: _nullableString(json['controllerStatus']),
-      lastUpdatedAt: _readDate(json['lastUpdatedAt']) ?? DateTime.now(),
+      lastUpdatedAt: _readDate(
+        json['lastUpdatedAt'] ?? json['lastSensorUpdatedAt'],
+      ),
       activeCollectionRequest: _readMap(json['activeCollectionRequest']).isEmpty
           ? null
           : CollectionRequestSummary.fromJson(
@@ -221,17 +248,30 @@ class CollectionRequestSummary {
     required this.status,
     required this.requestedAt,
     this.lguId,
+    this.partnerOrganizationName,
+    this.binName,
+    this.latitude,
+    this.longitude,
     this.fillPercentage,
     this.fullnessStatus,
     this.reason = '',
     this.remarks,
     this.assignedCollectorName,
+    this.startedAt,
+    this.completedAt,
+    this.completionItemSummaryText,
+    this.completionTotalQuantity,
+    this.completionTotalWeightKg,
   });
 
   final String id;
   final String? lguId;
+  final String? partnerOrganizationName;
   final String binId;
+  final String? binName;
   final String location;
+  final double? latitude;
+  final double? longitude;
   final double? fillPercentage;
   final String? fullnessStatus;
   final String status;
@@ -239,15 +279,34 @@ class CollectionRequestSummary {
   final String reason;
   final String? remarks;
   final String? assignedCollectorName;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  final String? completionItemSummaryText;
+  final int? completionTotalQuantity;
+  final double? completionTotalWeightKg;
 
   factory CollectionRequestSummary.fromJson(Map<String, dynamic> json) {
+    final completionReport = _readMap(json['completionReport']);
+    final itemSummary = completionReport['itemSummary'];
+    final optionalWeight = _readMap(completionReport['optionalTotalWeight']);
+
     return CollectionRequestSummary(
       id: _readString(json, ['id', '_id', 'reference', 'requestCode']),
-      lguId: _nullableString(json['lguId'] ?? json['lgu_id']),
-      binId: _readString(json, ['binId']),
-      location: _readString(json, ['location', 'binLocation']),
+      lguId: _nullableString(
+        json['lguId'] ?? json['lgu_id'] ?? json['partnerOrganizationId'],
+      ),
+      partnerOrganizationName: _nullableString(
+        json['partnerOrganizationName'] ?? json['organizationName'],
+      ),
+      binId: _readString(json, ['binId', 'binCode']),
+      binName: _nullableString(json['binName'] ?? json['name']),
+      location: _readString(json, ['location', 'binLocation', 'address']),
+      latitude: _readDouble(json['latitude'] ?? json['lat']),
+      longitude: _readDouble(json['longitude'] ?? json['lng'] ?? json['lon']),
       fillPercentage: _readDouble(
-        json['fillPercentage'] ?? json['currentFillPercentage'],
+        json['fillPercentage'] ??
+            json['currentFillPercentage'] ??
+            json['latestFillPercentage'],
       ),
       fullnessStatus: _nullableString(
         json['fullnessStatus'] ?? json['currentFullnessStatus'],
@@ -267,6 +326,11 @@ class CollectionRequestSummary {
       assignedCollectorName: _nullableString(
         json['assignedCollectorName'] ?? json['collectorName'],
       ),
+      startedAt: _readDate(json['startedAt']),
+      completedAt: _readDate(json['completedAt']),
+      completionItemSummaryText: _itemSummaryText(itemSummary),
+      completionTotalQuantity: _readInt(completionReport['totalQuantity']),
+      completionTotalWeightKg: _readDouble(optionalWeight['totalWeightKg']),
     );
   }
 }
@@ -477,6 +541,45 @@ String? _nullableString(dynamic value) {
   return text.isEmpty || text == 'null' ? null : text;
 }
 
+List<String> _readStringList(dynamic value) {
+  if (value is! List) return const [];
+  return value
+      .map((item) => item.toString().trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<String> _readCategoryLabels(dynamic labels, dynamic fallback) {
+  if (labels is List) {
+    final parsed = labels
+        .map((item) {
+          if (item is Map) {
+            return (item['label'] ?? item['value'] ?? '').toString().trim();
+          }
+          return item.toString().trim();
+        })
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (parsed.isNotEmpty) return parsed;
+  }
+
+  return _readStringList(fallback).map(_displayCategory).toList();
+}
+
+String _displayCategory(String value) {
+  final normalized = value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\s-]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_');
+  if (normalized == 'pcb') return 'PCB';
+  return normalized
+      .split('_')
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase() + part.substring(1))
+      .join(' ');
+}
+
 Map<String, dynamic> _readMap(dynamic value) {
   if (value is Map) return value.cast<String, dynamic>();
   return <String, dynamic>{};
@@ -497,8 +600,30 @@ bool _hasKey(Map<String, dynamic> json, String key) {
   return json.containsKey(key);
 }
 
+int? _readInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse((value ?? '').toString());
+}
+
 DateTime? _readDate(dynamic value) {
   final text = (value ?? '').toString().trim();
   if (text.isEmpty) return null;
   return DateTime.tryParse(text);
+}
+
+String? _itemSummaryText(dynamic value) {
+  if (value is! List || value.isEmpty) return null;
+  final parts = value
+      .whereType<Map>()
+      .map((entry) {
+        final map = entry.cast<String, dynamic>();
+        final category = _nullableString(map['category']);
+        final quantity = _readInt(map['quantity']);
+        if (category == null || quantity == null) return '';
+        return '$category x $quantity';
+      })
+      .where((part) => part.isNotEmpty)
+      .toList();
+  return parts.isEmpty ? null : parts.join(', ');
 }

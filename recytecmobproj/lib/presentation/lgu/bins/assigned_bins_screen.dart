@@ -18,7 +18,7 @@ class AssignedBinsScreen extends StatefulWidget {
 }
 
 class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
-  final LguBinRepository _repository = MockBinMonitoringService();
+  final LguBinRepository _repository = ApiPartnerBinRepository();
   late Future<List<RecyTechBin>> _binsFuture;
   String _filter = 'all';
 
@@ -56,8 +56,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
-        title: const Text('Assigned Bins'),
-        centerTitle: false,
+        title: const Text('My Bins'),
         actions: [
           IconButton(
             tooltip: 'Refresh bins',
@@ -74,7 +73,10 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
           }
 
           if (snapshot.hasError) {
-            return _errorState();
+            return AppErrorState(
+              title: 'Unable to load smart bins. Please try again.',
+              onRetry: _refresh,
+            );
           }
 
           final bins = snapshot.data ?? <RecyTechBin>[];
@@ -90,10 +92,12 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
                 if (filtered.isEmpty)
                   EmptyState(
                     icon: Icons.delete_outline,
-                    title: 'No bins found',
-                    message: _filter == 'all'
-                        ? 'No assigned bins are available yet.'
+                    title: _filter == 'all'
+                        ? 'You have no assigned smart bins right now.'
                         : 'No bins match the selected status.',
+                    message: _filter == 'all'
+                        ? 'Assigned RecyTech smart bins will appear here.'
+                        : null,
                   )
                 else
                   for (final bin in filtered) _binCard(bin),
@@ -144,7 +148,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
         margin: EdgeInsets.only(bottom: 12.h),
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: RecyTechTheme.border),
           boxShadow: [
@@ -183,6 +187,16 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
               bin.location,
               style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark),
             ),
+            if (bin.acceptedCategoryLabels.isNotEmpty) ...[
+              SizedBox(height: 8.h),
+              Text(
+                'Accepts: ${bin.acceptedCategoryLabels.join(', ')}',
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  color: RecyTechTheme.textMuted,
+                ),
+              ),
+            ],
             SizedBox(height: 12.h),
             FillLevelIndicator(
               fillLevel: bin.fillPercentage,
@@ -206,7 +220,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
             ),
             SizedBox(height: 10.h),
             Text(
-              'Updated: ${formatDateTime(bin.lastUpdatedAt)}',
+              'Latest Stored Reading: ${formatDateTime(bin.lastUpdatedAt)}',
               style: TextStyle(fontSize: 11.sp, color: RecyTechTheme.textMuted),
             ),
           ],
@@ -224,29 +238,12 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
             height: 132.h,
             margin: EdgeInsets.only(bottom: 12.h),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: RecyTechTheme.card,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: RecyTechTheme.border),
             ),
             child: const Center(child: CircularProgressIndicator()),
           ),
-      ],
-    );
-  }
-
-  Widget _errorState() {
-    return ListView(
-      padding: EdgeInsets.all(16.w),
-      children: [
-        EmptyState(
-          icon: Icons.error_outline,
-          title: 'Unable to load assigned bins',
-          message: 'Check the connection and try again.',
-          action: OutlinedButton(
-            onPressed: _refresh,
-            child: const Text('Retry'),
-          ),
-        ),
       ],
     );
   }

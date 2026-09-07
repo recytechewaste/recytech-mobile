@@ -17,7 +17,6 @@ class SupportScreen extends StatelessWidget {
               style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w800),
             ),
             SizedBox(height: 12.h),
-
             _SupportTile(
               icon: Icons.question_answer_outlined,
               title: 'FAQs',
@@ -64,6 +63,7 @@ class _SupportTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(bottom: 10.h),
       child: InkWell(
@@ -71,21 +71,27 @@ class _SupportTile extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.all(12.w),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: scheme.surface,
             borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: Colors.black12),
+            border: Border.all(color: scheme.outlineVariant),
           ),
           child: Row(
             children: [
-              Icon(icon, color: Colors.black54),
+              Icon(icon, color: scheme.primary),
               SizedBox(width: 12.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w800)),
+                    Text(title,
+                        style: TextStyle(
+                            fontSize: 12.sp, fontWeight: FontWeight.w800)),
                     SizedBox(height: 2.h),
-                    Text(subtitle, style: TextStyle(fontSize: 10.sp, color: Colors.black54)),
+                    Text(subtitle,
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          color: scheme.onSurfaceVariant,
+                        )),
                   ],
                 ),
               ),

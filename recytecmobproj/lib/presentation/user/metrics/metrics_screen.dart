@@ -8,7 +8,9 @@ class MetricsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Metrics')),
-      body: Center(child: Text('Metrics Page (hard-coded)', style: TextStyle(fontSize: 14.sp))),
+      body: Center(
+          child: Text('Metrics Page (hard-coded)',
+              style: TextStyle(fontSize: 14.sp))),
     );
   }
 }

@@ -1,3 +1,5 @@
+import '../../core/constants/app_constants.dart';
+
 class CollectorJob {
   final String id;
   final String residentName;
@@ -17,6 +19,16 @@ class CollectorJob {
   final String scheduledAt;
   final String createdAt;
   final String updatedAt;
+  final String partnerOrganizationName;
+  final String binCode;
+  final String binName;
+  final double? latitude;
+  final double? longitude;
+  final double? fillPercentage;
+  final String fullnessStatus;
+  final String remarks;
+  final String requestedAt;
+  final String startedAt;
 
   const CollectorJob({
     required this.id,
@@ -37,22 +49,46 @@ class CollectorJob {
     required this.scheduledAt,
     required this.createdAt,
     required this.updatedAt,
+    this.partnerOrganizationName = '',
+    this.binCode = '',
+    this.binName = '',
+    this.latitude,
+    this.longitude,
+    this.fillPercentage,
+    this.fullnessStatus = '',
+    this.remarks = '',
+    this.requestedAt = '',
+    this.startedAt = '',
   });
 
-  String get requestCode => id.isEmpty ? 'Request' : 'REQ-$idSuffix';
+  String get requestCode => id.isEmpty ? 'Request' : 'CR-$idSuffix';
   String get idSuffix => id.length > 6 ? id.substring(id.length - 6) : id;
-  String get schedule => scheduledAt.isNotEmpty ? scheduledAt : createdAt;
-  String get displayItem => itemCategory.isNotEmpty ? itemCategory : wasteType;
-  bool get isApproved => status.toLowerCase() == 'approved';
-  bool get isInTransit => status.toLowerCase() == 'in-transit';
+  String get schedule => requestedAt.isNotEmpty
+      ? requestedAt
+      : scheduledAt.isNotEmpty
+          ? scheduledAt
+          : createdAt;
+  String get displayItem {
+    if (binName.isNotEmpty && binCode.isNotEmpty) return '$binCode - $binName';
+    if (binCode.isNotEmpty) return binCode;
+    if (binName.isNotEmpty) return binName;
+    return itemCategory.isNotEmpty ? itemCategory : wasteType;
+  }
+
+  bool get isQueued =>
+      CollectorJobStatuses.normalize(status) == CollectorJobStatuses.assigned;
+  bool get isApproved => isQueued;
+  bool get isInTransit =>
+      CollectorJobStatuses.normalize(status) == CollectorJobStatuses.onTheWay;
+
   bool get isCompleted {
-    final value = status.toLowerCase();
-    return value == 'completed' || value == 'collected';
+    return CollectorJobStatuses.normalize(status) ==
+        CollectorJobStatuses.completed;
   }
 
   bool get isRejected {
-    final value = status.toLowerCase();
-    return value == 'rejected' || value == 'cancelled' || value == 'canceled';
+    return CollectorJobStatuses.normalize(status) ==
+        CollectorJobStatuses.cancelled;
   }
 
   bool get isActive => !isCompleted && !isRejected;
@@ -60,10 +96,10 @@ class CollectorJob {
       _hasMeaningfulValue(assignedCollectorId) ||
       _hasMeaningfulValue(assignedCollector);
   bool get isAvailableForAssignment =>
-      id.isNotEmpty && isApproved && isActive && !hasAssignedCollector;
+      id.isNotEmpty && isQueued && isActive && !hasAssignedCollector;
 
   DateTime? get scheduledDate => DateTime.tryParse(scheduledAt);
-  DateTime? get createdDate => DateTime.tryParse(createdAt);
+  DateTime? get createdDate => DateTime.tryParse(schedule);
 
   bool isAssignedTo({
     String? collectorId,
@@ -104,6 +140,7 @@ class CollectorJob {
 
     final resident = _asMap(json['resident']);
     final assignedCollector = _asMap(json['assignedCollector']);
+    final partnerOrganization = _asMap(json['partnerOrganizationId']);
     final assignedCollectorName = [
       assignedCollector['firstName'],
       assignedCollector['lastName'],
@@ -117,10 +154,18 @@ class CollectorJob {
 
     return CollectorJob(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
-      residentName: (json['residentName'] ?? '').toString(),
+      residentName:
+          (json['residentName'] ?? json['partnerOrganizationName'] ?? '')
+              .toString(),
       location: locationAddress,
-      wasteType: (json['wasteType'] ?? json['category'] ?? '').toString(),
-      itemCategory: (json['itemCategory'] ?? '').toString(),
+      wasteType:
+          (json['wasteType'] ?? json['category'] ?? 'Partner Bin').toString(),
+      itemCategory: (json['itemCategory'] ??
+              json['binName'] ??
+              json['binCode'] ??
+              json['binId'] ??
+              '')
+          .toString(),
       detectedClass: (json['detectedClass'] ?? '').toString(),
       quantity: _parseQuantity(json['quantity']),
       ratePerKg: _parseDouble(json['ratePerKg']),
@@ -141,8 +186,23 @@ class CollectorJob {
                   : ''))
           .toString(),
       scheduledAt: (json['scheduledAt'] ?? '').toString(),
-      createdAt: (json['createdAt'] ?? '').toString(),
+      createdAt: (json['createdAt'] ?? json['requestedAt'] ?? '').toString(),
       updatedAt: (json['updatedAt'] ?? '').toString(),
+      partnerOrganizationName: (json['partnerOrganizationName'] ??
+              partnerOrganization['organizationName'] ??
+              '')
+          .toString(),
+      binCode: (json['binCode'] ?? json['binId'] ?? '').toString(),
+      binName: (json['binName'] ?? json['name'] ?? '').toString(),
+      latitude: _parseNullableDouble(json['latitude'] ?? json['lat']),
+      longitude: _parseNullableDouble(
+        json['longitude'] ?? json['lng'] ?? json['lon'],
+      ),
+      fillPercentage: _parseNullableDouble(json['fillPercentage']),
+      fullnessStatus: (json['fullnessStatus'] ?? '').toString(),
+      remarks: (json['remarks'] ?? json['notes'] ?? '').toString(),
+      requestedAt: (json['requestedAt'] ?? '').toString(),
+      startedAt: (json['startedAt'] ?? '').toString(),
     );
   }
 
@@ -152,6 +212,8 @@ class CollectorJob {
     String? assignedCollectorId,
     String? scheduledAt,
     String? updatedAt,
+    String? requestedAt,
+    String? startedAt,
   }) {
     return CollectorJob(
       id: id,
@@ -172,6 +234,16 @@ class CollectorJob {
       scheduledAt: scheduledAt ?? this.scheduledAt,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      partnerOrganizationName: partnerOrganizationName,
+      binCode: binCode,
+      binName: binName,
+      latitude: latitude,
+      longitude: longitude,
+      fillPercentage: fillPercentage,
+      fullnessStatus: fullnessStatus,
+      remarks: remarks,
+      requestedAt: requestedAt ?? this.requestedAt,
+      startedAt: startedAt ?? this.startedAt,
     );
   }
 
@@ -189,6 +261,11 @@ class CollectorJob {
   static double _parseDouble(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse((value ?? '').toString()) ?? 0;
+  }
+
+  static double? _parseNullableDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse((value ?? '').toString());
   }
 
   static bool _hasMeaningfulValue(String value) {

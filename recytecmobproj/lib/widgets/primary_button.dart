@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../core/theme/recytechtheme.dart';
-
 class PrimaryButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
@@ -20,17 +18,13 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final w = width ?? double.infinity;
+    final scheme = Theme.of(context).colorScheme;
 
     final ButtonStyle style = filled
         ? ElevatedButton.styleFrom(
-            backgroundColor: RecyTechTheme.primary,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor:
-                RecyTechTheme.secondary.withValues(alpha: 0.24),
-            disabledForegroundColor: Colors.white70,
             minimumSize: Size(w, 48.h),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18.r),
+              borderRadius: BorderRadius.circular(10.r),
             ),
             elevation: 0,
             textStyle: TextStyle(
@@ -39,12 +33,12 @@ class PrimaryButton extends StatelessWidget {
             ),
           )
         : OutlinedButton.styleFrom(
-            foregroundColor: RecyTechTheme.primary,
-            backgroundColor: RecyTechTheme.pill,
-            side: const BorderSide(color: RecyTechTheme.border, width: 1),
+            foregroundColor: scheme.primary,
+            backgroundColor: Colors.transparent,
+            side: BorderSide(color: scheme.outlineVariant, width: 1),
             minimumSize: Size(w, 48.h),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18.r),
+              borderRadius: BorderRadius.circular(10.r),
             ),
             textStyle: TextStyle(
               fontSize: 13.sp,

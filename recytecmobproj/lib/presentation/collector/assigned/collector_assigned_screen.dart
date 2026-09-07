@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
 import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
+import 'package:recytecmobproj/presentation/collector/collection/collection_workflow_screen.dart';
 import 'package:recytecmobproj/presentation/collector/jobs/job_detail_screen.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
+import 'package:recytecmobproj/widgets/empty_state.dart';
+import 'package:recytecmobproj/widgets/status_bagde.dart';
 
 class CollectorAssignedScreen extends StatefulWidget {
   const CollectorAssignedScreen({super.key});
@@ -20,6 +24,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   final CollectorRepository _repository = CollectorRepository();
 
   late Future<List<CollectorJob>> _jobsFuture;
+  String? _updatingRequestId;
 
   @override
   void initState() {
@@ -68,26 +73,78 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
     }
   }
 
+  Future<void> _continueCollection(CollectorJob job) async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => CollectionWorkflowScreen(job: job)),
+    );
+
+    if (mounted) {
+      await _refreshJobs();
+    }
+  }
+
+  Future<void> _updateStatus(CollectorJob job, String status) async {
+    if (_updatingRequestId != null || job.id.isEmpty) return;
+
+    final collector = context.read<AuthProvider>().currentUser;
+    final collectorName = _collectorName(collector);
+
+    setState(() => _updatingRequestId = job.id);
+    try {
+      await _repository.updateJobStatus(
+        requestId: job.id,
+        status: CollectorJobStatuses.backendValue(status),
+        collectorId: collector?.id,
+        collectorName: collectorName,
+        collectorEmail: collector?.email,
+      );
+      if (mounted) await _refreshJobs();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_messageForError(e))),
+      );
+    } finally {
+      if (mounted) setState(() => _updatingRequestId = null);
+    }
+  }
+
+  Future<void> _startCollection(CollectorJob job) async {
+    if (_updatingRequestId != null || job.id.isEmpty) return;
+
+    setState(() => _updatingRequestId = job.id);
+    try {
+      await _repository.startCollection(requestId: job.id);
+      if (mounted) await _refreshJobs();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_messageForError(e))),
+      );
+    } finally {
+      if (mounted) setState(() => _updatingRequestId = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
-        title: const Text('Collector Requests'),
+        title: const Text('Assigned Requests'),
       ),
       body: FutureBuilder<List<CollectorJob>>(
         future: _jobsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingState(message: 'Loading assigned requests…');
           }
 
           if (snapshot.hasError) {
-            return _messageState(
-              context,
-              'Unable to load assigned requests.',
-              actionLabel: 'Retry',
-              onPressed: _refreshJobs,
+            return AppErrorState(
+              title: 'Unable to load assigned requests. Please try again.',
+              onRetry: _refreshJobs,
             );
           }
 
@@ -101,7 +158,9 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                     children: [
                       _messageState(
                         context,
-                        'No assigned collection tasks yet.',
+                        'You have no assigned collection requests right now.',
+                        message:
+                            'New collection requests will appear here when they are assigned to you.',
                       ),
                     ],
                   )
@@ -130,7 +189,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
         border: Border.all(color: RecyTechTheme.primary.withValues(alpha: 0.2)),
       ),
       child: Text(
-        '$count assigned collection task${count == 1 ? '' : 's'}. Nearest scheduled tasks appear first.',
+        '$count current collection request${count == 1 ? '' : 's'}. Complete the active collection before starting another.',
         style: TextStyle(
           fontSize: 11.sp,
           color: RecyTechTheme.primary,
@@ -148,7 +207,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
         margin: EdgeInsets.only(bottom: 12.h),
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: RecyTechTheme.border),
           boxShadow: [
@@ -196,54 +255,80 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
               ],
             ),
             SizedBox(height: 6.h),
-            Text('Resident: ${_valueOrDash(job.residentName)}',
+            Text(
+                'Partner Organization: ${_valueOrDash(job.partnerOrganizationName)}',
                 style:
                     TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
             Text('Location: ${_valueOrDash(job.location)}',
                 style:
                     TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
-            Text('Item: ${_valueOrDash(job.displayItem)}',
-                style:
-                    TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
-            Text('Waste type: ${_valueOrDash(job.wasteType)}',
-                style:
-                    TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
-            Text('Quantity: ${job.quantity}',
+            Text('Smart bin: ${_valueOrDash(job.displayItem)}',
                 style:
                     TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
             SizedBox(height: 8.h),
             Align(
               alignment: Alignment.centerRight,
-              child: Text(
-                job.status,
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: _statusColor(job.status),
-                ),
-              ),
+              child: StatusBadge(label: job.status),
             ),
             SizedBox(height: 12.h),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _openJob(job),
-                child: const Text('View Details'),
-              ),
-            ),
+            _actionButton(job),
           ],
         ),
       ),
     );
   }
 
-  Color _statusColor(String status) {
-    final value = status.toLowerCase();
-    if (value == 'completed') return RecyTechTheme.primary;
-    if (value.contains('transit') || value.contains('approved')) {
-      return RecyTechTheme.accent;
+  Widget _actionButton(CollectorJob job) {
+    final normalized = CollectorJobStatuses.normalize(job.status);
+    final isUpdating = _updatingRequestId == job.id;
+
+    if (normalized == CollectorJobStatuses.completed) {
+      return const SizedBox.shrink();
     }
-    return Colors.redAccent;
+
+    late final String label;
+    late final VoidCallback? onPressed;
+
+    switch (normalized) {
+      case CollectorJobStatuses.assigned:
+        label = 'Accept';
+        onPressed = isUpdating
+            ? null
+            : () => _updateStatus(job, CollectorJobStatuses.onTheWay);
+      case CollectorJobStatuses.onTheWay:
+        label = 'Arrived';
+        onPressed = isUpdating
+            ? null
+            : () => _updateStatus(job, CollectorJobStatuses.arrived);
+      case CollectorJobStatuses.arrived:
+        label = 'Start Collection';
+        onPressed = isUpdating ? null : () => _startCollection(job);
+      case CollectorJobStatuses.inProgress:
+      case CollectorJobStatuses.readyForCompletion:
+        label = 'Continue Collection';
+        onPressed = isUpdating ? null : () => _continueCollection(job);
+      case CollectorJobStatuses.completed:
+      case CollectorJobStatuses.cancelled:
+        label = 'View Details';
+        onPressed = isUpdating ? null : () => _openJob(job);
+      default:
+        label = 'View Details';
+        onPressed = isUpdating ? null : () => _openJob(job);
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        child: isUpdating
+            ? SizedBox(
+                width: 16.w,
+                height: 16.w,
+                child: const CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text(label),
+      ),
+    );
   }
 
   String _valueOrDash(String value) {
@@ -262,37 +347,30 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
 
   Widget _messageState(
     BuildContext context,
-    String message, {
+    String title, {
+    String? message,
     String? actionLabel,
     Future<void> Function()? onPressed,
   }) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(20.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, textAlign: TextAlign.center),
-            if (actionLabel != null && onPressed != null) ...[
-              SizedBox(height: 12.h),
-              OutlinedButton(
+    return Padding(
+      padding: EdgeInsets.all(20.w),
+      child: EmptyState(
+        icon: actionLabel == null
+            ? Icons.assignment_outlined
+            : Icons.error_outline,
+        title: title,
+        message: message,
+        action: actionLabel == null || onPressed == null
+            ? null
+            : OutlinedButton(
                 onPressed: () => onPressed(),
                 child: Text(actionLabel),
               ),
-            ],
-          ],
-        ),
       ),
     );
   }
 
   String _messageForError(Object error) {
-    final text = error.toString();
-    const marker = 'message: ';
-    if (text.contains(marker)) {
-      return text.split(marker).last.replaceAll(')', '').trim();
-    }
-
-    return 'Unable to refresh assigned requests.';
+    return 'Unable to load assigned requests. Please try again.';
   }
 }

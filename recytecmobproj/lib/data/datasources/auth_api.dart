@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../models/user_model.dart';
@@ -14,6 +15,36 @@ class AuthResponse {
   });
 }
 
+class RegistrationResponse {
+  final String message;
+  final String email;
+  final String role;
+  final String accountStatus;
+  final bool emailVerificationRequired;
+  final bool emailSent;
+
+  const RegistrationResponse({
+    required this.message,
+    required this.email,
+    required this.role,
+    required this.accountStatus,
+    required this.emailVerificationRequired,
+    required this.emailSent,
+  });
+}
+
+class EmailVerificationResponse {
+  final String message;
+  final String accountStatus;
+  final UserModel? user;
+
+  const EmailVerificationResponse({
+    required this.message,
+    required this.accountStatus,
+    this.user,
+  });
+}
+
 class AuthApi {
   final ApiClient _apiClient;
 
@@ -22,61 +53,102 @@ class AuthApi {
   Future<AuthResponse> login({
     required String email,
     required String password,
-    String role = 'Staff',
   }) async {
-    try {
-      final Response res = await _postLogin(
-        email: email,
-        password: password,
-        role: role,
-      );
+    final Response res = await _postLogin(
+      email: email,
+      password: password,
+    );
 
-      return _parseAuthResponse(res.data);
-    } on DioException catch (e) {
-      if (role == 'Staff' && _isLguRoleMismatch(e)) {
-        final Response retry = await _postLogin(
-          email: email,
-          password: password,
-          role: 'LGU',
-        );
-
-        return _parseAuthResponse(retry.data);
-      }
-
-      if (role == 'Staff' && _isCollectorRoleMismatch(e)) {
-        final Response retry = await _postLogin(
-          email: email,
-          password: password,
-          role: 'Collector',
-        );
-
-        return _parseAuthResponse(retry.data);
-      }
-
-      rethrow;
-    }
+    return _parseAuthResponse(res.data);
   }
 
-  Future<AuthResponse> register({
+  Future<RegistrationResponse> register({
     String? fullName,
     required String email,
     required String password,
-    String role = 'Staff',
+    String role = 'household',
+    String? organizationName,
+    String? contactPerson,
+    String? contactNumber,
+    String? phone,
+    String? vehicleType,
+    String? plateNumber,
   }) async {
     final names = _splitName(fullName);
+    final canonicalRole = AppRoles.canonicalApiRole(role) ?? role;
 
     final Response res = await _apiClient.dio.post(
       ApiEndpoints.register,
       data: {
         'firstName': names.first,
         'lastName': names.last,
+        'fullName': fullName,
         'email': email,
         'password': password,
-        'role': role,
+        'role': canonicalRole,
+        if (_hasValue(organizationName)) 'organizationName': organizationName,
+        if (_hasValue(contactPerson)) 'contactPerson': contactPerson,
+        if (_hasValue(contactNumber)) 'contactNumber': contactNumber,
+        if (_hasValue(phone)) 'phone': phone,
+        if (_hasValue(vehicleType)) 'vehicleType': vehicleType,
+        if (_hasValue(plateNumber)) 'vehiclePlate': plateNumber,
       },
     );
 
+    final map = _asMap(res.data);
+    return RegistrationResponse(
+      message: _messageFromMap(
+        map,
+        fallback: 'Registration successful. You can now log in.',
+      ),
+      email: (map['email'] ?? email).toString(),
+      role: (map['role'] ?? canonicalRole).toString(),
+      accountStatus: (map['accountStatus'] ?? 'active').toString(),
+      emailVerificationRequired: map['emailVerificationRequired'] == true,
+      emailSent: map['emailSent'] == true,
+    );
+  }
+
+  Future<EmailVerificationResponse> verifyEmail({
+    required String email,
+    required String pin,
+  }) async {
+    final Response res = await _apiClient.dio.post(
+      ApiEndpoints.verifyEmail,
+      data: {
+        'email': email,
+        'pin': pin,
+      },
+    );
+
+    final map = _asMap(res.data);
+    return EmailVerificationResponse(
+      message: _messageFromMap(
+        map,
+        fallback: 'Email verified successfully. You can now log in.',
+      ),
+      accountStatus: (map['accountStatus'] ??
+              _asMap(map['user'])['accountStatus'] ??
+              'active')
+          .toString(),
+      user: _parseUser(map),
+    );
+  }
+
+  Future<AuthResponse> me() async {
+    final Response res = await _apiClient.dio.get(ApiEndpoints.me);
     return _parseAuthResponse(res.data);
+  }
+
+  Future<Map<String, dynamic>> resendVerification({
+    required String email,
+  }) async {
+    final Response res = await _apiClient.dio.post(
+      ApiEndpoints.resendVerification,
+      data: {'email': email},
+    );
+
+    return _asMap(res.data);
   }
 
   Future<void> logout() async {
@@ -168,44 +240,27 @@ class AuthApi {
   Future<Response> _postLogin({
     required String email,
     required String password,
-    required String role,
   }) {
     return _apiClient.dio.post(
       ApiEndpoints.login,
       data: {
         'email': email,
         'password': password,
-        'role': role,
       },
     );
-  }
-
-  bool _isCollectorRoleMismatch(DioException exception) {
-    final message = [
-      exception.error,
-      exception.response?.data,
-      exception.message,
-    ].join(' ').toLowerCase();
-
-    return message.contains('registered as collector') ||
-        (message.contains('collector') && message.contains('not staff'));
-  }
-
-  bool _isLguRoleMismatch(DioException exception) {
-    final message = [
-      exception.error,
-      exception.response?.data,
-      exception.message,
-    ].join(' ').toLowerCase();
-
-    return message.contains('registered as lgu') ||
-        (message.contains('lgu') && message.contains('not staff'));
   }
 
   Map<String, dynamic> _asMap(dynamic value) {
     if (value is Map) return value.cast<String, dynamic>();
     return <String, dynamic>{};
   }
+
+  String _messageFromMap(Map<String, dynamic> map, {required String fallback}) {
+    final message = (map['message'] ?? '').toString().trim();
+    return message.isEmpty ? fallback : message;
+  }
+
+  bool _hasValue(String? value) => value != null && value.trim().isNotEmpty;
 
   ({String first, String last}) _splitName(String? fullName) {
     final parts = (fullName ?? '')

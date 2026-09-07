@@ -5,6 +5,8 @@ class UserModel {
   final String fullName;
   final String email;
   final String role;
+  final bool emailVerified;
+  final String accountStatus;
   final String? phone;
   final String? vehicleType;
   final String? plateNumber;
@@ -16,6 +18,8 @@ class UserModel {
     required this.fullName,
     required this.email,
     required this.role,
+    this.emailVerified = true,
+    this.accountStatus = 'active',
     this.phone,
     this.vehicleType,
     this.plateNumber,
@@ -36,6 +40,15 @@ class UserModel {
       fullName: fullName,
       email: (json['email'] ?? '').toString(),
       role: (json['role'] ?? '').toString(),
+      emailVerified: json['emailVerified'] is bool
+          ? json['emailVerified'] as bool
+          : json['isEmailVerified'] is bool
+              ? json['isEmailVerified'] as bool
+              : true,
+      accountStatus: (json['accountStatus'] ?? json['status'] ?? 'active')
+          .toString()
+          .trim()
+          .toLowerCase(),
       phone: _optionalString(
         json['phone'] ??
             json['contactNumber'] ??
@@ -60,6 +73,8 @@ class UserModel {
       'fullName': fullName,
       'email': email,
       'role': role,
+      'emailVerified': emailVerified,
+      'accountStatus': accountStatus,
       if (phone != null) 'phone': phone,
       if (vehicleType != null) 'vehicleType': vehicleType,
       if (plateNumber != null) 'plateNumber': plateNumber,

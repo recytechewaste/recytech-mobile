@@ -5,6 +5,7 @@ import 'package:recytecmobproj/data/models/bin_monitoring_models.dart';
 import 'package:recytecmobproj/data/models/bin_qr_payload_model.dart';
 import 'package:recytecmobproj/data/models/collected_item_model.dart';
 import 'package:recytecmobproj/data/models/drop_off_record_model.dart';
+import 'package:recytecmobproj/data/models/public_bin_model.dart';
 import 'package:recytecmobproj/data/models/reward_transaction_model.dart';
 import 'package:recytecmobproj/data/repositories/drop_off_repository.dart';
 
@@ -22,7 +23,8 @@ void main() {
 
     test('rejects malformed QR values', () {
       expect(() => BinQrPayload.parse(''), throwsFormatException);
-      expect(() => BinQrPayload.parse('not a recytech qr'), throwsFormatException);
+      expect(
+          () => BinQrPayload.parse('not a recytech qr'), throwsFormatException);
     });
 
     test('rejects wrong RecyTech QR type', () {
@@ -53,7 +55,8 @@ void main() {
       final repository = MockDropOffRepository();
 
       expect(
-        repository.validateBinQr(BinQrPayload.parse('recytech://bin/LIB-SOUTH')),
+        repository
+            .validateBinQr(BinQrPayload.parse('recytech://bin/LIB-SOUTH')),
         throwsA(isA<DropOffRepositoryException>()),
       );
       expect(
@@ -62,23 +65,79 @@ void main() {
       );
     });
 
-    test('surfaces duplicate reward responses from repository', () async {
+    test('replays duplicate idempotency keys without duplicate records',
+        () async {
       final repository = MockDropOffRepository();
+      final payload = BinQrPayload.parse('recytech://bin/MARKET-GATE2');
 
-      expect(
-        repository.registerDropOff(
-          payload: BinQrPayload.parse('recytech://bin/MARKET-GATE2'),
-        ),
-        throwsA(
-          isA<DropOffRepositoryException>()
-              .having((error) => error.code, 'code', 'duplicate_drop_off'),
-        ),
+      final first = await repository.registerDropOff(
+        payload: payload,
+        submissionMethod: 'qr',
+        idempotencyKey: 'idem-1',
+        items: const [
+          DropOffSubmissionItem(category: 'battery', quantity: 1),
+        ],
       );
+      final second = await repository.registerDropOff(
+        payload: payload,
+        submissionMethod: 'qr',
+        idempotencyKey: 'idem-1',
+        items: const [
+          DropOffSubmissionItem(category: 'battery', quantity: 1),
+        ],
+      );
+
+      expect(second.id, first.id);
     });
   });
 
   group('drop-off and reward models', () {
-    test('serializes drop-off records without category or quantity claims', () {
+    test('parses backend public bin ownership and accepted categories', () {
+      final bin = PublicBin.fromJson({
+        '_id': '507f1f77bcf86cd799439011',
+        'binCode': 'BIN-001',
+        'publicQrCode': 'BIN-001',
+        'name': 'Main Lobby E-Waste Bin',
+        'partnerOrganizationName': 'Demo Partner Organization A',
+        'address': 'Makati City Hall Main Lobby',
+        'latitude': 14.5547,
+        'longitude': 121.0244,
+        'acceptedCategories': ['laptop', 'smartphone', 'pcb'],
+        'acceptedCategoryDisplayNames': [
+          {'value': 'laptop', 'label': 'Laptop'},
+          {'value': 'smartphone', 'label': 'Smartphone'},
+          {'value': 'pcb', 'label': 'PCB'},
+        ],
+      });
+
+      expect(bin.publicQrCode, 'BIN-001');
+      expect(bin.partnerOrganizationName, 'Demo Partner Organization A');
+      expect(bin.acceptedCategories, ['laptop', 'smartphone', 'pcb']);
+      expect(bin.acceptedCategoryLabels, ['Laptop', 'Smartphone', 'PCB']);
+    });
+
+    test('parses partner bin latest stored monitoring values', () {
+      final bin = RecyTechBin.fromJson({
+        'id': '507f1f77bcf86cd799439011',
+        'binCode': 'BIN-002',
+        'name': 'IT Office E-Waste Bin',
+        'partnerOrganizationName': 'Demo Partner Organization A',
+        'location': 'Makati City Hall IT Office',
+        'fillPercentage': 78,
+        'fullnessStatus': 'nearly_full',
+        'sensorStatus': 'delayed',
+        'lastUpdatedAt': '2026-08-28T09:15:00.000Z',
+        'acceptedCategories': ['monitor', 'battery'],
+      });
+
+      expect(bin.binId, 'BIN-002');
+      expect(bin.partnerOrganizationName, 'Demo Partner Organization A');
+      expect(bin.fillPercentage, 78);
+      expect(SensorStatuses.label(bin.sensorStatus), 'Delayed');
+      expect(bin.acceptedCategoryLabels, ['Monitor', 'Battery']);
+    });
+
+    test('parses drop-off records with items and no weight requirement', () {
       final record = DropOffRecord.fromJson({
         'id': 'DROP-1',
         'binId': 'BIN-1',
@@ -86,14 +145,19 @@ void main() {
         'building': 'ABC Residences',
         'locationDescription': '3rd Floor',
         'createdAt': '2026-08-14T08:00:00Z',
-        'status': 'Recorded',
-        'rewardEligible': true,
-        'rewardPoints': 10,
+        'status': 'submitted',
+        'submissionMethod': 'manual',
+        'pointsStatus': 'not_processed',
+        'items': [
+          {'category': 'laptop', 'categoryLabel': 'Laptop', 'quantity': 1},
+        ],
       });
 
-      expect(record.rewardLabel, '10 points');
-      expect(record.toJson(), isNot(contains('quantity')));
-      expect(record.toJson(), isNot(contains('category')));
+      expect(record.status, 'submitted');
+      expect(record.submissionMethod, 'manual');
+      expect(record.items.first.category, 'laptop');
+      expect(record.items.first.quantity, 1);
+      expect(record.pointsStatus, 'not_processed');
       expect(record.toJson(), isNot(contains('weightKg')));
     });
 
@@ -116,7 +180,7 @@ void main() {
   group('navigation and regression contracts', () {
     test('household shell target remains unchanged', () {
       expect(AppRoles.shellTargetFor('household'), AppShellTarget.household);
-      expect(AppRoles.shellTargetFor('lgu'), AppShellTarget.lgu);
+      expect(AppRoles.shellTargetFor('lgu'), AppShellTarget.partnerOrg);
       expect(AppRoles.shellTargetFor('collector'), AppShellTarget.collector);
     });
 
@@ -130,7 +194,7 @@ void main() {
       );
 
       expect(uri, isNotNull);
-      expect(uri.toString(), contains('/maps/dir/'));
+      expect(uri.toString(), contains('openstreetmap.org'));
     });
 
     test('LGU ToF model remains intact', () {

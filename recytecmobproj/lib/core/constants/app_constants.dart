@@ -1,19 +1,20 @@
 enum UserRole {
   household,
-  lgu,
+  partnerOrg,
   collector,
   unsupported,
 }
 
 enum AppShellTarget {
   household,
-  lgu,
+  partnerOrg,
   collector,
   accessDenied,
 }
 
 class AppRoles {
   static const household = 'household';
+  static const partnerOrg = 'partner_org';
   static const lgu = 'lgu';
   static const collector = 'collector';
   static const staff = 'Staff';
@@ -25,14 +26,19 @@ class AppRoles {
       case 'household':
       case 'regular_user':
       case 'regular user':
+      case 'registered_user':
+      case 'registered user':
       case 'user':
       case 'resident':
-        // The current backend still uses Staff for self-registered
-        // household/mobile users. Preserve the backend string for API payloads
-        // and normalize it only inside the app routing layer.
         return UserRole.household;
       case 'lgu':
-        return UserRole.lgu;
+      case 'partner_organization':
+      case 'partner organization':
+      case 'partner_org':
+      case 'partner org':
+      case 'partner':
+      case 'organization':
+        return UserRole.partnerOrg;
       case 'collector':
         return UserRole.collector;
       default:
@@ -44,16 +50,20 @@ class AppRoles {
     return role == UserRole.household;
   }
 
+  static bool canUsePartnerShell(UserRole role) {
+    return role == UserRole.partnerOrg;
+  }
+
   static bool canUseLguShell(UserRole role) {
-    return role == UserRole.lgu;
+    return canUsePartnerShell(role);
   }
 
   static AppShellTarget shellTargetFor(String? value) {
     switch (normalize(value)) {
       case UserRole.household:
         return AppShellTarget.household;
-      case UserRole.lgu:
-        return AppShellTarget.lgu;
+      case UserRole.partnerOrg:
+        return AppShellTarget.partnerOrg;
       case UserRole.collector:
         return AppShellTarget.collector;
       case UserRole.unsupported:
@@ -61,12 +71,25 @@ class AppRoles {
     }
   }
 
+  static String? canonicalApiRole(String? value) {
+    switch (normalize(value)) {
+      case UserRole.household:
+        return household;
+      case UserRole.partnerOrg:
+        return partnerOrg;
+      case UserRole.collector:
+        return collector;
+      case UserRole.unsupported:
+        return null;
+    }
+  }
+
   static String displayName(UserRole role) {
     switch (role) {
       case UserRole.household:
-        return 'Household';
-      case UserRole.lgu:
-        return 'LGU';
+        return 'Registered User';
+      case UserRole.partnerOrg:
+        return 'Partner Organization';
       case UserRole.collector:
         return 'Collector';
       case UserRole.unsupported:
@@ -122,9 +145,9 @@ class FullnessStatuses {
 }
 
 class SensorStatuses {
-  static const online = 'online';
+  static const online = 'active';
   static const offline = 'offline';
-  static const delayedSync = 'delayed_sync';
+  static const delayedSync = 'delayed';
   static const unknown = 'unknown';
 
   static const values = [
@@ -137,8 +160,10 @@ class SensorStatuses {
   static String normalize(String? value) {
     final normalized = _normalizeKey(value);
     if (values.contains(normalized)) return normalized;
+    if (normalized == 'online') return online;
+    if (normalized == 'delayed_sync') return delayedSync;
     if (normalized.contains('delay')) return delayedSync;
-    if (normalized.contains('online')) return online;
+    if (normalized.contains('active')) return online;
     if (normalized.contains('offline')) return offline;
     return unknown;
   }
@@ -146,11 +171,11 @@ class SensorStatuses {
   static String label(String? value) {
     switch (normalize(value)) {
       case online:
-        return 'Online';
+        return 'Active';
       case offline:
         return 'Offline';
       case delayedSync:
-        return 'Delayed Sync';
+        return 'Delayed';
       case unknown:
       default:
         return 'Unknown';
@@ -159,46 +184,52 @@ class SensorStatuses {
 }
 
 class CollectionRequestStatuses {
-  static const pending = 'pending';
-  static const approved = 'approved';
-  static const rejected = 'rejected';
-  static const collectorAssigned = 'collector_assigned';
-  static const onTheWay = 'on_the_way';
-  static const arrived = 'arrived';
+  static const queued = 'queued';
+  static const pending = queued;
+  static const approved = queued;
+  static const collectorAssigned = queued;
   static const inProgress = 'in_progress';
   static const completed = 'completed';
   static const cancelled = 'cancelled';
-  static const rescheduled = 'rescheduled';
+  static const rejected = cancelled;
+  static const onTheWay = inProgress;
+  static const arrived = inProgress;
+  static const rescheduled = queued;
 
   static const activeValues = [
-    pending,
-    approved,
-    collectorAssigned,
-    onTheWay,
-    arrived,
+    queued,
     inProgress,
-    rescheduled,
   ];
 
   static const values = [
-    pending,
-    approved,
-    rejected,
-    collectorAssigned,
-    onTheWay,
-    arrived,
+    queued,
     inProgress,
     completed,
     cancelled,
-    rescheduled,
   ];
 
   static String normalize(String? value) {
     final normalized = _normalizeKey(value);
     if (values.contains(normalized)) return normalized;
-    if (normalized == 'assigned') return collectorAssigned;
-    if (normalized == 'pending_review') return pending;
-    return pending;
+    if (normalized == 'pending' ||
+        normalized == 'approved' ||
+        normalized == 'assigned' ||
+        normalized == 'collector_assigned' ||
+        normalized == 'pending_review' ||
+        normalized == 'rescheduled') {
+      return queued;
+    }
+    if (normalized == 'started' ||
+        normalized == 'collection_started' ||
+        normalized == 'on_the_way' ||
+        normalized == 'arrived' ||
+        normalized == 'in_transit') {
+      return inProgress;
+    }
+    if (normalized == 'rejected' || normalized == 'canceled') {
+      return cancelled;
+    }
+    return queued;
   }
 
   static bool isActive(String? value) {
@@ -207,34 +238,23 @@ class CollectionRequestStatuses {
 
   static String label(String? value) {
     switch (normalize(value)) {
-      case pending:
-        return 'Pending';
-      case approved:
-        return 'Approved';
-      case rejected:
-        return 'Rejected';
-      case collectorAssigned:
-        return 'Collector Assigned';
-      case onTheWay:
-        return 'On The Way';
-      case arrived:
-        return 'Arrived';
+      case queued:
+        return 'Queued';
       case inProgress:
         return 'In Progress';
       case completed:
         return 'Completed';
       case cancelled:
         return 'Cancelled';
-      case rescheduled:
-        return 'Rescheduled';
       default:
-        return 'Pending';
+        return 'Queued';
     }
   }
 }
 
 class CollectorJobStatuses {
   static const assigned = 'collector_assigned';
+  static const queued = assigned;
   static const onTheWay = 'on_the_way';
   static const arrived = 'arrived';
   static const inProgress = 'in_progress';
@@ -244,9 +264,9 @@ class CollectorJobStatuses {
 
   static const values = [
     assigned,
+    inProgress,
     onTheWay,
     arrived,
-    inProgress,
     readyForCompletion,
     completed,
     cancelled,
@@ -255,16 +275,25 @@ class CollectorJobStatuses {
   static String normalize(String? value) {
     final normalized = _normalizeKey(value);
     if (values.contains(normalized)) return normalized;
-    if (normalized == 'approved' || normalized == 'assigned') return assigned;
-    if (normalized == 'in_transit' || normalized == 'on_the_way') {
-      return onTheWay;
+    if (normalized == 'approved' ||
+        normalized == 'assigned' ||
+        normalized == 'queued' ||
+        normalized == 'collector_assigned' ||
+        normalized == 'pending') {
+      return assigned;
     }
     if (normalized == 'started' || normalized == 'collection_started') {
       return inProgress;
     }
-    if (normalized == 'collected' || normalized == 'ready') {
+    if (normalized == 'in_transit') {
+      return onTheWay;
+    }
+    if (normalized == 'ready' ||
+        normalized == 'ready_for_completion' ||
+        normalized == 'collected') {
       return readyForCompletion;
     }
+    if (normalized == 'canceled' || normalized == 'rejected') return cancelled;
     return assigned;
   }
 
@@ -292,7 +321,7 @@ class CollectorJobStatuses {
   static String label(String? value) {
     switch (normalize(value)) {
       case assigned:
-        return 'Assigned';
+        return 'Queued';
       case onTheWay:
         return 'On The Way';
       case arrived:
@@ -306,7 +335,7 @@ class CollectorJobStatuses {
       case cancelled:
         return 'Cancelled';
       default:
-        return 'Assigned';
+        return 'Queued';
     }
   }
 

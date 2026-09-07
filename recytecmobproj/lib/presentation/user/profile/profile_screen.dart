@@ -5,12 +5,15 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/data/models/drop_off_record_model.dart';
+import 'package:recytecmobproj/data/models/points_rewards_models.dart';
 import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/data/repositories/drop_off_repository.dart';
+import 'package:recytecmobproj/data/repositories/points_rewards_repository.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 
 import '../../../widgets/primary_button.dart';
 import '../../auth/login_screen.dart';
+import '../../settings/settings_screen.dart';
 import '../history/history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -22,13 +25,16 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   File? _profileImage;
-  final DropOffRepository _dropOffRepository = MockDropOffRepository();
+  final DropOffRepository _dropOffRepository = ApiDropOffRepository();
+  final PointsRewardsRepository _pointsRepository = PointsRewardsRepository();
   late Future<List<DropOffRecord>> _dropOffsFuture;
+  late Future<PointsSummary> _pointsFuture;
 
   @override
   void initState() {
     super.initState();
     _dropOffsFuture = _dropOffRepository.getMyDropOffHistory();
+    _pointsFuture = _pointsRepository.fetchPointsSummary();
   }
 
   Future<void> _pickProfileImage() async {
@@ -114,11 +120,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: RecyTechTheme.bg,
         appBar: AppBar(
           title: const Text('Profile'),
-          actions: const [
-            Icon(Icons.search),
-            SizedBox(width: 12),
-            Icon(Icons.more_vert),
-            SizedBox(width: 8),
+          actions: [
+            IconButton(
+              tooltip: 'Settings',
+              onPressed: () => Navigator.pushNamed(
+                context,
+                SettingsScreen.route,
+              ),
+              icon: const Icon(Icons.settings_outlined),
+            ),
           ],
         ),
         body: ListView(
@@ -128,7 +138,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style:
                     TextStyle(fontSize: 12.sp, color: RecyTechTheme.textMuted)),
             SizedBox(height: 10.h),
-
             Center(
               child: GestureDetector(
                 onTap: _pickProfileImage,
@@ -160,9 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-
             SizedBox(height: 10.h),
-
             Center(
               child: Text(
                 displayName,
@@ -170,51 +177,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             SizedBox(height: 8.h),
-
             Center(
                 child: Text('Designated-bin drop-off member',
                     style: TextStyle(
                         fontSize: 10.sp, color: RecyTechTheme.textMuted))),
             SizedBox(height: 8.h),
-
             _profileInfoCard('Email Address', _profileValue(user?.email), cs),
             SizedBox(height: 8.h),
             _profileInfoCard('Contact Number', _profileValue(user?.phone), cs),
-
             SizedBox(height: 14.h),
             const Divider(),
-
             FutureBuilder<List<DropOffRecord>>(
               future: _dropOffsFuture,
               builder: (context, snapshot) {
                 final dropOffs = snapshot.data ?? <DropOffRecord>[];
-                final eligible =
-                    dropOffs.where((record) => record.rewardEligible).length;
+                final credited = dropOffs
+                    .where((record) => record.pointsStatus == 'credited')
+                    .length;
                 return Padding(
                   padding: EdgeInsets.symmetric(vertical: 12.h),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _stat('${dropOffs.length}', 'Drop-Offs'),
-                      _stat('$eligible', 'Rewards'),
-                      _stat(user?.role.trim().isEmpty == false
-                          ? 'Active'
-                          : 'Member', 'Status'),
+                      _stat('$credited', 'Credited'),
+                      FutureBuilder<PointsSummary>(
+                        future: _pointsFuture,
+                        builder: (context, pointsSnapshot) {
+                          final balance = pointsSnapshot.data?.balance ?? 0;
+                          return _stat('$balance', 'Points');
+                        },
+                      ),
                     ],
                   ),
                 );
               },
             ),
-
             const Divider(),
             SizedBox(height: 12.h),
-
             Center(
                 child: Text('Recent Drop-Offs',
                     style: TextStyle(
                         fontSize: 11.sp, fontWeight: FontWeight.w900))),
             SizedBox(height: 10.h),
-
             FutureBuilder<List<DropOffRecord>>(
               future: _dropOffsFuture,
               builder: (context, snapshot) {
@@ -225,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   decoration: BoxDecoration(
                     border: Border.all(color: RecyTechTheme.border),
                     borderRadius: BorderRadius.circular(20.r),
-                    color: Colors.white,
+                    color: RecyTechTheme.card,
                     boxShadow: [
                       BoxShadow(
                         color: RecyTechTheme.primary.withValues(alpha: 0.07),
@@ -255,7 +260,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               },
             ),
-
             SizedBox(height: 10.h),
             Center(
               child: TextButton(
@@ -269,7 +273,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-
             SizedBox(height: 14.h),
             Center(
               child: auth.isLoading
@@ -304,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(18.r),
         border: Border.all(color: RecyTechTheme.border),
         boxShadow: [

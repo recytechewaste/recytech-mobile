@@ -22,9 +22,9 @@ class LguDashboardScreen extends StatefulWidget {
 }
 
 class _LguDashboardScreenState extends State<LguDashboardScreen> {
-  final LguBinRepository _binRepository = MockBinMonitoringService();
+  final LguBinRepository _binRepository = ApiPartnerBinRepository();
   final CollectionRequestRepository _requestRepository =
-      MockCollectionRequestRepository();
+      ApiCollectionRequestRepository();
 
   late Future<_DashboardData> _dashboardFuture;
 
@@ -56,13 +56,12 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
     final user = context.watch<AuthProvider>().currentUser;
     final lguName = user?.fullName.trim().isNotEmpty == true
         ? user!.fullName.trim()
-        : 'LGU';
+        : 'Partner Organization';
 
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Dashboard'),
-        centerTitle: false,
         actions: [
           IconButton(
             tooltip: 'Notifications',
@@ -71,7 +70,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const NotificationCenterScreen(
-                    role: UserRole.lgu,
+                    role: UserRole.partnerOrg,
                   ),
                 ),
               );
@@ -89,11 +88,14 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
         future: _dashboardFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingState(message: 'Loading smart bin summary…');
           }
 
           if (snapshot.hasError) {
-            return _errorState();
+            return AppErrorState(
+              title: 'Unable to load smart bin data. Please try again.',
+              onRetry: _refresh,
+            );
           }
 
           final data = snapshot.data ?? const _DashboardData();
@@ -123,7 +125,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
                   crossAxisSpacing: 10.w,
                   childAspectRatio: 1.35,
                   children: [
-                    _metric('Assigned Bins', data.bins.length.toString()),
+                    _metric('My Bins', data.bins.length.toString()),
                     _metric(
                         'Full', _countBins(data.bins, FullnessStatuses.full)),
                     _metric(
@@ -144,7 +146,13 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
                   ),
                 ),
                 SizedBox(height: 10.h),
-                if (data.priorityBins.isEmpty)
+                if (data.bins.isEmpty)
+                  const EmptyState(
+                    icon: Icons.delete_outline,
+                    title: 'You have no assigned smart bins right now.',
+                    message: 'Assigned RecyTech smart bins will appear here.',
+                  )
+                else if (data.priorityBins.isEmpty)
                   const EmptyState(
                     icon: Icons.check_circle_outline,
                     title: 'No priority bins',
@@ -164,7 +172,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -173,7 +181,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
           Container(
             width: 44.w,
             height: 44.w,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: RecyTechTheme.pill,
               shape: BoxShape.circle,
             ),
@@ -200,7 +208,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
                 ),
                 SizedBox(height: 3.h),
                 Text(
-                  'ToF bin readings shown from temporary mock repository.',
+                  'Latest stored bin readings from the RecyTech backend.',
                   style: TextStyle(
                     fontSize: 11.sp,
                     color: RecyTechTheme.textMuted,
@@ -218,7 +226,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -261,7 +269,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
         margin: EdgeInsets.only(bottom: 10.h),
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: RecyTechTheme.border),
         ),
@@ -296,23 +304,6 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _errorState() {
-    return ListView(
-      padding: EdgeInsets.all(16.w),
-      children: [
-        EmptyState(
-          icon: Icons.error_outline,
-          title: 'Unable to load dashboard',
-          message: 'Check the connection and try again.',
-          action: OutlinedButton(
-            onPressed: _refresh,
-            child: const Text('Retry'),
-          ),
-        ),
-      ],
     );
   }
 

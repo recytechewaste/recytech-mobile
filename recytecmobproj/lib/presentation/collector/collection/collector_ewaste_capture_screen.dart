@@ -293,7 +293,7 @@ class _CollectorEWasteCaptureScreenState
     return Container(
       height: 260.h,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -332,7 +332,7 @@ class _CollectorEWasteCaptureScreenState
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -346,6 +346,11 @@ class _CollectorEWasteCaptureScreenState
             'Confidence: ${(result.confidence * 100).toStringAsFixed(1)}%',
           ),
           Text('Mapped category: ${result.mappedWasteCategory}'),
+          SizedBox(height: 8.h),
+          _messageBox(
+            'AI provides a suggestion only. Your confirmed category is final.',
+            isWarning: true,
+          ),
           if (_isLowConfidence) ...[
             SizedBox(height: 8.h),
             _messageBox(
@@ -390,7 +395,7 @@ class _CollectorEWasteCaptureScreenState
   }
 
   Widget _messageBox(String message, {bool isWarning = false}) {
-    final color = isWarning ? Colors.orange.shade800 : RecyTechTheme.primary;
+    final color = isWarning ? RecyTechTheme.warning : RecyTechTheme.primary;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(12.w),
@@ -410,7 +415,7 @@ class _CollectorEWasteCaptureScreenState
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: RecyTechTheme.border),
+        borderSide: BorderSide(color: RecyTechTheme.border),
       ),
     );
   }

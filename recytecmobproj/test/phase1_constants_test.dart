@@ -1,27 +1,66 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/utils/waste_type_mapper.dart';
+import 'package:recytecmobproj/data/models/user_model.dart';
 
 void main() {
   group('role normalization', () {
-    test('recognizes Household, LGU, and Collector variants', () {
+    test('recognizes Household, Partner Organization, and Collector variants',
+        () {
       expect(AppRoles.normalize('Staff'), UserRole.household);
       expect(AppRoles.normalize('staff'), UserRole.household);
       expect(AppRoles.normalize('Household'), UserRole.household);
       expect(AppRoles.normalize('resident'), UserRole.household);
-      expect(AppRoles.normalize('LGU'), UserRole.lgu);
-      expect(AppRoles.normalize('lgu'), UserRole.lgu);
+      expect(AppRoles.normalize('LGU'), UserRole.partnerOrg);
+      expect(AppRoles.normalize('lgu'), UserRole.partnerOrg);
+      expect(AppRoles.normalize('partner_org'), UserRole.partnerOrg);
+      expect(AppRoles.normalize('partner org'), UserRole.partnerOrg);
+      expect(AppRoles.normalize('Partner Organization'), UserRole.partnerOrg);
+      expect(AppRoles.normalize('Partner'), UserRole.partnerOrg);
       expect(AppRoles.normalize('Collector'), UserRole.collector);
       expect(AppRoles.normalize('collector'), UserRole.collector);
+    });
+
+    test('returns canonical API roles for auth payloads', () {
+      expect(AppRoles.canonicalApiRole('Registered User'), AppRoles.household);
+      expect(AppRoles.canonicalApiRole('Staff'), AppRoles.household);
+      expect(
+        AppRoles.canonicalApiRole('Partner Organization'),
+        AppRoles.partnerOrg,
+      );
+      expect(AppRoles.canonicalApiRole('Partner'), AppRoles.partnerOrg);
+      expect(AppRoles.canonicalApiRole('LGU'), AppRoles.partnerOrg);
+      expect(AppRoles.canonicalApiRole('Collector'), AppRoles.collector);
+      expect(AppRoles.canonicalApiRole('admin'), isNull);
     });
 
     test('routes supported roles to their production shells', () {
       expect(AppRoles.shellTargetFor('Staff'), AppShellTarget.household);
       expect(AppRoles.shellTargetFor('staff'), AppShellTarget.household);
-      expect(AppRoles.shellTargetFor('LGU'), AppShellTarget.lgu);
-      expect(AppRoles.shellTargetFor('lgu'), AppShellTarget.lgu);
+      expect(AppRoles.shellTargetFor('LGU'), AppShellTarget.partnerOrg);
+      expect(AppRoles.shellTargetFor('lgu'), AppShellTarget.partnerOrg);
+      expect(AppRoles.shellTargetFor('partner_org'), AppShellTarget.partnerOrg);
+      expect(
+        AppRoles.shellTargetFor('Partner Organization'),
+        AppShellTarget.partnerOrg,
+      );
       expect(AppRoles.shellTargetFor('Collector'), AppShellTarget.collector);
       expect(AppRoles.shellTargetFor('collector'), AppShellTarget.collector);
+    });
+
+    test('preserves backend partner_org on authenticated users', () {
+      final user = UserModel.fromJson({
+        '_id': 'partner-1',
+        'fullName': 'Demo Partner',
+        'email': 'partner@example.com',
+        'role': 'partner_org',
+        'accountStatus': 'active',
+      });
+
+      expect(user.role, AppRoles.partnerOrg);
+      expect(AppRoles.normalize(user.role), UserRole.partnerOrg);
+      expect(AppRoles.shellTargetFor(user.role), AppShellTarget.partnerOrg);
+      expect(AppRoles.canonicalApiRole(user.role), AppRoles.partnerOrg);
     });
 
     test('does not route unknown roles into target shells', () {

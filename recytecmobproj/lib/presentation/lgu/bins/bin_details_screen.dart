@@ -10,6 +10,7 @@ import '../../../presentation/bin_monitoring/widgets/bin_monitoring_components.d
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/status_bagde.dart';
 import '../requests/collection_request_form_screen.dart';
+import '../requests/collection_request_tracking_screen.dart';
 
 class BinDetailsScreen extends StatefulWidget {
   const BinDetailsScreen({
@@ -24,7 +25,7 @@ class BinDetailsScreen extends StatefulWidget {
 }
 
 class _BinDetailsScreenState extends State<BinDetailsScreen> {
-  final LguBinRepository _repository = MockBinMonitoringService();
+  final LguBinRepository _repository = ApiPartnerBinRepository();
   final MapLauncher _mapLauncher = const MapLauncher();
   late Future<_BinDetailsData> _detailsFuture;
 
@@ -52,6 +53,16 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
   }
 
   Future<void> _requestCollection(RecyTechBin bin) async {
+    if (bin.hasActiveCollectionRequest) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const CollectionRequestTrackingScreen(),
+        ),
+      );
+      return;
+    }
+
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -97,15 +108,23 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
         future: _detailsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingState(message: 'Loading smart bin details…');
           }
 
           if (snapshot.hasError) {
-            return _messageState('Unable to load bin details.');
+            return AppErrorState(
+              title: 'Unable to load smart bin data. Please try again.',
+              onRetry: _refresh,
+            );
           }
 
           final data = snapshot.data;
-          if (data == null) return _messageState('No bin details available.');
+          if (data == null) {
+            return AppErrorState(
+              title: 'Unable to load smart bin data. Please try again.',
+              onRetry: _refresh,
+            );
+          }
 
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -118,13 +137,11 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
                 _conditionPanel(data.bin, data.monitoring),
                 SizedBox(height: 18.h),
                 ElevatedButton.icon(
-                  onPressed: data.bin.hasActiveCollectionRequest
-                      ? null
-                      : () => _requestCollection(data.bin),
+                  onPressed: () => _requestCollection(data.bin),
                   icon: const Icon(Icons.local_shipping_outlined),
                   label: Text(
                     data.bin.hasActiveCollectionRequest
-                        ? 'Collection Request Active'
+                        ? 'View Active Request'
                         : 'Request Collection',
                   ),
                 ),
@@ -137,23 +154,24 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
   }
 
   Widget _recommendationBanner() {
+    final warning = RecyTechTheme.warning;
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
+        color: warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(color: warning.withValues(alpha: 0.32)),
       ),
       child: Row(
         children: [
-          Icon(Icons.priority_high, color: Colors.orange.shade800),
+          Icon(Icons.priority_high, color: warning),
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
               'This bin is full. Review the reading and submit a collection request when ready.',
               style: TextStyle(
-                color: Colors.orange.shade900,
+                color: warning,
                 fontSize: 11.sp,
                 fontWeight: FontWeight.w700,
                 height: 1.35,
@@ -170,11 +188,14 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
     final sensorLabel = SensorStatuses.label(monitoring.sensorStatus);
     final freshnessLabel =
         SensorReadingFreshness.status(monitoring.lastUpdatedAt);
+    final hasSensorReading = monitoring.lastUpdatedAt != null ||
+        monitoring.distanceCm != null ||
+        monitoring.fillPercentage != null;
 
     return Container(
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -191,44 +212,62 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
           ),
           SizedBox(height: 4.h),
           _infoRow('Bin ID', bin.binId),
-          _infoRow('LGU ID', bin.assignedLguId ?? '-'),
+          _infoRow(
+            'Partner',
+            bin.partnerOrganizationName ?? bin.assignedLguId ?? '-',
+          ),
           _infoRow('Location', bin.location),
           _infoRow('Coordinates', _coordinatesLabel(bin)),
-          _infoRow('Distance', _distanceLabel(monitoring.distanceCm)),
-          _infoRow('Sensor reading', formatDateTime(monitoring.lastUpdatedAt)),
-          _infoRow('Reading status', freshnessLabel),
+          if (hasSensorReading) ...[
+            _infoRow('Distance', _distanceLabel(monitoring.distanceCm)),
+            _infoRow(
+              'Latest Stored Reading',
+              formatDateTime(monitoring.lastUpdatedAt),
+            ),
+            _infoRow('Reading status', freshnessLabel),
+          ],
           _infoRow('Last collection', formatDateTime(bin.lastCollectionAt)),
+          if (bin.acceptedCategoryLabels.isNotEmpty)
+            _infoRow('Accepts', bin.acceptedCategoryLabels.join(', ')),
           SizedBox(height: 12.h),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => _openMaps(bin),
-              icon: const Icon(Icons.directions_outlined),
-              label: const Text('Open in Maps'),
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('View location on map'),
             ),
           ),
           SizedBox(height: 12.h),
-          FillLevelIndicator(
-            fillLevel: monitoring.fillPercentage,
-            status: fullnessLabel,
-          ),
-          SizedBox(height: 12.h),
-          Wrap(
-            spacing: 8.w,
-            runSpacing: 8.h,
-            children: [
-              StatusBadge(label: fullnessLabel),
-              StatusBadge(label: 'Sensor: $sensorLabel'),
-              StatusBadge(label: 'Reading: $freshnessLabel'),
-              if ((monitoring.controllerStatus ?? '').trim().isNotEmpty)
-                StatusBadge(
-                  label: 'Controller: ${monitoring.controllerStatus}',
-                ),
-            ],
-          ),
-          if (freshnessLabel == 'Stale') ...[
+          if (!hasSensorReading)
+            const EmptyState(
+              icon: Icons.sensors_off_outlined,
+              title: 'Sensor data is not available yet.',
+              message: 'No recent sensor reading is available.',
+            )
+          else ...[
+            FillLevelIndicator(
+              fillLevel: monitoring.fillPercentage,
+              status: fullnessLabel,
+            ),
             SizedBox(height: 12.h),
-            _staleReadingWarning(),
+            Wrap(
+              spacing: 8.w,
+              runSpacing: 8.h,
+              children: [
+                StatusBadge(label: fullnessLabel),
+                StatusBadge(label: 'Sensor: $sensorLabel'),
+                StatusBadge(label: 'Reading: $freshnessLabel'),
+                if ((monitoring.controllerStatus ?? '').trim().isNotEmpty)
+                  StatusBadge(
+                    label: 'Controller: ${monitoring.controllerStatus}',
+                  ),
+              ],
+            ),
+            if (freshnessLabel == 'Stale') ...[
+              SizedBox(height: 12.h),
+              _staleReadingWarning(),
+            ],
           ],
           if (bin.activeCollectionRequest != null) ...[
             SizedBox(height: 12.h),
@@ -282,35 +321,20 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
     );
   }
 
-  Widget _messageState(String message) {
-    return ListView(
-      padding: EdgeInsets.all(16.w),
-      children: [
-        EmptyState(
-          icon: Icons.error_outline,
-          title: message,
-          action: OutlinedButton(
-            onPressed: _refresh,
-            child: const Text('Retry'),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _staleReadingWarning() {
+    final warning = RecyTechTheme.warning;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
+        color: warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(color: warning.withValues(alpha: 0.32)),
       ),
       child: Text(
-        'This ToF reading is older than the expected sync window. Refresh or verify the backend sensor update before acting on it.',
+        'This stored reading is older than the expected sync window. Refresh or verify the backend value before acting on it.',
         style: TextStyle(
-          color: Colors.orange.shade900,
+          color: warning,
           fontSize: 11.sp,
           fontWeight: FontWeight.w700,
           height: 1.35,

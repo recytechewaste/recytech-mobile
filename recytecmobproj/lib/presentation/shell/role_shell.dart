@@ -21,7 +21,7 @@ class RoleShell extends StatelessWidget {
     switch (AppRoles.shellTargetFor(userType)) {
       case AppShellTarget.household:
         return const UserAppShell();
-      case AppShellTarget.lgu:
+      case AppShellTarget.partnerOrg:
         return const LguHomeShell();
       case AppShellTarget.collector:
         return const CollectorHomeShell();

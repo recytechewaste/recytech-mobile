@@ -7,10 +7,8 @@ class CollectorRepository {
   CollectorRepository({CollectorApi? api}) : _api = api ?? CollectorApi();
 
   Future<List<CollectorJob>> fetchAvailableJobs() async {
-    final jobs = await _fetchJobs();
-
-    return jobs.where((job) => job.isAvailableForAssignment).toList()
-      ..sort(_oldestFirst);
+    final jobs = await _fetchQueue();
+    return jobs.where((job) => job.isAvailableForAssignment).toList();
   }
 
   Future<List<CollectorJob>> fetchAssignedJobs({
@@ -18,21 +16,11 @@ class CollectorRepository {
     String? collectorName,
     String? collectorEmail,
   }) async {
-    final jobs = await _fetchJobs();
+    final currentJob = await _api.fetchCurrentJob();
+    if (currentJob == null) return <CollectorJob>[];
 
-    return jobs
-        .where(
-          (job) =>
-              job.id.isNotEmpty &&
-              job.isActive &&
-              job.isAssignedTo(
-                collectorId: collectorId,
-                collectorName: collectorName,
-                collectorEmail: collectorEmail,
-              ),
-        )
-        .toList()
-      ..sort(_scheduledThenOldest);
+    final job = CollectorJob.fromJson(currentJob);
+    return job.id.isEmpty ? <CollectorJob>[] : <CollectorJob>[job];
   }
 
   Future<List<CollectorJob>> fetchCompletedJobs({
@@ -40,8 +28,7 @@ class CollectorRepository {
     String? collectorName,
     String? collectorEmail,
   }) async {
-    final jobs = await _fetchJobs();
-
+    final jobs = await _fetchQueue();
     return jobs
         .where(
           (job) =>
@@ -57,8 +44,8 @@ class CollectorRepository {
       ..sort((a, b) => _scheduledThenOldest(b, a));
   }
 
-  Future<List<CollectorJob>> _fetchJobs() async {
-    final list = await _api.fetchJobs();
+  Future<List<CollectorJob>> _fetchQueue() async {
+    final list = await _api.fetchQueue();
 
     return list
         .whereType<Map>()
@@ -66,19 +53,16 @@ class CollectorRepository {
         .toList();
   }
 
-  Future<CollectorJob> acceptJob({
+  Future<CollectorJob> startCollection({
     required String requestId,
-    String? collectorId,
-    String? collectorName,
-    String? collectorEmail,
-  }) {
-    return updateJobStatus(
-      requestId: requestId,
-      status: 'In-Transit',
-      collectorId: collectorId,
-      collectorName: collectorName,
-      collectorEmail: collectorEmail,
-    );
+  }) async {
+    final updated = await _api.startCollectionRequest(requestId);
+    return CollectorJob.fromJson(updated);
+  }
+
+  Future<CollectorJob> startNextCollection() async {
+    final updated = await _api.startNextCollection();
+    return CollectorJob.fromJson(updated);
   }
 
   Future<CollectorJob> updateJobStatus({

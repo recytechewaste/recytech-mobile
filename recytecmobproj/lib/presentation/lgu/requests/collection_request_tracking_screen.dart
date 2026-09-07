@@ -20,9 +20,9 @@ class CollectionRequestTrackingScreen extends StatefulWidget {
 class _CollectionRequestTrackingScreenState
     extends State<CollectionRequestTrackingScreen> {
   final CollectionRequestRepository _repository =
-      MockCollectionRequestRepository();
+      ApiCollectionRequestRepository();
   late Future<List<CollectionRequestSummary>> _requestsFuture;
-  String _filter = 'all';
+  String _filter = 'active';
 
   @override
   void initState() {
@@ -40,6 +40,12 @@ class _CollectionRequestTrackingScreenState
     List<CollectionRequestSummary> requests,
   ) {
     if (_filter == 'all') return requests;
+    if (_filter == 'active') {
+      return requests
+          .where(
+              (request) => CollectionRequestStatuses.isActive(request.status))
+          .toList();
+    }
     return requests
         .where((request) =>
             CollectionRequestStatuses.normalize(request.status) == _filter)
@@ -52,7 +58,6 @@ class _CollectionRequestTrackingScreenState
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Requests'),
-        centerTitle: false,
         actions: [
           IconButton(
             tooltip: 'Refresh requests',
@@ -65,12 +70,20 @@ class _CollectionRequestTrackingScreenState
         future: _requestsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingState(
+                message: 'Loading collection requests…');
           }
 
-          if (snapshot.hasError) return _errorState();
+          if (snapshot.hasError) {
+            return AppErrorState(
+              title: 'Unable to load collection requests. Please try again.',
+              onRetry: _refresh,
+            );
+          }
 
-          final requests = _filtered(snapshot.data ?? const []);
+          final allRequests =
+              snapshot.data ?? const <CollectionRequestSummary>[];
+          final requests = _filtered(allRequests);
 
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -80,10 +93,10 @@ class _CollectionRequestTrackingScreenState
                 _filterBar(),
                 SizedBox(height: 12.h),
                 if (requests.isEmpty)
-                  const EmptyState(
+                  EmptyState(
                     icon: Icons.assignment_outlined,
-                    title: 'No requests found',
-                    message: 'Collection requests will appear here.',
+                    title: _emptyTitle(allRequests),
+                    message: _emptyMessage(allRequests),
                   )
                 else
                   for (final request in requests) _requestCard(request),
@@ -97,6 +110,7 @@ class _CollectionRequestTrackingScreenState
 
   Widget _filterBar() {
     final filters = <MapEntry<String, String>>[
+      const MapEntry('active', 'Active'),
       const MapEntry('all', 'All'),
       ...CollectionRequestStatuses.values.map(
         (status) => MapEntry(status, CollectionRequestStatuses.label(status)),
@@ -127,7 +141,7 @@ class _CollectionRequestTrackingScreenState
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -150,9 +164,9 @@ class _CollectionRequestTrackingScreenState
             ],
           ),
           SizedBox(height: 8.h),
-          _info('Bin', request.binId),
+          _info('Bin', request.binName ?? request.binId),
           _info('Location', request.location),
-          _info('Date', formatDateTime(request.requestedAt)),
+          _info('Requested', formatDateTime(request.requestedAt)),
           _info(
             'Fill',
             request.fillPercentage == null
@@ -166,6 +180,16 @@ class _CollectionRequestTrackingScreenState
                 : FullnessStatuses.label(request.fullnessStatus),
           ),
           _info('Collector', request.assignedCollectorName ?? '-'),
+          _info('Started', formatDateTime(request.startedAt)),
+          if (CollectionRequestStatuses.normalize(request.status) ==
+              CollectionRequestStatuses.completed) ...[
+            _info('Completed', formatDateTime(request.completedAt)),
+            _info('Collected', request.completionItemSummaryText ?? '-'),
+            _info(
+              'Quantity',
+              request.completionTotalQuantity?.toString() ?? '-',
+            ),
+          ],
         ],
       ),
     );
@@ -199,19 +223,21 @@ class _CollectionRequestTrackingScreenState
     );
   }
 
-  Widget _errorState() {
-    return ListView(
-      padding: EdgeInsets.all(16.w),
-      children: [
-        EmptyState(
-          icon: Icons.error_outline,
-          title: 'Unable to load requests',
-          action: OutlinedButton(
-            onPressed: _refresh,
-            child: const Text('Retry'),
-          ),
-        ),
-      ],
-    );
+  String _emptyTitle(List<CollectionRequestSummary> allRequests) {
+    if (_filter == CollectionRequestStatuses.completed) {
+      return 'You have no completed collection requests yet.';
+    }
+    if (_filter == 'active' || (_filter == 'all' && allRequests.isEmpty)) {
+      return 'You have no active collection requests right now.';
+    }
+    return 'No collection requests match this status.';
+  }
+
+  String? _emptyMessage(List<CollectionRequestSummary> allRequests) {
+    if (_filter == CollectionRequestStatuses.completed) return null;
+    if (_filter == 'active' || (_filter == 'all' && allRequests.isEmpty)) {
+      return 'Collection requests you submit will appear here.';
+    }
+    return null;
   }
 }

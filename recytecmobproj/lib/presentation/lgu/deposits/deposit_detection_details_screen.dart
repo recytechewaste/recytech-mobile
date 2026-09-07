@@ -74,7 +74,8 @@ class _DepositDetectionDetailsScreenState
               ),
               SizedBox(height: 14.h),
               _sectionTitle('Identification recommendations'),
-              for (final detection in event.detections) _detectionPanel(detection),
+              for (final detection in event.detections)
+                _detectionPanel(detection),
             ],
           );
         },
@@ -87,7 +88,7 @@ class _DepositDetectionDetailsScreenState
       margin: EdgeInsets.only(bottom: 10.h),
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -131,7 +132,7 @@ class _DepositDetectionDetailsScreenState
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: RecyTechTheme.border),
       ),

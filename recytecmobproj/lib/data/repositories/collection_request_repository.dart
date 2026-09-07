@@ -1,4 +1,8 @@
+import 'package:dio/dio.dart';
+
 import '../../core/constants/app_constants.dart';
+import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../models/bin_monitoring_models.dart';
 
 abstract class CollectionRequestRepository {
@@ -13,6 +17,96 @@ abstract class CollectionRequestRepository {
     required DateTime requestedAt,
     String? remarks,
   });
+}
+
+class DuplicateCollectionRequestException implements Exception {
+  const DuplicateCollectionRequestException(this.message, {this.request});
+
+  final String message;
+  final CollectionRequestSummary? request;
+
+  @override
+  String toString() => message;
+}
+
+class ApiCollectionRequestRepository implements CollectionRequestRepository {
+  ApiCollectionRequestRepository({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient();
+
+  final ApiClient _apiClient;
+
+  @override
+  Future<List<CollectionRequestSummary>> fetchCollectionRequests() async {
+    final response =
+        await _apiClient.dio.get(ApiEndpoints.partnerCollectionRequests);
+    final items = _extractItems(response.data, 'requests');
+    return items
+        .whereType<Map>()
+        .map((item) =>
+            CollectionRequestSummary.fromJson(item.cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<CollectionRequestSummary> createCollectionRequest({
+    required String lguId,
+    required String binId,
+    required String binLocation,
+    required double? fillPercentage,
+    required String fullnessStatus,
+    required DateTime requestedAt,
+    String? remarks,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post(
+        ApiEndpoints.partnerCollectionRequests,
+        data: {
+          'binId': binId,
+          if ((remarks ?? '').trim().isNotEmpty) 'remarks': remarks!.trim(),
+        },
+      );
+
+      return CollectionRequestSummary.fromJson(_extractObject(response.data));
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 409 && data is Map) {
+        final map = data.cast<String, dynamic>();
+        final request = map['request'] is Map
+            ? CollectionRequestSummary.fromJson(
+                (map['request'] as Map).cast<String, dynamic>(),
+              )
+            : null;
+        throw DuplicateCollectionRequestException(
+          (map['message'] ??
+                  'A collection request for this bin is already active.')
+              .toString(),
+          request: request,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  List<dynamic> _extractItems(dynamic payload, String key) {
+    if (payload is List) return payload;
+    if (payload is Map) {
+      final map = payload.cast<String, dynamic>();
+      final items = map[key] ?? map['data'] ?? map['items'] ?? map['results'];
+      if (items is List) return items;
+    }
+    return const [];
+  }
+
+  Map<String, dynamic> _extractObject(dynamic payload) {
+    if (payload is Map) {
+      final map = payload.cast<String, dynamic>();
+      final nested = map['request'] ?? map['data'];
+      if (nested is Map) return nested.cast<String, dynamic>();
+      return map;
+    }
+    return <String, dynamic>{};
+  }
 }
 
 /// Temporary mock repository.

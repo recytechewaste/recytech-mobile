@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
-
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
 import '../../../data/models/bin_monitoring_models.dart';
 import '../../../data/repositories/collection_request_repository.dart';
 import '../../../presentation/bin_monitoring/widgets/bin_monitoring_components.dart';
-import '../../../services/auth_provider.dart';
 import '../../../widgets/primary_button.dart';
 import '../../../widgets/status_bagde.dart';
 
@@ -27,7 +24,7 @@ class CollectionRequestFormScreen extends StatefulWidget {
 class _CollectionRequestFormScreenState
     extends State<CollectionRequestFormScreen> {
   final CollectionRequestRepository _repository =
-      MockCollectionRequestRepository();
+      ApiCollectionRequestRepository();
   final TextEditingController _remarks = TextEditingController();
   bool _submitting = false;
 
@@ -41,13 +38,9 @@ class _CollectionRequestFormScreenState
     if (_submitting) return;
     setState(() => _submitting = true);
 
-    final user = context.read<AuthProvider>().currentUser;
-    final lguId = widget.bin.assignedLguId ??
-        (user?.id.trim().isNotEmpty == true ? user!.id : 'LGU-DEMO-001');
-
     try {
       await _repository.createCollectionRequest(
-        lguId: lguId,
+        lguId: widget.bin.assignedLguId ?? '',
         binId: widget.bin.binId,
         binLocation: widget.bin.location,
         fillPercentage: widget.bin.fillPercentage,
@@ -63,10 +56,11 @@ class _CollectionRequestFormScreenState
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
+      final message = e is DuplicateCollectionRequestException
+          ? e.message
+          : 'Unable to create request. Please try again.';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to create request. Please try again.'),
-        ),
+        SnackBar(content: Text(message)),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -92,7 +86,7 @@ class _CollectionRequestFormScreenState
               maxLines: 4,
               decoration: const InputDecoration(
                 labelText: 'Remarks',
-                hintText: 'Add collection notes for the admin or collector',
+                hintText: 'Add collection notes for the collector',
               ),
             ),
             SizedBox(height: 18.h),
@@ -111,7 +105,7 @@ class _CollectionRequestFormScreenState
     return Container(
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: RecyTechTheme.border),
       ),
@@ -127,7 +121,10 @@ class _CollectionRequestFormScreenState
             ),
           ),
           SizedBox(height: 8.h),
-          _row('LGU ID', bin.assignedLguId ?? 'LGU-DEMO-001'),
+          _row(
+            'Partner Organization',
+            bin.partnerOrganizationName ?? bin.assignedLguId ?? 'Demo Partner',
+          ),
           _row('Bin ID', bin.binId),
           _row('Location', bin.location),
           _row(

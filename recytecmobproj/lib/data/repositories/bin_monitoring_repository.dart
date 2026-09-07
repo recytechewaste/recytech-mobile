@@ -1,4 +1,9 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
 import '../../core/constants/app_constants.dart';
+import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../models/bin_monitoring_models.dart';
 import 'collection_request_repository.dart';
 
@@ -6,6 +11,120 @@ abstract class LguBinRepository {
   Future<List<RecyTechBin>> fetchAssignedBins();
   Future<RecyTechBin> fetchBin(String binId);
   Future<BinMonitoringData> fetchMonitoring(String binId);
+}
+
+class ApiPartnerBinRepository implements LguBinRepository {
+  ApiPartnerBinRepository({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient();
+
+  final ApiClient _apiClient;
+
+  @override
+  Future<List<RecyTechBin>> fetchAssignedBins() async {
+    try {
+      final response = await _apiClient.dio.get(ApiEndpoints.partnerBins);
+      _debugPartnerBinsResponse(
+        statusCode: response.statusCode,
+        body: response.data,
+      );
+      final items = _extractItems(response.data);
+      return items
+          .map((item) => RecyTechBin.fromJson(item.cast<String, dynamic>()))
+          .toList(growable: false);
+    } on DioException catch (error) {
+      _debugPartnerBinsResponse(
+        statusCode: error.response?.statusCode,
+        body: error.response?.data,
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<RecyTechBin> fetchBin(String binId) async {
+    final response =
+        await _apiClient.dio.get(ApiEndpoints.partnerBinById(binId));
+    return RecyTechBin.fromJson(_extractObject(response.data));
+  }
+
+  @override
+  Future<BinMonitoringData> fetchMonitoring(String binId) async {
+    final response =
+        await _apiClient.dio.get(ApiEndpoints.partnerBinById(binId));
+    return BinMonitoringData.fromJson(_extractObject(response.data));
+  }
+
+  List<Map<dynamic, dynamic>> _extractItems(dynamic payload) {
+    final dynamic items;
+    if (payload is List) {
+      items = payload;
+    } else if (payload is Map) {
+      items = payload['bins'] ??
+          payload['data'] ??
+          payload['items'] ??
+          payload['results'];
+    } else {
+      throw const FormatException(
+        'Partner bins response must be a list or an object containing a list.',
+      );
+    }
+
+    if (items is! List) {
+      throw const FormatException(
+        'Partner bins response does not contain a bins list.',
+      );
+    }
+
+    if (items.any((item) => item is! Map)) {
+      throw const FormatException(
+        'Partner bins response contains an invalid bin item.',
+      );
+    }
+
+    return items.cast<Map<dynamic, dynamic>>();
+  }
+
+  void _debugPartnerBinsResponse({
+    required int? statusCode,
+    required dynamic body,
+  }) {
+    if (!kDebugMode) return;
+    debugPrint('[PARTNER BINS] status=$statusCode');
+    debugPrint('[PARTNER BINS] bodyType=${body.runtimeType}');
+    debugPrint('[PARTNER BINS] body=${_sanitizedShape(body)}');
+  }
+
+  String _sanitizedShape(dynamic value) {
+    if (value == null) return 'null';
+    if (value is List) {
+      final itemTypes =
+          value.map((item) => item.runtimeType.toString()).toSet();
+      return 'List(length=${value.length}, itemTypes=$itemTypes)';
+    }
+    if (value is Map) {
+      final keys = value.keys.map((key) => key.toString()).toList()..sort();
+      final fields = keys.map((key) {
+        final fieldValue = value[key];
+        if (fieldValue is List) return '$key=List(length=${fieldValue.length})';
+        if (fieldValue is Map) {
+          return '$key=Map(keys=${fieldValue.keys.length})';
+        }
+        return '$key=${fieldValue.runtimeType}';
+      }).join(', ');
+      return 'Map($fields)';
+    }
+    return value.runtimeType.toString();
+  }
+
+  Map<String, dynamic> _extractObject(dynamic payload) {
+    if (payload is Map) {
+      final map = payload.cast<String, dynamic>();
+      final nested = map['bin'] ?? map['data'];
+      if (nested is Map) return nested.cast<String, dynamic>();
+      return map;
+    }
+    return <String, dynamic>{};
+  }
 }
 
 abstract class BinMonitoringService implements LguBinRepository {
@@ -138,7 +257,7 @@ class MockBinMonitoringService implements BinMonitoringService {
       sensorStatus: bin.sensorStatus,
       controllerStatus: bin.controllerStatus,
       activeCollectionRequest: bin.activeCollectionRequest,
-      lastUpdatedAt: bin.lastUpdatedAt ?? DateTime.now(),
+      lastUpdatedAt: bin.lastUpdatedAt,
     );
   }
 

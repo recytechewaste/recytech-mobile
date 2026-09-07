@@ -4,9 +4,9 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/theme/recytechtheme.dart';
 import '../../../data/models/bin_qr_payload_model.dart';
-import '../../../data/models/drop_off_record_model.dart';
 import '../../../data/models/public_bin_model.dart';
 import '../../../data/repositories/drop_off_repository.dart';
+import 'drop_off_form_screen.dart';
 
 class BinQrScannerScreen extends StatefulWidget {
   const BinQrScannerScreen({
@@ -27,16 +27,13 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
   late final DropOffRepository _repository;
 
   bool _isHandlingScan = false;
-  bool _isRegistering = false;
   String? _message;
-  BinQrPayload? _payload;
   PublicBin? _validatedBin;
-  DropOffRecord? _record;
 
   @override
   void initState() {
     super.initState();
-    _repository = widget.repository ?? MockDropOffRepository();
+    _repository = widget.repository ?? ApiDropOffRepository();
     _controller = MobileScannerController(
       detectionSpeed: DetectionSpeed.noDuplicates,
       formats: const [BarcodeFormat.qrCode],
@@ -50,7 +47,7 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
   }
 
   Future<void> _handleCapture(BarcodeCapture capture) async {
-    if (_isHandlingScan || _validatedBin != null || _record != null) return;
+    if (_isHandlingScan || _validatedBin != null) return;
 
     final rawValue = _firstQrValue(capture);
     if (rawValue == null) return;
@@ -66,14 +63,14 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
       final bin = await _repository.validateBinQr(payload);
       if (!mounted) return;
       setState(() {
-        _payload = payload;
         _validatedBin = bin;
         _message = null;
       });
     } on FormatException {
       if (!mounted) return;
       setState(() {
-        _message = 'Invalid RecyTech QR. Scan the QR code attached to a designated RecyTech bin.';
+        _message =
+            'Invalid RecyTech QR. Scan the QR code attached to a designated RecyTech bin.';
         _isHandlingScan = false;
       });
     } on DropOffRepositoryException catch (error) {
@@ -85,7 +82,8 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _message = 'Unable to validate this bin QR. Check your connection and try again.';
+        _message =
+            'Unable to validate this bin QR. Check your connection and try again.';
         _isHandlingScan = false;
       });
     }
@@ -102,11 +100,8 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
   Future<void> _retryScan() async {
     setState(() {
       _isHandlingScan = false;
-      _isRegistering = false;
       _message = null;
-      _payload = null;
       _validatedBin = null;
-      _record = null;
     });
     try {
       await _controller.start();
@@ -118,29 +113,20 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
     }
   }
 
-  Future<void> _confirmDropOff() async {
-    final payload = _payload;
-    if (payload == null || _isRegistering) return;
+  Future<void> _openDropOffForm() async {
+    final bin = _validatedBin;
+    if (bin == null) return;
 
-    setState(() => _isRegistering = true);
-    try {
-      final record = await _repository.registerDropOff(payload: payload);
-      if (!mounted) return;
-      setState(() {
-        _record = record;
-        _message = null;
-      });
-    } on DropOffRepositoryException catch (error) {
-      if (!mounted) return;
-      setState(() => _message = error.message);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _message = 'Drop-off could not be recorded. Please try again.';
-      });
-    } finally {
-      if (mounted) setState(() => _isRegistering = false);
-    }
+    await Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DropOffFormScreen(
+          bin: bin,
+          submissionMethod: 'qr',
+          repository: _repository,
+        ),
+      ),
+    );
   }
 
   @override
@@ -164,8 +150,7 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
           ),
           _scannerOverlay(),
           if (_message != null) _statusBanner(_message!),
-          if (_validatedBin != null && _record == null) _confirmPanel(),
-          if (_record != null) _resultPanel(_record!),
+          if (_validatedBin != null) _confirmPanel(),
         ],
       ),
     );
@@ -219,7 +204,7 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
       child: Container(
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(18.r),
         ),
         child: Column(
@@ -260,7 +245,7 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
       child: Container(
         padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 24.h),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
         ),
         child: Column(
@@ -268,7 +253,7 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              differs ? 'Scanned Bin' : 'Confirm Drop-Off',
+              differs ? 'Scanned Bin' : 'Bin QR Verified',
               style: TextStyle(
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w900,
@@ -282,92 +267,44 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
                 style: TextStyle(
                   fontSize: 10.5.sp,
                   height: 1.35,
-                  color: Colors.orange.shade900,
+                  color: RecyTechTheme.warning,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
             SizedBox(height: 12.h),
             _detailRow(Icons.delete_outline, bin.name),
-            _detailRow(Icons.apartment_outlined, bin.building ?? '-'),
+            _detailRow(
+              Icons.apartment_outlined,
+              bin.partnerOrganizationName ?? '-',
+            ),
             _detailRow(
               Icons.place_outlined,
               bin.locationDescription ?? bin.address,
             ),
+            if (bin.acceptedCategoryLabels.isNotEmpty)
+              _detailRow(
+                Icons.check_circle_outline,
+                'Accepts: ${bin.acceptedCategoryLabels.join(', ')}',
+              ),
             SizedBox(height: 14.h),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _isRegistering ? null : _retryScan,
+                    onPressed: _retryScan,
                     child: const Text('Cancel'),
                   ),
                 ),
                 SizedBox(width: 10.w),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: _isRegistering ? null : _confirmDropOff,
-                    icon: _isRegistering
-                        ? SizedBox(
-                            width: 16.w,
-                            height: 16.w,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.check_circle_outline),
-                    label: const Text('Confirm Drop-Off'),
+                    onPressed: _openDropOffForm,
+                    icon: const Icon(Icons.edit_note_outlined),
+                    label: const Text('Continue'),
                   ),
                 ),
               ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _resultPanel(DropOffRecord record) {
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 24.h),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Drop-Off Recorded',
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w900,
-                color: RecyTechTheme.textDark,
-              ),
-            ),
-            SizedBox(height: 10.h),
-            _detailRow(Icons.delete_outline, record.binName),
-            _detailRow(Icons.place_outlined, record.locationLabel),
-            _detailRow(
-              Icons.emoji_events_outlined,
-              record.rewardEligible
-                  ? 'Reward Earned: ${record.rewardLabel}'
-                  : 'Reward not available for this check-in',
-            ),
-            SizedBox(height: 14.h),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => Navigator.pop(context, record),
-                icon: const Icon(Icons.done),
-                label: const Text('Done'),
-              ),
             ),
           ],
         ),

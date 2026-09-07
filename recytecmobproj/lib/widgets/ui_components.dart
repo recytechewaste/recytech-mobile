@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../core/theme/recytechtheme.dart';
-
 class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -64,10 +62,11 @@ class LabeledField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: TextStyle(
-            color: RecyTechTheme.textDark,
+            color: scheme.onSurface,
             fontWeight: FontWeight.w800,
             fontSize: 13.sp,
           )),
@@ -99,13 +98,14 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, size: 18.sp, color: RecyTechTheme.primary),
+        Icon(icon, size: 18.sp, color: scheme.primary),
         SizedBox(width: 8.w),
         Text(title,
             style: TextStyle(
-              color: RecyTechTheme.textDark,
+              color: scheme.onSurface,
               fontSize: 16.sp,
               fontWeight: FontWeight.w800,
             )),
@@ -121,20 +121,13 @@ class SoftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: padding ?? EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: RecyTechTheme.card,
-        borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(color: RecyTechTheme.border),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 18,
-            spreadRadius: 0,
-            offset: const Offset(0, 6),
-            color: RecyTechTheme.primary.withValues(alpha: 0.08),
-          ),
-        ],
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: child,
     );

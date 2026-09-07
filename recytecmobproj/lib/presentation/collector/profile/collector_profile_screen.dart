@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/data/models/user_model.dart';
 import 'package:recytecmobproj/presentation/auth/login_screen.dart';
+import 'package:recytecmobproj/presentation/settings/settings_screen.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 
 class CollectorProfileScreen extends StatefulWidget {
@@ -57,8 +58,17 @@ class _CollectorProfileScreenState extends State<CollectorProfileScreen> {
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
-        title: const Text('Collector Profile'),
-        centerTitle: false,
+        title: const Text('Profile'),
+        actions: [
+          IconButton(
+            tooltip: 'Settings',
+            onPressed: () => Navigator.pushNamed(
+              context,
+              SettingsScreen.route,
+            ),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+        ],
       ),
       body: Padding(
         padding: EdgeInsets.all(16.w),
@@ -136,7 +146,7 @@ class _CollectorProfileScreenState extends State<CollectorProfileScreen> {
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
+        color: RecyTechTheme.card,
         border: Border.all(color: RecyTechTheme.border),
         boxShadow: [
           BoxShadow(

@@ -32,14 +32,37 @@ class CollectedEWasteItem {
       'id': id,
       'imagePath': imagePath,
       'aiPredictedClass': aiPredictedClass,
+      'detectedCategory': aiPredictedClass,
       'aiConfidence': aiConfidence,
+      'confidence': aiConfidence,
       'confirmedClass': confirmedClass,
+      'confirmedCategory': confirmedClass,
+      'wasCorrected': aiPredictedClass != null &&
+          aiPredictedClass!.trim().toLowerCase() !=
+              confirmedClass.trim().toLowerCase(),
       'mappedCategory': mappedCategory,
       'quantity': quantity,
       'condition': condition,
       'remarks': remarks,
       'capturedAt': capturedAt.toIso8601String(),
     };
+  }
+
+  factory CollectedEWasteItem.fromJson(Map<String, dynamic> json) {
+    return CollectedEWasteItem(
+      id: (json['id'] ?? json['_id'] ?? '').toString(),
+      imagePath: (json['imagePath'] ?? '').toString(),
+      aiPredictedClass:
+          _nullableString(json['aiPredictedClass'] ?? json['detectedCategory']),
+      aiConfidence: _readDouble(json['aiConfidence'] ?? json['confidence']),
+      confirmedClass:
+          (json['confirmedClass'] ?? json['confirmedCategory'] ?? '')
+              .toString(),
+      quantity: _readInt(json['quantity']),
+      condition: _nullableString(json['condition']),
+      remarks: _nullableString(json['remarks']),
+      capturedAt: _readDate(json['capturedAt']) ?? DateTime.now(),
+    );
   }
 }
 
@@ -60,6 +83,8 @@ class CollectionReportDraft {
     this.afterImagePath,
     this.finalBinStatus,
     this.finalRemarks,
+    this.totalWeightKg,
+    this.idempotencyKey,
     DateTime? startedAt,
     this.completedAt,
     List<CollectedEWasteItem>? items,
@@ -81,6 +106,8 @@ class CollectionReportDraft {
   String? afterImagePath;
   String? finalBinStatus;
   String? finalRemarks;
+  double? totalWeightKg;
+  String? idempotencyKey;
   final DateTime startedAt;
   DateTime? completedAt;
   final List<CollectedEWasteItem> items;
@@ -132,6 +159,8 @@ class CollectionReportDraft {
       'afterImagePath': afterImagePath,
       'finalBinStatus': finalBinStatus,
       'finalRemarks': finalRemarks,
+      'totalWeightKg': totalWeightKg,
+      'idempotencyKey': idempotencyKey,
       'startedAt': startedAt.toIso8601String(),
       'completedAt': completedAt?.toIso8601String(),
       'items': items.map((item) => item.toJson()).toList(),
@@ -140,4 +169,69 @@ class CollectionReportDraft {
       'totalQuantity': totalQuantity,
     };
   }
+
+  factory CollectionReportDraft.fromJson(Map<String, dynamic> json) {
+    final remarks = _readMap(json['remarks']);
+    final weight = _readMap(json['optionalTotalWeight']);
+    final items = json['items'] is List
+        ? (json['items'] as List)
+            .whereType<Map>()
+            .map((item) =>
+                CollectedEWasteItem.fromJson(item.cast<String, dynamic>()))
+            .toList()
+        : <CollectedEWasteItem>[];
+
+    return CollectionReportDraft(
+      assignmentId:
+          (json['collectionRequestId'] ?? json['requestId'] ?? '').toString(),
+      requestReference:
+          (json['requestReference'] ?? json['id'] ?? '').toString(),
+      collectorName: (json['collectorName'] ?? '').toString(),
+      collectorId: _nullableString(json['collectorId']),
+      lguId: _nullableString(json['partnerOrganizationId'] ?? json['lguId']),
+      lguName:
+          _nullableString(json['partnerOrganizationName'] ?? json['lguName']),
+      binId: _nullableString(json['binId'] ?? json['binCode']),
+      binName: _nullableString(json['binName']),
+      binLocation: _nullableString(json['location'] ?? json['binLocation']),
+      beforeImagePath: _nullableString(_readMap(json['beforeEvidence'])['url']),
+      beforeCondition: _nullableString(remarks['beforeCondition']),
+      initialRemarks: _nullableString(remarks['initialRemarks']),
+      afterImagePath: _nullableString(_readMap(json['afterEvidence'])['url']),
+      finalBinStatus: _nullableString(remarks['finalBinStatus']),
+      finalRemarks: _nullableString(remarks['finalRemarks']),
+      totalWeightKg:
+          _readDouble(json['totalWeightKg'] ?? weight['totalWeightKg']),
+      startedAt: _readDate(json['startedAt']) ?? DateTime.now(),
+      completedAt: _readDate(json['completedAt'] ?? json['submittedAt']),
+      items: items,
+    );
+  }
+}
+
+String? _nullableString(dynamic value) {
+  final text = (value ?? '').toString().trim();
+  return text.isEmpty || text == 'null' ? null : text;
+}
+
+double? _readDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse((value ?? '').toString());
+}
+
+int _readInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse((value ?? '').toString()) ?? 0;
+}
+
+DateTime? _readDate(dynamic value) {
+  final text = (value ?? '').toString().trim();
+  if (text.isEmpty) return null;
+  return DateTime.tryParse(text);
+}
+
+Map<String, dynamic> _readMap(dynamic value) {
+  if (value is Map) return value.cast<String, dynamic>();
+  return <String, dynamic>{};
 }

@@ -24,7 +24,7 @@ class DepositEventCard extends StatelessWidget {
         margin: EdgeInsets.only(bottom: 10.h),
         padding: EdgeInsets.all(12.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: RecyTechTheme.border),
         ),
@@ -85,7 +85,7 @@ class DetectionConfidenceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = lowConfidence ? Colors.orange.shade800 : RecyTechTheme.primary;
+    final color = lowConfidence ? RecyTechTheme.warning : RecyTechTheme.primary;
     final text = confidence == null
         ? 'No score'
         : '${(confidence! * 100).toStringAsFixed(0)}%';
@@ -159,7 +159,7 @@ class CapturedObjectImage extends StatelessWidget {
   Widget _placeholder() {
     return Container(
       color: RecyTechTheme.pill,
-      child: const Icon(
+      child: Icon(
         Icons.image_not_supported_outlined,
         color: RecyTechTheme.textMuted,
       ),
@@ -201,19 +201,21 @@ class LowConfidenceWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final warning = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFC66D)
+        : RecyTechTheme.warning;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
+        color: warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(color: warning.withValues(alpha: 0.32)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_outlined,
-              color: Colors.orange.shade800, size: 18.sp),
+          Icon(Icons.warning_amber_outlined, color: warning, size: 18.sp),
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
@@ -221,7 +223,7 @@ class LowConfidenceWarning extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11.sp,
                 height: 1.35,
-                color: Colors.orange.shade900,
+                color: warning,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -249,8 +251,8 @@ class ConnectionIndicator extends StatelessWidget {
     final color = status.toLowerCase().contains('online')
         ? RecyTechTheme.primary
         : status.toLowerCase().contains('delayed')
-            ? Colors.orange.shade800
-            : Colors.redAccent;
+            ? RecyTechTheme.warning
+            : RecyTechTheme.danger;
 
     return Container(
       padding: EdgeInsets.all(10.w),
@@ -329,7 +331,7 @@ class FillLevelIndicator extends StatelessWidget {
             value: fillLevel == null ? null : value,
             backgroundColor: RecyTechTheme.pill,
             valueColor: AlwaysStoppedAnimation<Color>(
-              value >= 0.80 ? Colors.orange.shade800 : RecyTechTheme.primary,
+              value >= 0.80 ? RecyTechTheme.warning : RecyTechTheme.primary,
             ),
           ),
         ),
@@ -371,7 +373,7 @@ class DetectionHistoryTimeline extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: RecyTechTheme.border),
       ),

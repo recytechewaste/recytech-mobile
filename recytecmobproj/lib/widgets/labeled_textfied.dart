@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../core/theme/recytechtheme.dart';
-
 class LabeledTextField extends StatelessWidget {
   final String label;
   final String hintText;
@@ -14,6 +12,7 @@ class LabeledTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final Iterable<String>? autofillHints;
   final int maxLines;
+  final Widget? suffixIcon;
 
   const LabeledTextField({
     super.key,
@@ -27,10 +26,12 @@ class LabeledTextField extends StatelessWidget {
     this.textInputAction,
     this.autofillHints,
     this.maxLines = 1,
+    this.suffixIcon,
   });
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -39,7 +40,7 @@ class LabeledTextField extends StatelessWidget {
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w800,
-            color: RecyTechTheme.textDark,
+            color: scheme.onSurface,
           ),
         ),
         SizedBox(height: 6.h),
@@ -55,15 +56,7 @@ class LabeledTextField extends StatelessWidget {
           maxLines: maxLines,
           decoration: InputDecoration(
             hintText: hintText,
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.r),
-              borderSide: const BorderSide(color: RecyTechTheme.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.r),
-              borderSide:
-                  const BorderSide(color: RecyTechTheme.primary, width: 1.6),
-            ),
+            suffixIcon: suffixIcon,
             contentPadding:
                 EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
           ),

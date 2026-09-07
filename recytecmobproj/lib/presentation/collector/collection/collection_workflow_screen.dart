@@ -11,7 +11,6 @@ import '../../../core/utils/waste_type_mapper.dart';
 import '../../../data/models/collected_item_model.dart';
 import '../../../data/models/collector_job_model.dart';
 import '../../../data/repositories/collection_completion_repository.dart';
-import '../../../data/repositories/collector_repository.dart';
 import '../../../services/auth_provider.dart';
 import 'collector_ewaste_capture_screen.dart';
 
@@ -30,9 +29,8 @@ class CollectionWorkflowScreen extends StatefulWidget {
 
 class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
   final ImagePicker _picker = ImagePicker();
-  final CollectorRepository _collectorRepository = CollectorRepository();
   final CollectionCompletionRepository _completionRepository =
-      MockCollectionCompletionRepository();
+      ApiCollectionCompletionRepository();
   final TextEditingController _initialRemarks = TextEditingController();
   final TextEditingController _finalRemarks = TextEditingController();
 
@@ -53,6 +51,8 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
       collectorName: user?.fullName.trim().isNotEmpty == true
           ? user!.fullName.trim()
           : 'Collector',
+      lguName: widget.job.partnerOrganizationName,
+      binId: widget.job.binCode,
       binName: widget.job.displayItem,
       binLocation: widget.job.location,
     );
@@ -132,7 +132,6 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
       });
       return;
     }
-
     final confirmed = await _confirmCompletion();
     if (!confirmed) return;
 
@@ -144,16 +143,10 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     try {
       _draft.completedAt = DateTime.now();
       await _completionRepository.submitCollectionReport(_draft);
-      await _collectorRepository.updateJobStatus(
-        requestId: widget.job.id,
-        status: CollectorJobStatuses.backendValue(
-          CollectorJobStatuses.completed,
-        ),
-      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Collection report completed.')),
+        const SnackBar(content: Text('Collection completed.')),
       );
       Navigator.pop(context, true);
     } catch (_) {
@@ -463,17 +456,22 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.08),
+        color: RecyTechTheme.danger.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.25)),
+        border: Border.all(
+          color: RecyTechTheme.danger.withValues(alpha: 0.28),
+        ),
       ),
-      child: Text(message, style: TextStyle(color: Colors.red.shade800)),
+      child: Text(
+        message,
+        style: TextStyle(color: RecyTechTheme.danger),
+      ),
     );
   }
 
   BoxDecoration _panelDecoration() {
     return BoxDecoration(
-      color: Colors.white,
+      color: RecyTechTheme.card,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: RecyTechTheme.border),
     );
@@ -485,7 +483,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: RecyTechTheme.border),
+        borderSide: BorderSide(color: RecyTechTheme.border),
       ),
     );
   }

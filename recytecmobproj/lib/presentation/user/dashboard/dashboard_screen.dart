@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../data/models/user_model.dart';
 import '../../../services/auth_provider.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/recytechtheme.dart';
 import '../../notifications/notification_center_screen.dart';
 import '../bins/bin_locator_screen.dart';
 import '../bins/bin_qr_scanner_screen.dart';
@@ -15,12 +16,12 @@ import '../rewards/rewards_screen.dart';
 class UserDashboardScreen extends StatelessWidget {
   const UserDashboardScreen({super.key});
 
-  static const _primary = Color(0xFF1F4D36);
-  static const _accent = Color(0xFFE5A823);
-  static const _bg = Color(0xFFF7FAF5);
-  static const _textDark = Color(0xFF1B1F1D);
-  static const _textMuted = Color(0xFF66736A);
-  static const _border = Color(0xFFE3EBE2);
+  static Color get _primary => RecyTechTheme.primary;
+  static Color get _accent => RecyTechTheme.accent;
+  static Color get _bg => RecyTechTheme.bg;
+  static Color get _textDark => RecyTechTheme.textDark;
+  static Color get _textMuted => RecyTechTheme.textMuted;
+  static Color get _border => RecyTechTheme.border;
 
   Widget _infoCard({
     required String title,
@@ -35,7 +36,7 @@ class UserDashboardScreen extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(14.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(20.r),
           border: Border.all(color: _border),
           boxShadow: [
@@ -82,7 +83,11 @@ class UserDashboardScreen extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.black38, size: 20.sp),
+            Icon(
+              Icons.chevron_right,
+              color: RecyTechTheme.textMuted,
+              size: 20.sp,
+            ),
           ],
         ),
       ),
@@ -144,13 +149,14 @@ class UserDashboardScreen extends StatelessWidget {
             ),
             SizedBox(height: 4.h),
             Text(
-              'Find a designated bin, scan its QR code, and track drop-off rewards.',
+              'Find a designated bin, scan its QR code, and submit e-waste drop-offs.',
               style: TextStyle(fontSize: 11.sp, color: _textMuted),
             ),
             SizedBox(height: 16.h),
             _infoCard(
               title: 'Find a Bin',
-              body: 'Locate designated RecyTech bins and open directions.',
+              body:
+                  'Locate designated RecyTech bins and view their mapped locations.',
               icon: Icons.location_on_outlined,
               tint: _primary,
               onTap: () {
@@ -165,7 +171,8 @@ class UserDashboardScreen extends StatelessWidget {
             SizedBox(height: 12.h),
             _infoCard(
               title: 'Scan Bin QR',
-              body: 'Check in at the designated bin before depositing e-waste.',
+              body:
+                  'Identify the bin, then submit your e-waste category and quantity.',
               icon: Icons.qr_code_scanner,
               tint: Colors.teal,
               onTap: () {
@@ -180,7 +187,7 @@ class UserDashboardScreen extends StatelessWidget {
             SizedBox(height: 12.h),
             _infoCard(
               title: 'Rewards',
-              body: 'View rewards returned by drop-off check-in records.',
+              body: 'View available partner rewards and your points activity.',
               icon: Icons.emoji_events_outlined,
               tint: Colors.orange,
               onTap: () {
@@ -193,7 +200,7 @@ class UserDashboardScreen extends StatelessWidget {
             SizedBox(height: 12.h),
             _infoCard(
               title: 'Drop-Off History',
-              body: 'Review designated-bin check-ins and reward status.',
+              body: 'Review manual and QR drop-off submissions.',
               icon: Icons.history,
               tint: Colors.blueGrey,
               onTap: () {
