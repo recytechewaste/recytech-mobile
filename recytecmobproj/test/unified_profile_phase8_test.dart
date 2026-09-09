@@ -1,9 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/network/api_client.dart';
 import 'package:recytecmobproj/core/network/api_endpoints.dart';
+import 'package:recytecmobproj/data/models/collector_profile_model.dart';
 import 'package:recytecmobproj/data/models/unified_profile_model.dart';
+import 'package:recytecmobproj/data/repositories/collector_repository.dart';
 import 'package:recytecmobproj/data/repositories/unified_profile_repository.dart';
 import 'package:recytecmobproj/presentation/profile/unified_profile_screen.dart';
 
@@ -27,11 +31,105 @@ void main() {
       expect(collector.linkedProfileFields['vehicleType'], 'Truck');
     });
 
+    test('selects backend-owned names independently of role labels', () {
+      expect(
+        UnifiedProfile.fromJson(_profile('household')).identityName,
+        'Maria Santos-Cruz',
+      );
+      expect(
+        UnifiedProfile.fromJson(_profile('partner_org')).identityName,
+        'RecyTech Org',
+      );
+      expect(
+        UnifiedProfile.fromJson(_profile('collector')).identityName,
+        'Maria Santos-Cruz',
+      );
+
+      final productionPartnerShape = UnifiedProfile.fromJson({
+        ..._profile('partner_org'),
+        'profile': {
+          '_id': 'profile-1',
+          'name': 'Green Municipality',
+        },
+      });
+      expect(productionPartnerShape.identityName, 'Green Municipality');
+    });
+
+    test('does not promote role labels to persisted profile identity', () {
+      for (final entry in {
+        AppRoles.household: 'Registered User',
+        AppRoles.partnerOrg: 'Partner Organization',
+        AppRoles.collector: 'Collector',
+      }.entries) {
+        final profile = UnifiedProfile.fromJson({
+          'user': {
+            '_id': 'user-1',
+            'email': 'actor@recytech.com',
+            'role': entry.key,
+            'name': entry.value,
+            'fullName': entry.value,
+          },
+          'profile': {
+            '_id': 'profile-1',
+            'name': entry.value,
+            'organizationName': entry.value,
+            'fullName': entry.value,
+          },
+        });
+
+        expect(profile.identityName, isNull, reason: entry.key);
+      }
+    });
+
     test('unsupported Web roles cannot become mobile profiles', () {
       expect(
         () => UnifiedProfile.fromJson(_profile('admin')),
         throwsFormatException,
       );
+    });
+  });
+
+  group('profile identity UI', () {
+    for (final entry in {
+      AppRoles.household: ('Maria Santos-Cruz', 'Registered User'),
+      AppRoles.partnerOrg: ('RecyTech Org', 'Partner Organization'),
+      AppRoles.collector: ('Maria Santos-Cruz', 'Collector'),
+    }.entries) {
+      testWidgets('${entry.key} renders actual name above its role label',
+          (tester) async {
+        await _pumpProfile(
+            tester, UnifiedProfile.fromJson(_profile(entry.key)));
+
+        final name = tester.widget<Text>(
+          find.byKey(const Key('profile-display-name')),
+        );
+        final role = tester.widget<Text>(
+          find.byKey(const Key('profile-role-label')),
+        );
+        expect(name.data, entry.value.$1);
+        expect(role.data, entry.value.$2);
+        expect(name.data, isNot(role.data));
+      });
+    }
+
+    testWidgets('missing backend name uses a render-only neutral fallback',
+        (tester) async {
+      final profile = UnifiedProfile.fromJson({
+        'user': {
+          '_id': 'user-1',
+          'email': 'household@recytech.com',
+          'role': AppRoles.household,
+        },
+        'profile': {'_id': 'profile-1'},
+      });
+
+      await _pumpProfile(tester, profile);
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('profile-display-name'))).data,
+        'Name unavailable',
+      );
+      expect(profile.identityName, isNull);
     });
   });
 
@@ -307,6 +405,24 @@ void main() {
   });
 }
 
+Future<void> _pumpProfile(
+  WidgetTester tester,
+  UnifiedProfile profile,
+) async {
+  await tester.pumpWidget(
+    ScreenUtilInit(
+      designSize: const Size(375, 812),
+      builder: (_, __) => MaterialApp(
+        home: UnifiedProfileScreen(
+          repository: _StaticProfileRepository(profile),
+          collectorRepository: _StaticCollectorRepository(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 Map<String, dynamic> _profile(String role) => {
       'message': 'Profile updated successfully',
       'accountStatus': 'active',
@@ -366,4 +482,29 @@ class _FailingProfileApi extends UnifiedProfileApi {
       ),
     );
   }
+}
+
+class _StaticProfileRepository extends UnifiedProfileRepository {
+  _StaticProfileRepository(this.profile);
+
+  final UnifiedProfile profile;
+
+  @override
+  Future<UnifiedProfile> fetchProfile() async => profile;
+}
+
+class _StaticCollectorRepository extends CollectorRepository {
+  @override
+  Future<CollectorProfile> fetchProfile() async => const CollectorProfile(
+        profileId: 'collector-profile-1',
+        userId: 'user-1',
+        firstName: 'Maria',
+        lastName: 'Santos-Cruz',
+        email: 'collector@recytech.com',
+        vehiclePlate: 'ABC-1234',
+        vehicleType: 'Truck',
+        status: 'Active',
+        activeJobs: 0,
+        completedJobs: 0,
+      );
 }

@@ -7,25 +7,22 @@ class RewardPointRule {
   final String id;
   final Map<String, dynamic> fields;
 
-  String get title =>
-      (fields['title'] ??
-              fields['name'] ??
-              fields['wasteType'] ??
-              fields['category'] ??
-              'Reward Rule')
-          .toString();
+  String get title => (fields['title'] ??
+          fields['name'] ??
+          fields['wasteType'] ??
+          fields['category'] ??
+          'Reward Rule')
+      .toString();
 
   String? get description {
-    final value =
-        (fields['description'] ?? '').toString().trim();
+    final value = (fields['description'] ?? '').toString().trim();
 
     return value.isEmpty ? null : value;
   }
 
   num get pointsValue {
-    final value = fields['pointsPerItem'] ??
-        fields['pointsPerKg'] ??
-        fields['points'];
+    final value =
+        fields['pointsPerItem'] ?? fields['pointsPerKg'] ?? fields['points'];
 
     if (value is num) {
       return value;
@@ -47,8 +44,7 @@ class RewardPointRule {
     return true;
   }
 
-  Map<String, dynamic> get displayFields =>
-      Map<String, dynamic>.fromEntries(
+  Map<String, dynamic> get displayFields => Map<String, dynamic>.fromEntries(
         fields.entries.where(
           (entry) => !const [
             '_id',
@@ -60,6 +56,10 @@ class RewardPointRule {
             'createdAt',
             'updatedAt',
             '__v',
+            'pointsPerKg',
+            'weight',
+            'weightKg',
+            'kg',
           ].contains(entry.key),
         ),
       );
@@ -91,13 +91,11 @@ class PointsSummary {
     final transactions = json['transactions'];
 
     final account = json['account'] is Map
-        ? (json['account'] as Map)
-            .cast<String, dynamic>()
+        ? (json['account'] as Map).cast<String, dynamic>()
         : const <String, dynamic>{};
 
     return PointsSummary(
-      balance:
-          _parseInt(
+      balance: _parseInt(
             json['balance'] ?? account['balance'],
           ) ??
           0,
@@ -105,8 +103,7 @@ class PointsSummary {
           ? transactions
               .whereType<Map>()
               .map(
-                (item) =>
-                    PointsLedgerEntry.fromJson(
+                (item) => PointsLedgerEntry.fromJson(
                   item.cast<String, dynamic>(),
                 ),
               )
@@ -137,17 +134,12 @@ class PointsLedgerEntry {
     Map<String, dynamic> json,
   ) {
     return PointsLedgerEntry(
-      id: (json['_id'] ?? json['id'] ?? '')
-          .toString(),
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
       type: (json['type'] ?? '').toString(),
-      amount:
-          _parseInt(json['amount']) ?? 0,
-      signedAmount:
-          _parseInt(json['signedAmount']) ?? 0,
-      description:
-          (json['description'] ?? '').toString(),
-      createdAt:
-          _parseDate(json['createdAt']),
+      amount: _parseInt(json['amount']) ?? 0,
+      signedAmount: _parseInt(json['signedAmount']) ?? 0,
+      description: (json['description'] ?? '').toString(),
+      createdAt: _parseDate(json['createdAt']),
     );
   }
 }
@@ -177,41 +169,28 @@ class PartnerRewardOffer {
   final List<String> applicableBinIds;
   final List<RewardBinScope> applicableBins;
 
-  bool get appliesToAllPartnerBins =>
-      applicableBinIds.isEmpty;
+  bool get appliesToAllPartnerBins => applicableBinIds.isEmpty;
 
   factory PartnerRewardOffer.fromJson(
     Map<String, dynamic> json,
   ) {
     return PartnerRewardOffer(
-      id: (json['_id'] ?? json['id'] ?? '')
-          .toString(),
-      title:
-          (json['title'] ?? 'Partner Reward')
-              .toString(),
-      description:
-          _optionalString(json['description']),
-      pointsCost:
-          _parseInt(json['pointsCost']) ?? 0,
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      title: (json['title'] ?? 'Partner Reward').toString(),
+      description: _optionalString(json['description']),
+      pointsCost: _parseInt(json['pointsCost']) ?? 0,
       active: json['active'] != false,
-      partnerOrganizationId:
-          _optionalString(
+      partnerOrganizationId: _optionalString(
         json['partnerOrganizationId'],
       ),
-      partnerOrganizationName:
-          _optionalString(
-        json['partnerOrganizationName'] ??
-            json['partnerName'],
+      partnerOrganizationName: _optionalString(
+        json['partnerOrganizationName'] ?? json['partnerName'],
       ),
-      canRedeem: json['canRedeem'] is bool
-          ? json['canRedeem'] as bool
-          : null,
-      applicableBinIds:
-          _readStringList(
+      canRedeem: json['canRedeem'] is bool ? json['canRedeem'] as bool : null,
+      applicableBinIds: _readStringList(
         json['applicableBinIds'],
       ),
-      applicableBins:
-          _readBins(
+      applicableBins: _readBins(
         json['applicableBins'],
       ),
     );
@@ -233,12 +212,9 @@ class RewardBinScope {
     Map<String, dynamic> json,
   ) {
     return RewardBinScope(
-      id: (json['_id'] ?? json['id'] ?? '')
-          .toString(),
-      binCode:
-          _optionalString(json['binCode']),
-      name:
-          _optionalString(json['name']),
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      binCode: _optionalString(json['binCode']),
+      name: _optionalString(json['name']),
     );
   }
 }
@@ -268,38 +244,26 @@ class RewardRedemptionRecord {
     Map<String, dynamic> json,
   ) {
     return RewardRedemptionRecord(
-      id: (json['_id'] ?? json['id'] ?? '')
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      rewardTitle: (json['rewardTitle'] ??
+              json['rewardTitleSnapshot'] ??
+              'Partner Reward')
           .toString(),
-      rewardTitle:
-          (json['rewardTitle'] ??
-                  json['rewardTitleSnapshot'] ??
-                  'Partner Reward')
-              .toString(),
-      pointsCost:
-          _parseInt(
-            json['pointsCost'] ??
-                json['pointsCostSnapshot'],
+      pointsCost: _parseInt(
+            json['pointsCost'] ?? json['pointsCostSnapshot'],
           ) ??
           0,
-      status:
-          (json['status'] ?? 'requested')
-              .toString(),
-      redeemedAt:
-          _parseDate(
-        json['redeemedAt'] ??
-            json['createdAt'],
+      status: (json['status'] ?? 'requested').toString(),
+      redeemedAt: _parseDate(
+        json['redeemedAt'] ?? json['createdAt'],
       ),
-      partnerOrganizationName:
-          _optionalString(
-        json['partnerOrganizationName'] ??
-            json['partnerName'],
+      partnerOrganizationName: _optionalString(
+        json['partnerOrganizationName'] ?? json['partnerName'],
       ),
-      fulfilledAt:
-          _optionalDate(
+      fulfilledAt: _optionalDate(
         json['fulfilledAt'],
       ),
-      cancelledAt:
-          _optionalDate(
+      cancelledAt: _optionalDate(
         json['cancelledAt'],
       ),
     );
@@ -328,8 +292,7 @@ DateTime _parseDate(dynamic value) {
 }
 
 DateTime? _optionalDate(dynamic value) {
-  final text =
-      (value ?? '').toString().trim();
+  final text = (value ?? '').toString().trim();
 
   if (text.isEmpty) {
     return null;
@@ -339,8 +302,7 @@ DateTime? _optionalDate(dynamic value) {
 }
 
 String? _optionalString(dynamic value) {
-  final text =
-      (value ?? '').toString().trim();
+  final text = (value ?? '').toString().trim();
 
   return text.isEmpty ? null : text;
 }
@@ -372,8 +334,7 @@ List<RewardBinScope> _readBins(
   return value
       .whereType<Map>()
       .map(
-        (item) =>
-            RewardBinScope.fromJson(
+        (item) => RewardBinScope.fromJson(
           item.cast<String, dynamic>(),
         ),
       )

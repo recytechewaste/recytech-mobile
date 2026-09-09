@@ -18,6 +18,7 @@ class CollectorHistoryScreen extends StatefulWidget {
 class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
   final CollectorRepository _repository = CollectorRepository();
   late Future<List<CollectorJob>> _future;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -26,16 +27,32 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _repository.fetchCompletedJobs();
     setState(() => _future = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
-      appBar: AppBar(title: const Text('Collection History')),
+      appBar: AppBar(
+        title: const Text('Collection History'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh collection history',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: FutureBuilder<List<CollectorJob>>(
         future: _future,
         builder: (context, snapshot) {
@@ -53,6 +70,7 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: jobs.isEmpty
                   ? const [
@@ -72,10 +90,13 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
 
   Widget _jobCard(CollectorJob job) {
     return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
-      ),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
+        );
+        if (mounted) await _refresh();
+      },
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),
         padding: EdgeInsets.all(14.w),

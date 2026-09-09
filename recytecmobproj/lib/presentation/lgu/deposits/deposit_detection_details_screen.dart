@@ -25,11 +25,25 @@ class _DepositDetectionDetailsScreenState
     extends State<DepositDetectionDetailsScreen> {
   final BinMonitoringService _service = MockBinMonitoringService();
   late Future<DepositEvent> _eventFuture;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
     super.initState();
     _eventFuture = _service.fetchDepositEvent(widget.eventId);
+  }
+
+  Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
+    final future = _service.fetchDepositEvent(widget.eventId);
+    setState(() => _eventFuture = future);
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   @override
@@ -38,6 +52,13 @@ class _DepositDetectionDetailsScreenState
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Deposit Details'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh deposit details',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: FutureBuilder<DepositEvent>(
         future: _eventFuture,
@@ -51,34 +72,42 @@ class _DepositDetectionDetailsScreenState
             return const Center(child: Text('Deposit event not found.'));
           }
 
-          return ListView(
-            padding: EdgeInsets.all(16.w),
-            children: [
-              CapturedObjectImage(
-                imageUrl: event.imageUrl,
-                height: 230.h,
-              ),
-              SizedBox(height: 14.h),
-              if (event.isLowConfidence) ...[
-                const LowConfidenceWarning(),
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(16.w),
+              children: [
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator(),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  SizedBox(height: 12.h),
+                CapturedObjectImage(
+                  imageUrl: event.imageUrl,
+                  height: 230.h,
+                ),
                 SizedBox(height: 14.h),
-              ],
-              _panel(
-                children: [
-                  _infoRow('Deposit event ID', event.id),
-                  _infoRow('Bin ID', event.binId),
-                  _infoRow('Camera ID', event.cameraId),
-                  _infoRow('Captured at', formatDateTime(event.capturedAt)),
-                  _infoRow('Detection status', event.status),
-                  _infoRow('Verification status', event.verificationStatus),
-                  _infoRow('Error status', event.errorStatus ?? '-'),
+                if (event.isLowConfidence) ...[
+                  const LowConfidenceWarning(),
+                  SizedBox(height: 14.h),
                 ],
-              ),
-              SizedBox(height: 14.h),
-              _sectionTitle('Identification recommendations'),
-              for (final detection in event.detections)
-                _detectionPanel(detection),
-            ],
+                _panel(
+                  children: [
+                    _infoRow('Deposit event ID', event.id),
+                    _infoRow('Bin ID', event.binId),
+                    _infoRow('Camera ID', event.cameraId),
+                    _infoRow('Captured at', formatDateTime(event.capturedAt)),
+                    _infoRow('Detection status', event.status),
+                    _infoRow('Verification status', event.verificationStatus),
+                    _infoRow('Error status', event.errorStatus ?? '-'),
+                  ],
+                ),
+                SizedBox(height: 14.h),
+                _sectionTitle('Identification recommendations'),
+                for (final detection in event.detections)
+                  _detectionPanel(detection),
+              ],
+            ),
           );
         },
       ),

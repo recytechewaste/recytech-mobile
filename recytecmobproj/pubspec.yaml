@@ -32,6 +32,9 @@ dependencies:
   # Open external navigation apps (Google Maps)
   url_launcher: ^6.3.0
 
+  # Foreground device location for nearby Household bin sorting
+  geolocator: ^13.0.4
+
   # Local Collector-only YOLO/TFLite inference
   tflite_flutter: ^0.12.1
   image: ^4.8.0

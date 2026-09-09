@@ -12,29 +12,49 @@ import '../auth/login_screen.dart';
 import '../settings/settings_screen.dart';
 
 class UnifiedProfileScreen extends StatefulWidget {
-  const UnifiedProfileScreen({super.key});
+  const UnifiedProfileScreen({
+    super.key,
+    this.repository,
+    this.collectorRepository,
+  });
+
+  final UnifiedProfileRepository? repository;
+  final CollectorRepository? collectorRepository;
 
   @override
   State<UnifiedProfileScreen> createState() => _UnifiedProfileScreenState();
 }
 
 class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
-  final UnifiedProfileRepository _repository = UnifiedProfileRepository();
-  final CollectorRepository _collectorRepository = CollectorRepository();
+  late final UnifiedProfileRepository _repository;
+  late final CollectorRepository _collectorRepository;
   late Future<UnifiedProfile> _future;
   Future<CollectorProfile>? _collectorFuture;
   bool _changingDuty = false;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? UnifiedProfileRepository();
+    _collectorRepository = widget.collectorRepository ?? CollectorRepository();
     _future = _repository.fetchProfile();
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _repository.fetchProfile();
-    setState(() => _future = future);
-    await future;
+    setState(() {
+      _future = future;
+      _collectorFuture = null;
+    });
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   Future<void> _logout() async {
@@ -52,7 +72,8 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
       ),
     );
     if (updated == null || !mounted) return;
-    setState(() => _future = Future.value(updated));
+    await _refresh();
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile updated successfully')),
     );
@@ -66,7 +87,7 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
         active ? 'Active' : 'Inactive',
       );
       if (mounted) {
-        setState(() => _collectorFuture = _collectorRepository.fetchProfile());
+        await _refresh();
       }
     } finally {
       if (mounted) setState(() => _changingDuty = false);
@@ -83,6 +104,11 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
           IconButton(
             onPressed: () => Navigator.pushNamed(context, SettingsScreen.route),
             icon: const Icon(Icons.settings_outlined),
+          ),
+          IconButton(
+            tooltip: 'Refresh profile',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
           ),
         ],
       ),
@@ -105,6 +131,7 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: [
                 CircleAvatar(
@@ -114,10 +141,26 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
                       size: 40.sp, color: RecyTechTheme.primary),
                 ),
                 SizedBox(height: 12.h),
-                Text(profile.roleLabel,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 16.sp, fontWeight: FontWeight.w900)),
+                Text(
+                  profile.identityName ?? 'Name unavailable',
+                  key: const Key('profile-display-name'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  profile.roleLabel,
+                  key: const Key('profile-role-label'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w700,
+                    color: RecyTechTheme.textMuted,
+                  ),
+                ),
                 SizedBox(height: 18.h),
                 _row('Email', profile.email),
                 _row(
@@ -171,7 +214,10 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
   Widget _row(String label, String value) => Card(
         child: ListTile(
           title: Text(label),
-          trailing: Flexible(
+          trailing: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.55,
+            ),
             child: Text(value.trim().isEmpty ? 'Not supplied' : value,
                 textAlign: TextAlign.right),
           ),

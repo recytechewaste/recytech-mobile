@@ -84,6 +84,40 @@ void main() {
       );
     });
 
+    test('collector name falls back to the authenticated User fields', () {
+      final profile = CollectorProfile.fromJson({
+        'profile': {
+          '_id': 'collector-profile-1',
+          'vehicleType': 'Truck',
+        },
+        'user': {
+          '_id': 'user-1',
+          'firstName': 'Actual',
+          'lastName': 'Collector Name',
+          'email': 'collector@recytech.com',
+        },
+      });
+
+      expect(profile.fullName, 'Actual Collector Name');
+    });
+
+    test('collector role defaults are not treated as a real name', () {
+      final profile = CollectorProfile.fromJson({
+        'profile': {
+          '_id': 'collector-profile-1',
+          'firstName': 'User',
+          'lastName': 'Collector',
+        },
+        'user': {
+          '_id': 'user-1',
+          'firstName': 'User',
+          'lastName': 'Collector',
+        },
+      });
+
+      expect(profile.fullName, isEmpty);
+    });
+
     test('job parses detail and GeoJSON as longitude then latitude', () {
       final job = CollectorJob.fromJson(_jobJson(status: 'in_transit'));
       expect(job.id, 'request-1');

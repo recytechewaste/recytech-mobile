@@ -27,6 +27,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   late CollectorJob job;
   bool isUpdating = false;
   bool isLoadingDetail = true;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -36,6 +37,46 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _loadCanonicalDetail() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
+    final refresh = _refreshCanonicalDetail().whenComplete(() {
+      _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
+  }
+
+  Future<void> _refresh() => _loadCanonicalDetail();
+
+  Future<void> _refreshCanonicalDetail() async {
+    setState(() => isLoadingDetail = true);
+    try {
+      final detail = await _repository.fetchRequestDetail(job.id);
+      if (mounted) setState(() => job = detail);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              userFacingError(
+                error,
+                fallback: 'Unable to refresh request details.',
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoadingDetail = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchCanonicalAfterUpdate() async {
     try {
       final detail = await _repository.fetchRequestDetail(job.id);
       if (mounted) setState(() => job = detail);
@@ -85,6 +126,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Collection started.')),
       );
+      await _fetchCanonicalAfterUpdate();
     } catch (e) {
       if (!mounted) return;
 
@@ -128,6 +170,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(successMessage)),
       );
+      await _fetchCanonicalAfterUpdate();
     } catch (e) {
       if (!mounted) return;
 
@@ -178,6 +221,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       setState(() {
         job = completed;
       });
+      await _refresh();
     }
   }
 
@@ -187,62 +231,73 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Request Details'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh request details',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: Padding(
         padding: EdgeInsets.all(16.w),
-        child: ListView(
-          children: [
-            if (isLoadingDetail) const LinearProgressIndicator(),
-            if (isLoadingDetail) SizedBox(height: 12.h),
-            Text(
-              'Request Reference: ${job.requestCode}',
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w900,
-                color: RecyTechTheme.textDark,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              if (isLoadingDetail) const LinearProgressIndicator(),
+              if (isLoadingDetail) SizedBox(height: 12.h),
+              Text(
+                'Request Reference: ${job.requestCode}',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w900,
+                  color: RecyTechTheme.textDark,
+                ),
               ),
-            ),
-            SizedBox(height: 12.h),
-            Container(
-              padding: EdgeInsets.all(14.w),
-              decoration: BoxDecoration(
-                color: RecyTechTheme.card,
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(color: RecyTechTheme.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: RecyTechTheme.primary.withValues(alpha: 0.07),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+              SizedBox(height: 12.h),
+              Container(
+                padding: EdgeInsets.all(14.w),
+                decoration: BoxDecoration(
+                  color: RecyTechTheme.card,
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(color: RecyTechTheme.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: RecyTechTheme.primary.withValues(alpha: 0.07),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _infoRow(
+                      'Partner Organization',
+                      _valueOrDash(job.partnerOrganizationName),
+                    ),
+                    _infoRow('Bin', _valueOrDash(job.displayItem)),
+                    _infoRow('Bin Location', _valueOrDash(job.location)),
+                    _infoRow('Coordinates', _coordinatesLabel()),
+                    _locationAction(),
+                    _infoRow('Requested', _formatDate(job.schedule)),
+                    _infoRow('Status', CollectorJobStatuses.label(job.status)),
+                    _infoRow('Collector', _valueOrDash(job.assignedCollector)),
+                    _infoRow(
+                      'Fill',
+                      job.fillPercentage == null
+                          ? '-'
+                          : '${job.fillPercentage!.round()}%',
+                    ),
+                    _infoRow('Remarks', _valueOrDash(job.remarks)),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  _infoRow(
-                    'Partner Organization',
-                    _valueOrDash(job.partnerOrganizationName),
-                  ),
-                  _infoRow('Bin', _valueOrDash(job.displayItem)),
-                  _infoRow('Bin Location', _valueOrDash(job.location)),
-                  _infoRow('Coordinates', _coordinatesLabel()),
-                  _locationAction(),
-                  _infoRow('Requested', _formatDate(job.schedule)),
-                  _infoRow('Status', CollectorJobStatuses.label(job.status)),
-                  _infoRow('Collector', _valueOrDash(job.assignedCollector)),
-                  _infoRow(
-                    'Fill',
-                    job.fillPercentage == null
-                        ? '-'
-                        : '${job.fillPercentage!.round()}%',
-                  ),
-                  _infoRow('Remarks', _valueOrDash(job.remarks)),
-                ],
-              ),
-            ),
-            SizedBox(height: 24.h),
-            _workflowActions(),
-          ],
+              SizedBox(height: 24.h),
+              _workflowActions(),
+            ],
+          ),
         ),
       ),
     );

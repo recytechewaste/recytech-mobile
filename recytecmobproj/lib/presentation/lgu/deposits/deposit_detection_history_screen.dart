@@ -26,6 +26,7 @@ class _DepositDetectionHistoryScreenState
     extends State<DepositDetectionHistoryScreen> {
   final BinMonitoringService _service = MockBinMonitoringService();
   late Future<List<DepositEvent>> _eventsFuture;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -34,18 +35,26 @@ class _DepositDetectionHistoryScreenState
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _service.fetchDepositEvents(widget.binId);
     setState(() => _eventsFuture = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
-  void _openEvent(DepositEvent event) {
-    Navigator.push(
+  Future<void> _openEvent(DepositEvent event) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => DepositDetectionDetailsScreen(eventId: event.id),
       ),
     );
+    if (mounted) await _refresh();
   }
 
   @override
@@ -54,6 +63,13 @@ class _DepositDetectionHistoryScreenState
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Detection History'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh detection history',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: FutureBuilder<List<DepositEvent>>(
         future: _eventsFuture,
@@ -66,6 +82,7 @@ class _DepositDetectionHistoryScreenState
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: [
                 Text(

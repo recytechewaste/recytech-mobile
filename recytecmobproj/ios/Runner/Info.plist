@@ -26,6 +26,8 @@
 	<string>Camera access is required to scan RecyTech bin QR codes and capture collector collection evidence.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo library access is used for profile images and collector collection evidence when selected from the device.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location is used to show RecyTech public bins nearest to you.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -30,8 +30,7 @@ class PartnerOrganizationProfile {
     return PartnerOrganizationProfile(
       profileId: (profile['_id'] ?? profile['id'] ?? '').toString(),
       userId: (user['_id'] ?? user['id'] ?? '').toString(),
-      organizationName:
-          (profile['organizationName'] ?? profile['name'] ?? '').toString(),
+      organizationName: _organizationName(profile, user),
       contactPerson: (profile['contactPerson'] ?? '').toString(),
       contactNumber:
           (profile['contactNumber'] ?? profile['phone'] ?? '').toString(),
@@ -54,3 +53,26 @@ class PartnerOrganizationStats {
 
 Map<String, dynamic> _object(dynamic value) =>
     value is Map ? value.cast<String, dynamic>() : <String, dynamic>{};
+
+String _organizationName(
+  Map<String, dynamic> profile,
+  Map<String, dynamic> user,
+) {
+  for (final value in [
+    profile['organizationName'],
+    profile['name'],
+    profile['displayName'],
+    user['organizationName'],
+    user['accountName'],
+    user['name'],
+    user['displayName'],
+  ]) {
+    final text = (value ?? '').toString().trim();
+    final normalized = text.toLowerCase().replaceAll(RegExp(r'[_\s]+'), ' ');
+    if (text.isNotEmpty &&
+        !const {'partner organization', 'partner org'}.contains(normalized)) {
+      return text;
+    }
+  }
+  return '';
+}

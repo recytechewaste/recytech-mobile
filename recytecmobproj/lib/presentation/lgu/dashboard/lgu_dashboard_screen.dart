@@ -4,32 +4,46 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
 import '../../../data/models/bin_monitoring_models.dart';
+import '../../../data/models/drop_off_record_model.dart';
 import '../../../data/models/partner_organization_model.dart';
 import '../../../data/repositories/bin_monitoring_repository.dart';
 import '../../../data/repositories/partner_organization_repository.dart';
-import '../../../presentation/bin_monitoring/widgets/bin_monitoring_components.dart';
+import '../../../data/repositories/partner_validation_repository.dart';
 import '../../../widgets/empty_state.dart';
-import '../../../widgets/status_bagde.dart';
 import '../../notifications/notification_center_screen.dart';
-import '../bins/bin_details_screen.dart';
+import '../deposits/pending_dropoff_validations_screen.dart';
 
 class LguDashboardScreen extends StatefulWidget {
-  const LguDashboardScreen({super.key});
+  const LguDashboardScreen({
+    super.key,
+    this.binRepository,
+    this.partnerRepository,
+    this.validationRepository,
+  });
+
+  final LguBinRepository? binRepository;
+  final PartnerOrganizationRepository? partnerRepository;
+  final PartnerValidationRepository? validationRepository;
 
   @override
   State<LguDashboardScreen> createState() => _LguDashboardScreenState();
 }
 
 class _LguDashboardScreenState extends State<LguDashboardScreen> {
-  final LguBinRepository _binRepository = ApiPartnerBinRepository();
-  final PartnerOrganizationRepository _partnerRepository =
-      PartnerOrganizationRepository();
-
+  late final LguBinRepository _binRepository;
+  late final PartnerOrganizationRepository _partnerRepository;
+  late final PartnerValidationRepository _validationRepository;
   late Future<_DashboardData> _dashboardFuture;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
     super.initState();
+    _binRepository = widget.binRepository ?? ApiPartnerBinRepository();
+    _partnerRepository =
+        widget.partnerRepository ?? PartnerOrganizationRepository();
+    _validationRepository =
+        widget.validationRepository ?? ApiPartnerValidationRepository();
     _dashboardFuture = _loadDashboard();
   }
 
@@ -38,18 +52,40 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
       _binRepository.fetchAssignedBins(),
       _partnerRepository.fetchProfile(),
       _partnerRepository.fetchStats(),
+      _validationRepository.fetchPendingDropOffs(),
     ]);
     return _DashboardData(
       bins: results[0] as List<RecyTechBin>,
       profile: results[1] as PartnerOrganizationProfile,
       stats: results[2] as PartnerOrganizationStats,
+      pendingDropOffs: results[3] as List<DropOffRecord>,
     );
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
     final future = _loadDashboard();
-    setState(() => _dashboardFuture = future);
-    await future;
+    setState(() {
+      _dashboardFuture = future;
+    });
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
+  }
+
+  Future<void> _openPendingValidations() async {
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PendingDropOffValidationsScreen(
+          repository: _validationRepository,
+        ),
+      ),
+    );
+    if (mounted && changed == true) await _refresh();
   }
 
   @override
@@ -61,16 +97,14 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
         actions: [
           IconButton(
             tooltip: 'Notifications',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const NotificationCenterScreen(
-                    role: UserRole.partnerOrg,
-                  ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const NotificationCenterScreen(
+                  role: UserRole.partnerOrg,
                 ),
-              );
-            },
+              ),
+            ),
             icon: const Icon(Icons.notifications_outlined),
           ),
           IconButton(
@@ -84,68 +118,80 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
         future: _dashboardFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppLoadingState(message: 'Loading smart bin summary…');
+            return const AppLoadingState(message: 'Loading dashboard…');
           }
-
           if (snapshot.hasError) {
             return AppErrorState(
-              title: 'Unable to load smart bin data. Please try again.',
+              title: 'We could not load your dashboard. Please try again.',
               onRetry: _refresh,
             );
           }
 
           final data = snapshot.data!;
-          final metrics = <String, dynamic>{
-            ...data.profile.overview,
-            ...data.stats.values,
-          };
-
+          final metrics = _PartnerDashboardMetrics.fromData(data);
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
-              padding: EdgeInsets.all(16.w),
+              key: const Key('partner-dashboard-content'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
               children: [
-                _header(data.profile.organizationName.isEmpty
-                    ? 'Partner Organization'
-                    : data.profile.organizationName),
-                SizedBox(height: 14.h),
-                if (metrics.isNotEmpty)
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 10.h,
-                    crossAxisSpacing: 10.w,
-                    childAspectRatio: 1.35,
-                    children: metrics.entries
-                        .map((entry) => _metric(
-                            _metricLabel(entry.key), _display(entry.value)))
-                        .toList(growable: false),
-                  ),
-                SizedBox(height: 18.h),
+                _header(
+                  data.profile.organizationName.isEmpty
+                      ? 'Name unavailable'
+                      : data.profile.organizationName,
+                ),
+                SizedBox(height: 20.h),
                 Text(
-                  'Priority bins',
+                  'At a glance',
                   style: TextStyle(
-                    fontSize: 15.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w900,
                     color: RecyTechTheme.textDark,
                   ),
                 ),
                 SizedBox(height: 10.h),
-                if (data.bins.isEmpty)
-                  const EmptyState(
-                    icon: Icons.delete_outline,
-                    title: 'You have no assigned smart bins right now.',
-                    message: 'Assigned RecyTech smart bins will appear here.',
-                  )
-                else if (data.priorityBins.isEmpty)
-                  const EmptyState(
-                    icon: Icons.check_circle_outline,
-                    title: 'No priority bins',
-                    message: 'No full or nearly full bins are pending review.',
-                  )
-                else
-                  for (final bin in data.priorityBins) _priorityBin(bin),
+                GridView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12.h,
+                    crossAxisSpacing: 12.w,
+                    childAspectRatio: 1.08,
+                  ),
+                  children: [
+                    _metricCard(
+                      key: const Key('metric-assigned-bins'),
+                      icon: Icons.delete_outline,
+                      value: metrics.assignedBins.toString(),
+                      title: 'Assigned Bins Count',
+                    ),
+                    _metricCard(
+                      key: const Key('metric-pending-validations'),
+                      icon: Icons.fact_check_outlined,
+                      value: metrics.pendingValidations.toString(),
+                      title: 'Pending Validations',
+                      actionLabel: metrics.pendingValidations > 0
+                          ? 'Needs review'
+                          : 'Review',
+                      emphasized: metrics.pendingValidations > 0,
+                      onTap: _openPendingValidations,
+                    ),
+                    _metricCard(
+                      key: const Key('metric-validated-dropoffs'),
+                      icon: Icons.verified_outlined,
+                      value: metrics.validatedDropOffs.toString(),
+                      title: 'Total Dropoffs Validated',
+                    ),
+                    _metricCard(
+                      key: const Key('metric-completed-collections'),
+                      icon: Icons.local_shipping_outlined,
+                      value: metrics.completedCollections.toString(),
+                      title: 'Completed Collections',
+                    ),
+                  ],
+                ),
               ],
             ),
           );
@@ -154,138 +200,53 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
     );
   }
 
-  Widget _header(String lguName) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: RecyTechTheme.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: RecyTechTheme.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44.w,
-            height: 44.w,
-            decoration: BoxDecoration(
-              color: RecyTechTheme.pill,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.location_city_outlined,
-              color: RecyTechTheme.primary,
-              size: 23.sp,
-            ),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  lguName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w900,
-                    color: RecyTechTheme.textDark,
-                  ),
-                ),
-                SizedBox(height: 3.h),
-                Text(
-                  'Latest stored bin readings from the RecyTech backend.',
-                  style: TextStyle(
-                    fontSize: 11.sp,
-                    color: RecyTechTheme.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _metric(String label, String value) {
-    return Container(
-      padding: EdgeInsets.all(12.w),
-      decoration: BoxDecoration(
-        color: RecyTechTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RecyTechTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22.sp,
-              fontWeight: FontWeight.w900,
-              color: RecyTechTheme.primary,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11.sp,
-              color: RecyTechTheme.textMuted,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _priorityBin(RecyTechBin bin) {
-    return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => BinDetailsScreen(binId: bin.binId)),
-      ),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        margin: EdgeInsets.only(bottom: 10.h),
-        padding: EdgeInsets.all(14.w),
-        decoration: BoxDecoration(
-          color: RecyTechTheme.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: RecyTechTheme.border),
-        ),
-        child: Column(
+  Widget _header(String organizationName) {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(18.w),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    bin.displayName,
+            Container(
+              width: 50.w,
+              height: 50.w,
+              decoration: BoxDecoration(
+                color: RecyTechTheme.pill,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Icons.apartment_outlined,
+                color: RecyTechTheme.primary,
+                size: 27.sp,
+              ),
+            ),
+            SizedBox(width: 14.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    organizationName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 14.sp,
-                      color: RecyTechTheme.textDark,
+                      fontSize: 17.sp,
+                      height: 1.2,
                       fontWeight: FontWeight.w900,
+                      color: RecyTechTheme.textDark,
                     ),
                   ),
-                ),
-                StatusBadge(label: FullnessStatuses.label(bin.fullnessStatus)),
-              ],
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              bin.location,
-              style: TextStyle(fontSize: 11.sp, color: RecyTechTheme.textMuted),
-            ),
-            SizedBox(height: 10.h),
-            FillLevelIndicator(
-              fillLevel: bin.fillPercentage,
-              status: FullnessStatuses.label(bin.fullnessStatus),
+                  SizedBox(height: 6.h),
+                  Text(
+                    'Manage your assigned bins and drop-off validations.',
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      height: 1.4,
+                      color: RecyTechTheme.textMuted,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -293,18 +254,106 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
     );
   }
 
-  String _metricLabel(String value) => value
-      .replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]}')
-      .replaceAll('_', ' ');
+  Widget _metricCard({
+    required Key key,
+    required IconData icon,
+    required String value,
+    required String title,
+    String? actionLabel,
+    bool emphasized = false,
+    VoidCallback? onTap,
+  }) {
+    final card = Container(
+      key: key,
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: emphasized
+            ? RecyTechTheme.primary.withValues(alpha: 0.07)
+            : RecyTechTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: emphasized
+              ? RecyTechTheme.primary.withValues(alpha: 0.42)
+              : RecyTechTheme.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34.w,
+                height: 34.w,
+                decoration: BoxDecoration(
+                  color: RecyTechTheme.pill,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 19.sp, color: RecyTechTheme.primary),
+              ),
+              const Spacer(),
+              if (onTap != null)
+                Icon(
+                  Icons.chevron_right,
+                  size: 20.sp,
+                  color: RecyTechTheme.primary,
+                ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 25.sp,
+              height: 1,
+              fontWeight: FontWeight.w900,
+              color:
+                  emphasized ? RecyTechTheme.primary : RecyTechTheme.textDark,
+            ),
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.sp,
+              height: 1.25,
+              color: RecyTechTheme.textMuted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (actionLabel != null) ...[
+            SizedBox(height: 5.h),
+            Text(
+              actionLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5.sp,
+                fontWeight: FontWeight.w900,
+                color: RecyTechTheme.primary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
 
-  String _display(dynamic value) {
-    if (value is Map) {
-      return value.entries
-          .map((entry) => '${entry.key}: ${entry.value}')
-          .join(', ');
-    }
-    if (value is List) return value.join(', ');
-    return value.toString();
+    if (onTap == null) return card;
+    return Semantics(
+      button: true,
+      label: '$title, $value. ${actionLabel ?? 'Review'}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const Key('pending-validations-action'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: card,
+        ),
+      ),
+    );
   }
 }
 
@@ -313,17 +362,53 @@ class _DashboardData {
     required this.bins,
     required this.profile,
     required this.stats,
+    required this.pendingDropOffs,
   });
 
   final List<RecyTechBin> bins;
   final PartnerOrganizationProfile profile;
   final PartnerOrganizationStats stats;
+  final List<DropOffRecord> pendingDropOffs;
+}
 
-  List<RecyTechBin> get priorityBins {
-    return bins.where((bin) {
-      final status = FullnessStatuses.normalize(bin.fullnessStatus);
-      return status == FullnessStatuses.full ||
-          status == FullnessStatuses.nearlyFull;
-    }).toList();
+class _PartnerDashboardMetrics {
+  const _PartnerDashboardMetrics({
+    required this.assignedBins,
+    required this.pendingValidations,
+    required this.validatedDropOffs,
+    required this.completedCollections,
+  });
+
+  final int assignedBins;
+  final int pendingValidations;
+  final int validatedDropOffs;
+  final int completedCollections;
+
+  factory _PartnerDashboardMetrics.fromData(_DashboardData data) {
+    return _PartnerDashboardMetrics(
+      assignedBins: data.bins.length,
+      pendingValidations: data.pendingDropOffs.length,
+      validatedDropOffs: _readMetric(data.stats.values, const [
+        'validatedDropOffs',
+        'totalDropoffsValidated',
+        'totalDropOffsValidated',
+        'dropOffsValidated',
+      ]),
+      completedCollections: _readMetric(data.stats.values, const [
+        'completedCollections',
+        'totalCompletedCollections',
+        'collectionsCompleted',
+      ]),
+    );
+  }
+
+  static int _readMetric(Map<String, dynamic> values, List<String> keys) {
+    for (final key in keys) {
+      final value = values[key];
+      if (value is num) return value.toInt();
+      final parsed = int.tryParse((value ?? '').toString());
+      if (parsed != null) return parsed;
+    }
+    return 0;
   }
 }

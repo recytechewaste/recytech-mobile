@@ -9,7 +9,6 @@ import '../../../core/theme/recytechtheme.dart';
 import '../../notifications/notification_center_screen.dart';
 import '../bins/bin_locator_screen.dart';
 import '../bins/bin_qr_scanner_screen.dart';
-import '../education/education_content_screen.dart';
 import '../history/history_screen.dart';
 import '../rewards/rewards_screen.dart';
 
@@ -17,7 +16,6 @@ class UserDashboardScreen extends StatelessWidget {
   const UserDashboardScreen({super.key});
 
   static Color get _primary => RecyTechTheme.primary;
-  static Color get _accent => RecyTechTheme.accent;
   static Color get _bg => RecyTechTheme.bg;
   static Color get _textDark => RecyTechTheme.textDark;
   static Color get _textMuted => RecyTechTheme.textMuted;
@@ -207,21 +205,6 @@ class UserDashboardScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const HistoryScreen()),
-                );
-              },
-            ),
-            SizedBox(height: 12.h),
-            _infoCard(
-              title: 'Environmental Impact',
-              body: 'Learn how e-waste recycling helps the environment.',
-              icon: Icons.public,
-              tint: _accent,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const EducationContentScreen(),
-                  ),
                 );
               },
             ),

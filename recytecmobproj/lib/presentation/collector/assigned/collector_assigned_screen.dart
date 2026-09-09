@@ -24,6 +24,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   late Future<List<CollectorJob>> _jobsFuture;
   late Future<CollectorProfile> _profileFuture;
   String? _updatingRequestId;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -37,6 +38,9 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   }
 
   Future<void> _refreshJobs() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _fetchAssignedJobs();
     final profileFuture = _repository.fetchProfile();
     setState(() {
@@ -44,8 +48,13 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
       _profileFuture = profileFuture;
     });
 
+    final refresh = Future.wait([future, profileFuture]).then((_) {});
+    _refreshing = refresh.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+
     try {
-      await Future.wait([future, profileFuture]);
+      await _refreshing;
     } catch (e) {
       if (!mounted) return;
 
@@ -106,6 +115,13 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
         title: const Text('Assigned Requests'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh assigned requests',
+            onPressed: _refreshJobs,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: FutureBuilder<List<CollectorJob>>(
         future: _jobsFuture,
@@ -127,6 +143,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
             onRefresh: _refreshJobs,
             child: jobs.isEmpty
                 ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.all(16.w),
                     children: [
                       _profileSummary(),
@@ -140,6 +157,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                     ],
                   )
                 : ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.all(16.w),
                     children: [
                       _profileSummary(),
@@ -162,7 +180,8 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
       builder: (context, snapshot) {
         final profile = snapshot.data;
         if (profile == null) return const SizedBox.shrink();
-        final name = profile.fullName.isEmpty ? 'Collector' : profile.fullName;
+        final name =
+            profile.fullName.isEmpty ? 'Name unavailable' : profile.fullName;
         final vehicle = [profile.vehicleType, profile.vehiclePlate]
             .where((value) => value.trim().isNotEmpty)
             .join(' • ');

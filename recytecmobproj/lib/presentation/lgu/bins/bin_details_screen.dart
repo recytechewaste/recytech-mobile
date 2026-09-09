@@ -32,6 +32,7 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
   final LguBinRepository _repository = ApiPartnerBinRepository();
   final MapLauncher _mapLauncher = const MapLauncher();
   late Future<_BinDetailsData> _detailsFuture;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -51,9 +52,16 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _loadDetails();
     setState(() => _detailsFuture = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   Future<void> _requestCollection(RecyTechBin bin) async {
@@ -185,6 +193,7 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: [
                 if (FullnessStatuses.normalize(data.bin.fullnessStatus) ==

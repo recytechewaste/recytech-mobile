@@ -46,8 +46,11 @@ class DropOffRecord {
     required this.createdAt,
     required this.status,
     this.userId,
+    this.householdName,
+    this.householdEmail,
     this.building,
     this.locationDescription,
+    this.notes,
     this.rewardEligible = false,
     this.rewardValue,
     this.rewardPoints,
@@ -67,8 +70,11 @@ class DropOffRecord {
   final String binId;
   final String binName;
   final String? userId;
+  final String? householdName;
+  final String? householdEmail;
   final String? building;
   final String? locationDescription;
+  final String? notes;
   final DateTime createdAt;
   final String status;
   final bool rewardEligible;
@@ -112,8 +118,12 @@ class DropOffRecord {
   factory DropOffRecord.fromJson(Map<String, dynamic> json) {
     final bin = _asMap(json['bin']);
     final transaction = _asMap(json['transaction']);
+    final household = _asMap(
+      json['household'] ?? json['resident'] ?? json['user'],
+    );
     final created = DateTime.tryParse(
-          (json['createdAt'] ?? json['timestamp'] ?? '').toString(),
+          (json['submittedAt'] ?? json['createdAt'] ?? json['timestamp'] ?? '')
+              .toString(),
         ) ??
         DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -127,12 +137,29 @@ class DropOffRecord {
           .toString(),
       binName: (json['binName'] ?? bin['name'] ?? 'RecyTech Bin').toString(),
       userId: _optionalString(json['userId']),
+      householdName: _optionalString(
+        json['householdName'] ??
+            json['residentName'] ??
+            json['participantName'] ??
+            household['name'] ??
+            household['fullName'] ??
+            household['accountName'],
+      ),
+      householdEmail: _optionalString(
+        json['householdEmail'] ??
+            json['residentEmail'] ??
+            json['participantEmail'] ??
+            household['email'],
+      ),
       building: _optionalString(json['building'] ?? bin['building']),
       locationDescription: _optionalString(
         json['locationDescription'] ??
             json['location'] ??
             bin['locationDescription'] ??
             bin['address'],
+      ),
+      notes: _optionalString(
+        json['notes'] ?? json['description'] ?? json['remarks'],
       ),
       createdAt: created,
       status: DropOffStatuses.normalize(json['status']?.toString()),
@@ -178,9 +205,12 @@ class DropOffRecord {
         'binId': binId,
         'binName': binName,
         if (userId != null) 'userId': userId,
+        if (householdName != null) 'householdName': householdName,
+        if (householdEmail != null) 'householdEmail': householdEmail,
         if (building != null) 'building': building,
         if (locationDescription != null)
           'locationDescription': locationDescription,
+        if (notes != null) 'notes': notes,
         'createdAt': createdAt.toIso8601String(),
         'status': status,
         'rewardEligible': rewardEligible,

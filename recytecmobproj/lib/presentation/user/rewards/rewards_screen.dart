@@ -18,6 +18,7 @@ class RewardsScreen extends StatefulWidget {
 class _RewardsScreenState extends State<RewardsScreen> {
   late final PointsRewardsRepository _repository;
   late Future<List<RewardPointRule>> _future;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -27,9 +28,16 @@ class _RewardsScreenState extends State<RewardsScreen> {
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _repository.fetchCatalog();
     setState(() => _future = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   Future<void> _openRule(RewardPointRule listedRule) async {
@@ -93,6 +101,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: rules.isEmpty
                   ? const [

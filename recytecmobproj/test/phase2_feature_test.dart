@@ -169,11 +169,27 @@ void main() {
   });
 
   group('role routing', () {
-    test('routes household, LGU, and collector to their own shells', () {
-      expect(AppRoles.shellTargetFor('Staff'), AppShellTarget.household);
-      expect(AppRoles.shellTargetFor('lgu'), AppShellTarget.partnerOrg);
-      expect(AppRoles.shellTargetFor('collector'), AppShellTarget.collector);
-      expect(AppRoles.shellTargetFor('admin'), AppShellTarget.accessDenied);
+    test('routes canonical mobile roles to their own shells', () {
+      expect(
+        AppRoles.shellTargetFor('household'),
+        AppShellTarget.household,
+      );
+      expect(
+        AppRoles.shellTargetFor('partner_org'),
+        AppShellTarget.partnerOrg,
+      );
+      expect(
+        AppRoles.shellTargetFor('collector'),
+        AppShellTarget.collector,
+      );
+      expect(
+        AppRoles.shellTargetFor('Staff'),
+        AppShellTarget.accessDenied,
+      );
+      expect(
+        AppRoles.shellTargetFor('admin'),
+        AppShellTarget.accessDenied,
+      );
     });
   });
 

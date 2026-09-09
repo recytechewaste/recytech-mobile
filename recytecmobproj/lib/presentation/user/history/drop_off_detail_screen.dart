@@ -27,6 +27,7 @@ class DropOffDetailScreen extends StatefulWidget {
 class _DropOffDetailScreenState extends State<DropOffDetailScreen> {
   late final UnifiedProfileRepository _profileRepository;
   late Future<_DropOffDetailsData> _detailFuture;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -72,11 +73,18 @@ class _DropOffDetailScreenState extends State<DropOffDetailScreen> {
   }
 
   Future<void> _retry() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _load();
     setState(() {
       _detailFuture = future;
     });
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   @override
@@ -110,28 +118,32 @@ class _DropOffDetailScreenState extends State<DropOffDetailScreen> {
           }
           final record = data.record;
 
-          return ListView(
-            padding: EdgeInsets.all(16.w),
-            children: [
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const LinearProgressIndicator(),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                SizedBox(height: 12.h),
-              _panel(data),
-              if (record.imageUrls.isNotEmpty) ...[
-                SizedBox(height: 14.h),
-                Text(
-                  'Submitted photos',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w900,
-                    color: RecyTechTheme.textDark,
+          return RefreshIndicator(
+            onRefresh: _retry,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(16.w),
+              children: [
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator(),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  SizedBox(height: 12.h),
+                _panel(data),
+                if (record.imageUrls.isNotEmpty) ...[
+                  SizedBox(height: 14.h),
+                  Text(
+                    'Submitted photos',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w900,
+                      color: RecyTechTheme.textDark,
+                    ),
                   ),
-                ),
-                SizedBox(height: 8.h),
-                ...record.imageUrls.map(_photo),
+                  SizedBox(height: 8.h),
+                  ...record.imageUrls.map(_photo),
+                ],
               ],
-            ],
+            ),
           );
         },
       ),

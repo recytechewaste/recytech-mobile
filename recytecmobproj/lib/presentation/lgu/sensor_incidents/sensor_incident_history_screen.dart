@@ -19,6 +19,7 @@ class _SensorIncidentHistoryScreenState
     extends State<SensorIncidentHistoryScreen> {
   late final SensorIncidentRepository _repository;
   late Future<List<SensorIncident>> _future;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -28,9 +29,16 @@ class _SensorIncidentHistoryScreenState
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _repository.fetchMyIncidents();
     setState(() => _future = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   @override
@@ -64,6 +72,7 @@ class _SensorIncidentHistoryScreenState
             onRefresh: _refresh,
             child: incidents.isEmpty
                 ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     children: const [
                       SizedBox(height: 120),
                       EmptyState(
@@ -74,6 +83,7 @@ class _SensorIncidentHistoryScreenState
                     ],
                   )
                 : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     itemCount: incidents.length,
                     itemBuilder: (_, index) => _incidentCard(incidents[index]),

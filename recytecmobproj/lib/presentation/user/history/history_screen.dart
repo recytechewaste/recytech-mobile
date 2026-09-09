@@ -22,6 +22,7 @@ class HistoryScreen extends StatefulWidget {
 class _UserHistoryScreenState extends State<HistoryScreen> {
   late final DropOffRepository _repository;
   late Future<List<DropOffRecord>> _historyFuture;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -31,9 +32,16 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _repository.getMyDropOffHistory();
     setState(() => _historyFuture = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   @override
@@ -43,6 +51,13 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
         backgroundColor: RecyTechTheme.bg,
         appBar: AppBar(
           title: const Text('Drop-Off History'),
+          actions: [
+            IconButton(
+              tooltip: 'Refresh history',
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
         ),
         body: FutureBuilder<List<DropOffRecord>>(
           future: _historyFuture,
@@ -64,6 +79,7 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
                 children: [
                   Text(
@@ -105,15 +121,18 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
   Widget _dropOffCard(DropOffRecord record) {
     return InkWell(
       borderRadius: BorderRadius.circular(18.r),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DropOffDetailScreen(
-            initialRecord: record,
-            repository: _repository,
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DropOffDetailScreen(
+              initialRecord: record,
+              repository: _repository,
+            ),
           ),
-        ),
-      ),
+        );
+        if (mounted) await _refresh();
+      },
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),
         padding: EdgeInsets.all(14.w),

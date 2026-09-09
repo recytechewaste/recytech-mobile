@@ -63,7 +63,7 @@ void main() {
 
     test('parses missing sensor fields safely', () {
       final bin = RecyTechBin.fromJson({
-        'id': 'BIN-1',
+        'binId': 'BIN-1',
         'location': 'Municipal Hall',
       });
 

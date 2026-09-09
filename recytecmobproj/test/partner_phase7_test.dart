@@ -4,6 +4,7 @@ import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/network/api_client.dart';
 import 'package:recytecmobproj/core/network/api_endpoints.dart';
 import 'package:recytecmobproj/data/models/bin_monitoring_models.dart';
+import 'package:recytecmobproj/data/models/partner_organization_model.dart';
 import 'package:recytecmobproj/data/repositories/bin_monitoring_repository.dart';
 import 'package:recytecmobproj/data/repositories/partner_organization_repository.dart';
 
@@ -42,6 +43,37 @@ void main() {
       expect(profile.overview['assignedBins'], 2);
       expect(stats.values['validatedDropOffs'], 12);
       expect(stats.values['pointsAwarded'], 420);
+    });
+
+    test('partner organization name accepts the production name field', () {
+      final profile = PartnerOrganizationProfile.fromJson({
+        'profile': {
+          '_id': 'partner-profile-1',
+          'name': 'Actual Organization Name',
+        },
+        'user': {
+          '_id': 'user-1',
+          'email': 'partner@recytech.com',
+        },
+      });
+
+      expect(profile.organizationName, 'Actual Organization Name');
+    });
+
+    test('partner role label does not outrank a real account name', () {
+      final profile = PartnerOrganizationProfile.fromJson({
+        'profile': {
+          '_id': 'partner-profile-1',
+          'organizationName': 'Partner Organization',
+        },
+        'user': {
+          '_id': 'user-1',
+          'accountName': 'Actual Organization Name',
+          'email': 'partner@recytech.com',
+        },
+      });
+
+      expect(profile.organizationName, 'Actual Organization Name');
     });
 
     test('my-bins response is already scoped and is not identity-filtered',

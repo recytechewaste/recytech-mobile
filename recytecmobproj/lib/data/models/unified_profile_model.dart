@@ -25,6 +25,43 @@ class UnifiedProfile {
 
   String get roleLabel => AppRoles.displayName(AppRoles.normalize(role));
 
+  /// The backend-owned person or organization name for the active role.
+  ///
+  /// Role labels are deliberately rejected here so they cannot become profile
+  /// identity when a backend name is missing.
+  String? get identityName => switch (role) {
+        AppRoles.partnerOrg => _firstIdentityValue([
+            linkedProfileFields['organizationName'],
+            linkedProfileFields['name'],
+            linkedProfileFields['displayName'],
+            userFields['organizationName'],
+            userFields['accountName'],
+            userFields['name'],
+            userFields['displayName'],
+          ]),
+        AppRoles.collector => _firstIdentityValue([
+            _personName(linkedProfileFields),
+            linkedProfileFields['fullName'],
+            linkedProfileFields['name'],
+            linkedProfileFields['displayName'],
+            _personName(userFields),
+            userFields['fullName'],
+            userFields['displayName'],
+            userFields['name'],
+          ]),
+        AppRoles.household => _firstIdentityValue([
+            _personName(userFields),
+            userFields['fullName'],
+            userFields['displayName'],
+            userFields['name'],
+            _personName(linkedProfileFields),
+            linkedProfileFields['fullName'],
+            linkedProfileFields['displayName'],
+            linkedProfileFields['name'],
+          ]),
+        _ => null,
+      };
+
   factory UnifiedProfile.fromJson(Map<String, dynamic> json) {
     final root = _map(json['data']).isNotEmpty ? _map(json['data']) : json;
     final user = _map(root['user']).isNotEmpty ? _map(root['user']) : root;
@@ -70,6 +107,35 @@ class UnifiedProfile {
       if (value.isNotEmpty) return value;
     }
     return const <String, dynamic>{};
+  }
+
+  static String? _personName(Map<String, dynamic> fields) {
+    final name = [fields['firstName'], fields['lastName']]
+        .map((value) => (value ?? '').toString().trim())
+        .where((value) => value.isNotEmpty)
+        .join(' ');
+    return name.isEmpty ? null : name;
+  }
+
+  static String? _firstIdentityValue(Iterable<dynamic> values) {
+    for (final value in values) {
+      final text = (value ?? '').toString().trim();
+      if (text.isEmpty || _isRoleLabel(text)) continue;
+      return text;
+    }
+    return null;
+  }
+
+  static bool _isRoleLabel(String value) {
+    final normalized = value.toLowerCase().replaceAll(RegExp(r'[_\s]+'), ' ');
+    return const {
+      'registered user',
+      'partner organization',
+      'partner org',
+      'collector',
+      'user resident',
+      'user collector',
+    }.contains(normalized);
   }
 }
 

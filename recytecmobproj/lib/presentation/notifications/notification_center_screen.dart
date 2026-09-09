@@ -26,6 +26,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
   final NotificationRepository _repository = NotificationRepository();
   late Future<List<NotificationModel>> _future;
   bool _isUpdating = false;
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -34,9 +35,16 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _repository.fetchNotifications(widget.role);
     setState(() => _future = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   Future<void> _markAsRead(NotificationModel notification) async {
@@ -91,6 +99,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           context,
           MaterialPageRoute(builder: (_) => const HistoryScreen()),
         );
+        if (mounted) await _refresh();
       case NotificationDestinationKind.lguRequest:
         _showMessage(
           'Open Requests to view this Partner Organization collection request.',
@@ -107,6 +116,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             builder: (_) => BinDetailsScreen(binId: destination.entityId!),
           ),
         );
+        if (mounted) await _refresh();
       case NotificationDestinationKind.collectorAssignment:
         _showMessage(
           'Open Assigned Requests to view this collection request.',
@@ -127,6 +137,11 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
+          IconButton(
+            tooltip: 'Refresh notifications',
+            onPressed: _isUpdating ? null : _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
           TextButton(
             onPressed: _isUpdating ? null : _markAllAsRead,
             child: const Text('Read all'),
@@ -149,15 +164,19 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
 
           final notifications = snapshot.data ?? <NotificationModel>[];
           if (notifications.isEmpty) {
-            return _state(
-              icon: Icons.notifications_none,
-              title: 'You have no notifications right now.',
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: _state(
+                icon: Icons.notifications_none,
+                title: 'You have no notifications right now.',
+              ),
             );
           }
 
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: notifications.map(_notificationTile).toList(),
             ),
@@ -255,6 +274,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     Widget? action,
   }) {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(16.w),
       children: [
         EmptyState(

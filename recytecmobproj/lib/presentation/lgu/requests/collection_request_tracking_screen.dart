@@ -23,6 +23,7 @@ class _CollectionRequestTrackingScreenState
       ApiCollectionRequestRepository();
   late Future<List<CollectionRequestSummary>> _requestsFuture;
   String _filter = 'active';
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -31,9 +32,16 @@ class _CollectionRequestTrackingScreenState
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _repository.fetchCollectionRequests();
     setState(() => _requestsFuture = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
   List<CollectionRequestSummary> _filtered(
@@ -87,6 +95,7 @@ class _CollectionRequestTrackingScreenState
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: [
                 _filterBar(),

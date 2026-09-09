@@ -129,4 +129,32 @@ void main() {
       isNot(contains('Partner Organization')),
     );
   });
+
+  test('V. role labels never become cached identity names', () {
+    final actual = UserModel.fromJson({
+      ...identityJson(role: AppRoles.household),
+      'name': 'Registered User',
+    });
+    expect(actual.fullName, 'Mobile User');
+
+    for (final json in [
+      {
+        ...identityJson(role: AppRoles.household),
+        'firstName': 'User',
+        'lastName': 'Resident',
+        'fullName': 'Registered User',
+      },
+      {
+        ...identityJson(role: AppRoles.collector),
+        'firstName': 'User',
+        'lastName': 'Collector',
+        'fullName': 'Collector',
+      },
+    ]) {
+      final user = UserModel.fromJson(json);
+      expect(user.fullName, isEmpty);
+      expect(user.firstName, isEmpty);
+      expect(user.lastName, isEmpty);
+    }
+  });
 }

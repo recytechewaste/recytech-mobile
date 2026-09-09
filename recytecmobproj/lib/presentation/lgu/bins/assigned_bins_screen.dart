@@ -21,6 +21,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
   final LguBinRepository _repository = ApiPartnerBinRepository();
   late Future<List<RecyTechBin>> _binsFuture;
   String _filter = 'all';
+  Future<void>? _refreshing;
 
   @override
   void initState() {
@@ -29,18 +30,26 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
   }
 
   Future<void> _refresh() async {
+    final active = _refreshing;
+    if (active != null) return active;
+
     final future = _repository.fetchAssignedBins();
     setState(() => _binsFuture = future);
-    await future;
+    final refresh = future.whenComplete(() {
+      if (mounted) _refreshing = null;
+    });
+    _refreshing = refresh;
+    await refresh;
   }
 
-  void _openBin(RecyTechBin bin) {
-    Navigator.push(
+  Future<void> _openBin(RecyTechBin bin) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => BinDetailsScreen(binId: bin.binId),
       ),
     );
+    if (mounted) await _refresh();
   }
 
   List<RecyTechBin> _filteredBins(List<RecyTechBin> bins) {
@@ -85,6 +94,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: [
                 _filterBar(),
@@ -231,6 +241,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
 
   Widget _loadingState() {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(16.w),
       children: [
         for (var i = 0; i < 3; i++)

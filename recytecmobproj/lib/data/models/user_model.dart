@@ -36,12 +36,22 @@ class UserModel {
         accountStatus = accountStatus.trim().toLowerCase();
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    final firstName = (json['firstName'] ?? '').toString();
-    final lastName = (json['lastName'] ?? '').toString();
-    final fullName = (json['fullName'] ??
-            json['name'] ??
-            [firstName, lastName].where((part) => part.isNotEmpty).join(' '))
-        .toString();
+    final rawFirstName = (json['firstName'] ?? '').toString().trim();
+    final rawLastName = (json['lastName'] ?? '').toString().trim();
+    final composedName = [rawFirstName, rawLastName]
+        .where((part) => part.isNotEmpty)
+        .join(' ')
+        .trim();
+    final hasSyntheticPersonName = _isSyntheticIdentity(composedName);
+    final firstName = hasSyntheticPersonName ? '' : rawFirstName;
+    final lastName = hasSyntheticPersonName ? '' : rawLastName;
+    final fullName = _firstIdentityValue([
+          composedName,
+          json['fullName'],
+          json['name'],
+          json['displayName'],
+        ]) ??
+        '';
     final rawRole = (json['role'] ?? '').toString();
     final canonicalRole = AppRoles.canonicalRole(rawRole);
     if (canonicalRole == null) {
@@ -117,6 +127,26 @@ class UserModel {
   static String? _optionalString(dynamic value) {
     final text = (value ?? '').toString().trim();
     return text.isEmpty ? null : text;
+  }
+
+  static String? _firstIdentityValue(Iterable<dynamic> values) {
+    for (final value in values) {
+      final text = (value ?? '').toString().trim();
+      if (text.isNotEmpty && !_isSyntheticIdentity(text)) return text;
+    }
+    return null;
+  }
+
+  static bool _isSyntheticIdentity(String value) {
+    final normalized = value.toLowerCase().replaceAll(RegExp(r'[_\s]+'), ' ');
+    return const {
+      'registered user',
+      'partner organization',
+      'partner org',
+      'collector',
+      'user resident',
+      'user collector',
+    }.contains(normalized);
   }
 
   static String _requireCanonicalRole(String role) {
