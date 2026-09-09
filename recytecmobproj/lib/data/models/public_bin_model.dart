@@ -4,6 +4,7 @@ class PublicBin {
     required this.name,
     required this.address,
     required this.publicQrCode,
+    this.binCode,
     this.publicStatus,
     this.building,
     this.locationDescription,
@@ -17,6 +18,11 @@ class PublicBin {
     this.acceptedCategoryLabels = const [],
     this.latitude,
     this.longitude,
+    this.fillPercentage,
+    this.fullnessStatus,
+    this.capacityKg,
+    this.currentFillKg,
+    this.isAvailableForDropoff,
     this.isActive = true,
     this.rewards = const [],
   });
@@ -25,6 +31,7 @@ class PublicBin {
   final String name;
   final String address;
   final String publicQrCode;
+  final String? binCode;
   final String? publicStatus;
   final String? building;
   final String? locationDescription;
@@ -38,22 +45,34 @@ class PublicBin {
   final List<String> acceptedCategoryLabels;
   final double? latitude;
   final double? longitude;
+  final double? fillPercentage;
+  final String? fullnessStatus;
+  final double? capacityKg;
+  final double? currentFillKg;
+  final bool? isAvailableForDropoff;
   final bool isActive;
   final List<PublicBinReward> rewards;
 
   factory PublicBin.fromJson(Map<String, dynamic> json) {
     final location = _asMap(json['location']);
     final assignedLgu = _asMap(json['assignedLgu']);
-    final coordinates = json['coordinates'] is List
-        ? json['coordinates'] as List
-        : location['coordinates'] is List
-            ? location['coordinates'] as List
-            : const [];
+    final locationCoordinates = location['coordinates'] is List
+        ? location['coordinates'] as List
+        : const [];
+    final rootCoordinates =
+        json['coordinates'] is List ? json['coordinates'] as List : const [];
+    final parsedCoordinates = _readCoordinates(
+      json,
+      location,
+      locationCoordinates,
+      rootCoordinates,
+    );
+    final binCode = _optionalString(json['binId'] ?? json['binCode']);
     final publicQrCode = (json['publicQrCode'] ??
             json['publicQRCode'] ??
             json['publicCode'] ??
-            json['binCode'] ??
             json['qrCode'] ??
+            binCode ??
             json['code'] ??
             '')
         .toString();
@@ -72,20 +91,39 @@ class PublicBin {
     final status =
         (json['publicStatus'] ?? json['availability'] ?? json['status'])
             ?.toString();
-    final activeValue = json['isActive'] ?? json['active'] ?? json['enabled'];
+    final dropoffAvailability =
+        _readOptionalBool(json['isAvailableForDropoff']);
+    final activeValue = dropoffAvailability ??
+        _readOptionalBool(
+            json['isActive'] ?? json['active'] ?? json['enabled']);
+    final capacityKg = _readDouble(json['capacityKg']);
+    final currentFillKg = _readDouble(json['currentFillKg']);
+    final explicitFillPercentage = _readDouble(
+      json['fillPercentage'],
+      json['fillLevel'],
+      json['currentFillPercentage'],
+      json['latestFillPercentage'],
+    );
+    final calculatedFillPercentage = capacityKg != null &&
+            capacityKg > 0 &&
+            currentFillKg != null &&
+            currentFillKg >= 0
+        ? currentFillKg / capacityKg * 100
+        : null;
 
     return PublicBin(
       id: (json['_id'] ?? json['id'] ?? json['binId'] ?? publicQrCode)
           .toString(),
       publicQrCode: publicQrCode,
+      binCode: binCode,
       name: name.trim().isEmpty ? 'RecyTech Bin' : name,
       building: _optionalString(
         json['building'] ?? json['buildingName'] ?? location['building'],
       ),
       locationDescription: _optionalString(
         json['locationDescription'] ??
-            json['description'] ??
-            location['description'] ??
+            json['publicLocationDescription'] ??
+            json['publicDropoffDescription'] ??
             (json['location'] is String ? json['location'] : null),
       ),
       address: address.trim().isEmpty ? 'Address unavailable' : address,
@@ -110,22 +148,15 @@ class PublicBin {
         json['acceptedCategories'],
       ),
       publicStatus: _optionalString(status) ?? 'Active',
-      latitude: _readDouble(
-        json['latitude'],
-        json['lat'],
-        location['latitude'],
-        location['lat'],
-        coordinates.length > 1 ? coordinates[1] : null,
+      latitude: parsedCoordinates.latitude,
+      longitude: parsedCoordinates.longitude,
+      fillPercentage: explicitFillPercentage ?? calculatedFillPercentage,
+      fullnessStatus: _optionalString(
+        json['fullnessStatus'] ?? json['currentFullnessStatus'],
       ),
-      longitude: _readDouble(
-        json['longitude'],
-        json['lng'],
-        json['lon'],
-        location['longitude'],
-        location['lng'],
-        location['lon'],
-        coordinates.isNotEmpty ? coordinates[0] : null,
-      ),
+      capacityKg: capacityKg,
+      currentFillKg: currentFillKg,
+      isAvailableForDropoff: dropoffAvailability,
       isActive: _readOperationalState(activeValue, status),
       rewards: _readRewards(json['rewards']),
     );
@@ -142,6 +173,12 @@ class PublicBin {
         lng >= -180 &&
         lng <= 180;
   }
+
+  String get displayCode => binCode ?? publicQrCode;
+
+  String get availabilityLabel => (isAvailableForDropoff ?? isActive)
+      ? 'Available for drop-off'
+      : 'Unavailable for drop-off';
 
   String get locationLabel {
     final parts = [
@@ -181,6 +218,71 @@ class PublicBin {
     return null;
   }
 
+  static ({double? latitude, double? longitude}) _readCoordinates(
+    Map<String, dynamic> json,
+    Map<String, dynamic> location,
+    List<dynamic> locationCoordinates,
+    List<dynamic> rootCoordinates,
+  ) {
+    final candidates = <({double? latitude, double? longitude})>[
+      (
+        latitude: _readDouble(json['latitude']),
+        longitude: _readDouble(json['longitude']),
+      ),
+      (
+        latitude: _readDouble(json['lat']),
+        longitude: _readDouble(json['lng']),
+      ),
+      (
+        latitude: _readDouble(
+          locationCoordinates.length > 1 ? locationCoordinates[1] : null,
+        ),
+        longitude: _readDouble(
+          locationCoordinates.isNotEmpty ? locationCoordinates[0] : null,
+        ),
+      ),
+      (
+        latitude: _readDouble(
+          rootCoordinates.length > 1 ? rootCoordinates[1] : null,
+        ),
+        longitude: _readDouble(
+          rootCoordinates.isNotEmpty ? rootCoordinates[0] : null,
+        ),
+      ),
+      (
+        latitude: _readDouble(location['latitude'], location['lat']),
+        longitude: _readDouble(
+          location['longitude'],
+          location['lng'],
+          location['lon'],
+        ),
+      ),
+    ];
+
+    for (final candidate in candidates) {
+      final latitude = candidate.latitude;
+      final longitude = candidate.longitude;
+      if (latitude != null &&
+          longitude != null &&
+          latitude >= -90 &&
+          latitude <= 90 &&
+          longitude >= -180 &&
+          longitude <= 180) {
+        return candidate;
+      }
+    }
+    return (latitude: null, longitude: null);
+  }
+
+  static bool? _readOptionalBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = (value ?? '').toString().trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') return true;
+    if (normalized == 'false' || normalized == '0') return false;
+    return null;
+  }
+
   static String? _optionalString(dynamic value) {
     final text = (value ?? '').toString().trim();
     return text.isEmpty ? null : text;
@@ -191,7 +293,7 @@ class PublicBin {
 
     final normalized = (status ?? '').trim().toLowerCase();
     if (normalized.isEmpty) return true;
-    return const {'operational', 'active', 'open', 'available'}
+    return const {'empty', 'operational', 'active', 'open', 'available'}
         .contains(normalized);
   }
 

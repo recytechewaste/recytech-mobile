@@ -79,7 +79,7 @@ void main() {
 
       final result = await repository.createIncident(
         binId: 'mongo-bin-1',
-        issueDescription: 'Reading is frozen.',
+        issueDescription: 'naapaw na',
       );
 
       final request = requests.single;
@@ -88,7 +88,7 @@ void main() {
       expect(request.contentType, Headers.jsonContentType);
       expect(request.data, {
         'binId': 'mongo-bin-1',
-        'issueDescription': 'Reading is frozen.',
+        'issueDescription': 'naapaw na',
         'severity': 'Medium',
         'sensorType': 'Time-of-Flight (ToF) Fullness Sensor',
       });
@@ -101,6 +101,13 @@ void main() {
         'reporterEmail',
         'status',
         'createdAt',
+        'notes',
+        'description',
+        'address',
+        'location',
+        'locationDescription',
+        'publicDescription',
+        'dropOffDescription',
       }) {
         expect(request.data, isNot(contains(forbidden)));
       }
@@ -110,7 +117,7 @@ void main() {
       expect(result.incident.bin.displayName, 'Plaza Bin');
       expect(
           result.incident.sensorType, 'Time-of-Flight (ToF) Fullness Sensor');
-      expect(result.incident.issueDescription, 'Reading is frozen.');
+      expect(result.incident.issueDescription, 'naapaw na');
       expect(result.incident.severity, 'Medium');
       expect(result.incident.status, 'Pending');
       expect(result.incident.createdAt, DateTime.parse('2026-09-09T01:00:00Z'));

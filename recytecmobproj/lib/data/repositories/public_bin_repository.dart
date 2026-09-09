@@ -1,3 +1,6 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../models/public_bin_model.dart';
@@ -14,13 +17,35 @@ class ApiPublicBinRepository implements PublicBinRepository {
 
   @override
   Future<List<PublicBin>> fetchPublicBins() async {
-    final response = await _apiClient.dio.get(ApiEndpoints.binLocations);
+    final response = await _fetchPublicBinsResponse();
     final items = _extractItems(response.data);
-    return items
+    final parsedBins = items
         .whereType<Map>()
         .map((item) => PublicBin.fromJson(item.cast<String, dynamic>()))
-        .where((bin) => bin.isActive)
         .toList(growable: false);
+    final displayedBins =
+        parsedBins.where((bin) => bin.isActive).toList(growable: false);
+
+    if (kDebugMode) {
+      debugPrint('Public bins fetched: ${items.whereType<Map>().length}');
+      debugPrint(
+        'Public bins with parsed coordinates: '
+        '${parsedBins.where((bin) => bin.hasCoordinates).length}',
+      );
+      debugPrint('Public bins displayed: ${displayedBins.length}');
+    }
+
+    return displayedBins;
+  }
+
+  Future<Response<dynamic>> _fetchPublicBinsResponse() async {
+    try {
+      return await _apiClient.dio.get(ApiEndpoints.publicBinLocations);
+    } on DioException catch (error) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode != 404 && statusCode != 405) rethrow;
+      return _apiClient.dio.get(ApiEndpoints.compatiblePublicBins);
+    }
   }
 
   List<dynamic> _extractItems(dynamic payload) {
@@ -30,6 +55,7 @@ class ApiPublicBinRepository implements PublicBinRepository {
       final items =
           map['bins'] ?? map['data'] ?? map['items'] ?? map['results'];
       if (items is List) return items;
+      if (items is Map) return _extractItems(items);
     }
     return const [];
   }

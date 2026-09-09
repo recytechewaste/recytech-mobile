@@ -10,6 +10,8 @@ class ApiEndpoints {
   static const String verifyPin = '/auth/verify-pin';
   static const String resetPassword = '/auth/reset-password';
   static const String binLocations = '/bin-locations';
+  static const String publicBinLocations = '/bin-locations/public';
+  static const String compatiblePublicBins = '/bins';
   static String publicBinByQrCode(String qrCode) =>
       '/bin-locations/public/qr/${Uri.encodeComponent(qrCode)}';
   static const String partnerBins = '/partner/bins';

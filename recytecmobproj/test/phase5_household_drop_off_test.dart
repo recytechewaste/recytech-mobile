@@ -104,6 +104,7 @@ void main() {
   group('Phase 5 canonical endpoints', () {
     test('constructs encoded bin QR and drop-off detail paths', () {
       expect(ApiEndpoints.binLocations, '/bin-locations');
+      expect(ApiEndpoints.publicBinLocations, '/bin-locations/public');
       expect(
         ApiEndpoints.publicBinByQrCode('BIN QC/1'),
         '/bin-locations/public/qr/BIN%20QC%2F1',
@@ -127,7 +128,7 @@ void main() {
       expect(
         requests.map((request) => request.path),
         [
-          '/bin-locations',
+          '/bin-locations/public',
           '/bin-locations/public/qr/BIN-QC-001',
           '/bin-dropoffs',
           '/bin-dropoffs/DROP-1',
@@ -139,6 +140,24 @@ void main() {
             .every((request) => !request.queryParameters.containsKey('userId')),
         isTrue,
       );
+    });
+
+    test('public repository retains available bins with Empty status',
+        () async {
+      final requests = <RequestOptions>[];
+      final bins = await ApiPublicBinRepository(
+        apiClient: ApiClient(dio: _recordingDio(requests)),
+      ).fetchPublicBins();
+
+      expect(requests.single.path, ApiEndpoints.publicBinLocations);
+      expect(bins, hasLength(1));
+      expect(bins.single.name, 'NU Trash Org');
+      expect(bins.single.partnerOrganizationName, isNull);
+      expect(bins.single.publicStatus, 'Empty');
+      expect(bins.single.isAvailableForDropoff, isTrue);
+      expect(bins.single.isActive, isTrue);
+      expect(bins.single.latitude, 14.604666894622119);
+      expect(bins.single.longitude, 120.99423448609102);
     });
 
     test('POSTs the authenticated binId JSON contract and parses 201',
@@ -439,15 +458,21 @@ Dio _recordingDio(List<RequestOptions> requests) {
       onRequest: (options, handler) {
         requests.add(options);
         dynamic data;
-        if (options.path == '/bin-locations') {
+        if (options.path == '/bin-locations/public') {
           data = {
             'bins': [
               {
-                '_id': 'BIN-1',
-                'name': 'Main Bin',
-                'address': '123 Main St',
-                'qrCode': 'BIN-QC-001',
-                'status': 'Operational',
+                '_id': '68c0-public-bin',
+                'binId': 'NU-TRASH-ORG',
+                'name': 'NU Trash Org',
+                'address': 'National University',
+                'latitude': 14.604666894622119,
+                'longitude': 120.99423448609102,
+                'qrCode': 'NU-TRASH-QR',
+                'capacityKg': 100,
+                'currentFillKg': 0,
+                'status': 'Empty',
+                'isAvailableForDropoff': true,
               },
             ],
           };

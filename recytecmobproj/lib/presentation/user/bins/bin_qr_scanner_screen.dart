@@ -280,7 +280,7 @@ class _BinQrScannerScreenState extends State<BinQrScannerScreen> {
             ),
             _detailRow(
               Icons.place_outlined,
-              bin.locationDescription ?? bin.address,
+              bin.locationLabel,
             ),
             if (bin.acceptedCategoryLabels.isNotEmpty)
               _detailRow(
