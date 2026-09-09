@@ -2,7 +2,8 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/network/api_client.dart';
-import '../../core/network/api_endpoints.dart';
+import '../../core/network/api_exceptions.dart';
+import '../datasources/request_api.dart';
 import '../models/bin_monitoring_models.dart';
 
 abstract class CollectionRequestRepository {
@@ -29,21 +30,29 @@ class DuplicateCollectionRequestException implements Exception {
   String toString() => message;
 }
 
-class ApiCollectionRequestRepository implements CollectionRequestRepository {
-  ApiCollectionRequestRepository({ApiClient? apiClient})
-      : _apiClient = apiClient ?? ApiClient();
+class CollectionRequestException implements Exception {
+  const CollectionRequestException(this.message, {this.statusCode});
 
-  final ApiClient _apiClient;
+  final String message;
+  final int? statusCode;
+
+  @override
+  String toString() => message;
+}
+
+class ApiCollectionRequestRepository implements CollectionRequestRepository {
+  ApiCollectionRequestRepository({
+    ApiClient? apiClient,
+    RequestApi? requestApi,
+  }) : _requestApi = requestApi ?? RequestApi(apiClient: apiClient);
+
+  final RequestApi _requestApi;
 
   @override
   Future<List<CollectionRequestSummary>> fetchCollectionRequests() async {
-    final response =
-        await _apiClient.dio.get(ApiEndpoints.partnerCollectionRequests);
-    final items = _extractItems(response.data, 'requests');
-    return items
-        .whereType<Map>()
-        .map((item) =>
-            CollectionRequestSummary.fromJson(item.cast<String, dynamic>()))
+    final response = await _requestApi.fetchRequests();
+    return response.requests
+        .map(CollectionRequestSummary.fromJson)
         .toList(growable: false);
   }
 
@@ -58,15 +67,12 @@ class ApiCollectionRequestRepository implements CollectionRequestRepository {
     String? remarks,
   }) async {
     try {
-      final response = await _apiClient.dio.post(
-        ApiEndpoints.partnerCollectionRequests,
-        data: {
-          'binId': binId,
-          if ((remarks ?? '').trim().isNotEmpty) 'remarks': remarks!.trim(),
-        },
-      );
+      final response = await _requestApi.createRequest({
+        'binId': binId,
+        if ((remarks ?? '').trim().isNotEmpty) 'notes': remarks!.trim(),
+      });
 
-      return CollectionRequestSummary.fromJson(_extractObject(response.data));
+      return CollectionRequestSummary.fromJson(_extractObject(response));
     } on DioException catch (e) {
       final data = e.response?.data;
       final statusCode = e.response?.statusCode;
@@ -84,18 +90,32 @@ class ApiCollectionRequestRepository implements CollectionRequestRepository {
           request: request,
         );
       }
-      rethrow;
+      throw CollectionRequestException(
+        _safeBackendMessage(e) ?? 'Unable to create request. Please try again.',
+        statusCode: statusCode,
+      );
     }
   }
 
-  List<dynamic> _extractItems(dynamic payload, String key) {
-    if (payload is List) return payload;
-    if (payload is Map) {
-      final map = payload.cast<String, dynamic>();
-      final items = map[key] ?? map['data'] ?? map['items'] ?? map['results'];
-      if (items is List) return items;
+  String? _safeBackendMessage(DioException error) {
+    final responseMessage =
+        ApiClient.responseErrorMessage(error.response?.data);
+    final apiMessage = error.error is ApiException
+        ? (error.error as ApiException).message
+        : null;
+    final message = (responseMessage ?? apiMessage ?? '').trim();
+    final lowered = message.toLowerCase();
+    if (message.isEmpty ||
+        message.length > 180 ||
+        lowered.contains('<html') ||
+        lowered.contains('dioexception') ||
+        lowered.contains('mongodb') ||
+        lowered.contains('/requests') ||
+        lowered.contains('bearer ') ||
+        lowered.contains('jwt')) {
+      return null;
     }
-    return const [];
+    return message;
   }
 
   Map<String, dynamic> _extractObject(dynamic payload) {
@@ -111,10 +131,7 @@ class ApiCollectionRequestRepository implements CollectionRequestRepository {
 
 /// Temporary mock repository.
 ///
-/// Backend work still needed:
-/// - GET /api/lgu/collection-requests
-/// - POST /api/lgu/collection-requests
-/// - Include bin ToF reading snapshot fields in request payload/response.
+/// This mock follows the same shared request model as POST /requests.
 class MockCollectionRequestRepository implements CollectionRequestRepository {
   static final List<CollectionRequestSummary> _requests = [
     CollectionRequestSummary(

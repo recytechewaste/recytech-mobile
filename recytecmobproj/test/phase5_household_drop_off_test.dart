@@ -1,5 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:recytecmobproj/core/constants/app_constants.dart';
+import 'package:recytecmobproj/core/network/api_client.dart';
+import 'package:recytecmobproj/core/network/api_endpoints.dart';
 import 'package:recytecmobproj/core/utils/map_launcher.dart';
 import 'package:recytecmobproj/data/models/bin_monitoring_models.dart';
 import 'package:recytecmobproj/data/models/bin_qr_payload_model.dart';
@@ -8,6 +11,7 @@ import 'package:recytecmobproj/data/models/drop_off_record_model.dart';
 import 'package:recytecmobproj/data/models/public_bin_model.dart';
 import 'package:recytecmobproj/data/models/reward_transaction_model.dart';
 import 'package:recytecmobproj/data/repositories/drop_off_repository.dart';
+import 'package:recytecmobproj/data/repositories/public_bin_repository.dart';
 
 void main() {
   group('household QR payload parsing', () {
@@ -19,6 +23,20 @@ void main() {
       expect(payload.toQrValue(), 'recytech://bin/CONDO-3F-A');
       expect(payload.toJson(), isNot(contains('userId')));
       expect(payload.toJson(), isNot(contains('rewardPoints')));
+    });
+
+    test('extracts canonical qrCode from raw, JSON, and URL values', () {
+      expect(BinQrPayload.parse('BIN-QC-001').publicBinCode, 'BIN-QC-001');
+      expect(
+        BinQrPayload.parse('{"qrCode":"BIN-QC-002"}').publicBinCode,
+        'BIN-QC-002',
+      );
+      expect(
+        BinQrPayload.parse(
+          'https://recytech.example/bin-locations/public/qr/BIN-QC-003',
+        ).publicBinCode,
+        'BIN-QC-003',
+      );
     });
 
     test('rejects malformed QR values', () {
@@ -65,29 +83,164 @@ void main() {
       );
     });
 
-    test('replays duplicate idempotency keys without duplicate records',
+    test('mock submission remains pending without local points credit',
         () async {
       final repository = MockDropOffRepository();
       final payload = BinQrPayload.parse('recytech://bin/MARKET-GATE2');
 
-      final first = await repository.registerDropOff(
+      final result = await repository.registerDropOff(
         payload: payload,
-        submissionMethod: 'qr',
-        idempotencyKey: 'idem-1',
-        items: const [
-          DropOffSubmissionItem(category: 'battery', quantity: 1),
-        ],
-      );
-      final second = await repository.registerDropOff(
-        payload: payload,
-        submissionMethod: 'qr',
-        idempotencyKey: 'idem-1',
-        items: const [
-          DropOffSubmissionItem(category: 'battery', quantity: 1),
-        ],
+        wasteType: 'battery',
+        quantity: 1,
       );
 
-      expect(second.id, first.id);
+      expect(result.dropOff.status, DropOffStatuses.pending);
+      expect(result.dropOff.pointsAwarded, 0);
+      expect(result.projectedPoints, isNull);
+      expect(result.dropOff.transactionId, isNull);
+    });
+  });
+
+  group('Phase 5 canonical endpoints', () {
+    test('constructs encoded bin QR and drop-off detail paths', () {
+      expect(ApiEndpoints.binLocations, '/bin-locations');
+      expect(
+        ApiEndpoints.publicBinByQrCode('BIN QC/1'),
+        '/bin-locations/public/qr/BIN%20QC%2F1',
+      );
+      expect(ApiEndpoints.binDropoffs, '/bin-dropoffs');
+      expect(ApiEndpoints.binDropoffById('drop/1'), '/bin-dropoffs/drop%2F1');
+    });
+
+    test('bin list, QR lookup, history, and detail use canonical paths',
+        () async {
+      final requests = <RequestOptions>[];
+      final dio = _recordingDio(requests);
+      final client = ApiClient(dio: dio);
+
+      await ApiPublicBinRepository(apiClient: client).fetchPublicBins();
+      final repository = ApiDropOffRepository(apiClient: client);
+      await repository.validateBinQr(BinQrPayload.parse('BIN-QC-001'));
+      await repository.getMyDropOffHistory();
+      await repository.getDropOffDetail('DROP-1');
+
+      expect(
+        requests.map((request) => request.path),
+        [
+          '/bin-locations',
+          '/bin-locations/public/qr/BIN-QC-001',
+          '/bin-dropoffs',
+          '/bin-dropoffs/DROP-1',
+        ],
+      );
+      expect(requests.every((request) => request.method == 'GET'), isTrue);
+      expect(
+        requests
+            .every((request) => !request.queryParameters.containsKey('userId')),
+        isTrue,
+      );
+    });
+
+    test('POSTs the authenticated binId JSON contract and parses 201',
+        () async {
+      final requests = <RequestOptions>[];
+      final repository = ApiDropOffRepository(
+        apiClient: ApiClient(dio: _recordingDio(requests)),
+      );
+
+      final result = await repository.registerDropOff(
+        bin: PublicBin.fromJson({
+          '_id': '67ca392fa998a72b0c111222',
+          'name': 'Bin',
+          'address': 'Address',
+          'qrCode': 'BIN-QC-001',
+          'status': 'Operational',
+        }),
+        wasteType: 'small_electronics',
+        quantity: 2,
+        notes: 'Old router',
+        image: 'data:image/jpeg;base64,YWJj',
+      );
+
+      final request = requests.single;
+      expect(request.method, 'POST');
+      expect(request.path, '/bin-dropoffs');
+      expect(request.contentType, Headers.jsonContentType);
+      expect(request.data, {
+        'binId': '67ca392fa998a72b0c111222',
+        'wasteType': 'Small Electronics',
+        'quantity': 2,
+        'notes': 'Old router',
+        'image': 'data:image/jpeg;base64,YWJj',
+      });
+      expect(request.data, isNot(contains('qrCode')));
+      expect(request.data, isNot(contains('residentId')));
+      expect(request.data, isNot(contains('userId')));
+      expect(request.data, isNot(contains('profileId')));
+      expect(request.data, isNot(contains('items')));
+      expect(result.message, 'Drop-off logged successfully');
+      expect(result.dropOff.id, 'DROP-201');
+      expect(result.dropOff.status, DropOffStatuses.pending);
+      expect(result.dropOff.items.single.category, 'Small Electronics');
+      expect(result.dropOff.items.single.quantity, 2);
+      expect(result.dropOff.pointsAwarded, 0);
+      expect(result.dropOff.pointsProjected, 50);
+      expect(result.dropOff.rejectionNotes, isNull);
+      expect(result.projectedPoints, 50);
+      expect(result.dropOff.transactionId, isNull);
+    });
+
+    test(
+        'POSTs qrCode with decimal or zero quantity and optional fields omitted',
+        () async {
+      final requests = <RequestOptions>[];
+      final repository = ApiDropOffRepository(
+        apiClient: ApiClient(dio: _recordingDio(requests)),
+      );
+
+      await repository.registerDropOff(
+        payload: BinQrPayload.parse('BIN-QC-001'),
+        wasteType: 'Battery',
+        quantity: 1.5,
+      );
+      await repository.registerDropOff(
+        payload: BinQrPayload.parse('BIN-QC-002'),
+        wasteType: 'Battery',
+        quantity: 0,
+      );
+
+      expect(requests[0].data, {
+        'qrCode': 'BIN-QC-001',
+        'wasteType': 'Battery',
+        'quantity': 1.5,
+      });
+      expect(requests[1].data, {
+        'qrCode': 'BIN-QC-002',
+        'wasteType': 'Battery',
+        'quantity': 0,
+      });
+      expect(requests.every((request) => !request.data.containsKey('image')),
+          isTrue);
+      expect(requests.every((request) => !request.data.containsKey('notes')),
+          isTrue);
+    });
+
+    test('maps only the eight canonical backend waste types', () {
+      const expected = {
+        'battery': 'Battery',
+        'small_electronics': 'Small Electronics',
+        'cables & wires': 'Cables & Wires',
+        'smartphone': 'Mobile Devices',
+        'pcb': 'Motherboards',
+        'laptop': 'Laptops',
+        'peripheral': 'Peripherals',
+        'monitor': 'Monitors',
+      };
+      for (final entry in expected.entries) {
+        expect(DropOffWasteTypes.canonicalize(entry.key), entry.value);
+      }
+      expect(DropOffWasteTypes.values, expected.values.toSet());
+      expect(DropOffWasteTypes.canonicalize('legacy appliance'), isNull);
     });
   });
 
@@ -98,10 +251,19 @@ void main() {
         'binCode': 'BIN-001',
         'publicQrCode': 'BIN-001',
         'name': 'Main Lobby E-Waste Bin',
-        'partnerOrganizationName': 'Demo Partner Organization A',
+        'status': 'Operational',
+        'location': {
+          'type': 'Point',
+          'coordinates': [121.0244, 14.5547],
+        },
+        'assignedLgu': {
+          '_id': 'LGU-1',
+          'name': 'Demo Partner Organization A',
+          'contactPerson': 'Hon. Santos',
+          'email': 'central@lgu.gov.ph',
+          'phone': '09171234567',
+        },
         'address': 'Makati City Hall Main Lobby',
-        'latitude': 14.5547,
-        'longitude': 121.0244,
         'acceptedCategories': ['laptop', 'smartphone', 'pcb'],
         'acceptedCategoryDisplayNames': [
           {'value': 'laptop', 'label': 'Laptop'},
@@ -112,6 +274,11 @@ void main() {
 
       expect(bin.publicQrCode, 'BIN-001');
       expect(bin.partnerOrganizationName, 'Demo Partner Organization A');
+      expect(bin.assignedLguId, 'LGU-1');
+      expect(bin.assignedLguContactPerson, 'Hon. Santos');
+      expect(bin.latitude, 14.5547);
+      expect(bin.longitude, 121.0244);
+      expect(bin.isActive, isTrue);
       expect(bin.acceptedCategories, ['laptop', 'smartphone', 'pcb']);
       expect(bin.acceptedCategoryLabels, ['Laptop', 'Smartphone', 'PCB']);
     });
@@ -145,7 +312,7 @@ void main() {
         'building': 'ABC Residences',
         'locationDescription': '3rd Floor',
         'createdAt': '2026-08-14T08:00:00Z',
-        'status': 'submitted',
+        'status': 'pending',
         'submissionMethod': 'manual',
         'pointsStatus': 'not_processed',
         'items': [
@@ -153,12 +320,49 @@ void main() {
         ],
       });
 
-      expect(record.status, 'submitted');
+      expect(record.status, DropOffStatuses.pending);
+      expect(record.statusLabel, 'Pending');
       expect(record.submissionMethod, 'manual');
       expect(record.items.first.category, 'laptop');
       expect(record.items.first.quantity, 1);
       expect(record.pointsStatus, 'not_processed');
       expect(record.toJson(), isNot(contains('weightKg')));
+    });
+
+    test('keeps API status separate from display labels', () {
+      expect(DropOffStatuses.normalize('submitted'), DropOffStatuses.pending);
+      expect(DropOffStatuses.label('pending'), 'Pending');
+      expect(DropOffStatuses.label('approved'), 'Approved');
+      expect(DropOffStatuses.label('rejected'), 'Rejected');
+    });
+
+    test('parses rejection notes and linked transaction without local awards',
+        () {
+      final rejected = DropOffRecord.fromJson({
+        '_id': 'DROP-REJECTED',
+        'bin': {'_id': 'BIN-1', 'name': 'Main Bin'},
+        'createdAt': '2026-08-14T08:00:00Z',
+        'status': 'rejected',
+        'category': 'laptop',
+        'quantity': 1,
+        'rejectionNotes': 'Unsupported item condition.',
+        'pointsAwarded': 0,
+      });
+      final approved = DropOffRecord.fromJson({
+        '_id': 'DROP-APPROVED',
+        'bin': {'_id': 'BIN-1', 'name': 'Main Bin'},
+        'createdAt': '2026-08-14T08:00:00Z',
+        'status': 'approved',
+        'category': 'laptop',
+        'quantity': 1,
+        'pointsAwarded': 15,
+        'transaction': {'_id': 'TX-1'},
+      });
+
+      expect(rejected.rejectionNotes, 'Unsupported item condition.');
+      expect(rejected.pointsAwarded, 0);
+      expect(approved.pointsAwarded, 15);
+      expect(approved.transactionId, 'TX-1');
     });
 
     test('parses backend-provided reward results', () {
@@ -224,4 +428,76 @@ void main() {
       expect(item.toJson(), contains('aiPredictedClass'));
     });
   });
+}
+
+Dio _recordingDio(List<RequestOptions> requests) {
+  final dio = Dio(
+    BaseOptions(headers: const {'Authorization': 'Bearer test-token'}),
+  );
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        requests.add(options);
+        dynamic data;
+        if (options.path == '/bin-locations') {
+          data = {
+            'bins': [
+              {
+                '_id': 'BIN-1',
+                'name': 'Main Bin',
+                'address': '123 Main St',
+                'qrCode': 'BIN-QC-001',
+                'status': 'Operational',
+              },
+            ],
+          };
+        } else if (options.path.startsWith('/bin-locations/public/qr/')) {
+          data = {
+            '_id': 'BIN-1',
+            'name': 'Main Bin',
+            'address': '123 Main St',
+            'qrCode': 'BIN-QC-001',
+            'status': 'Operational',
+          };
+        } else if (options.path == '/bin-dropoffs' &&
+            options.method == 'POST') {
+          handler.resolve(
+            Response(
+              requestOptions: options,
+              statusCode: 201,
+              data: {
+                'message': 'Drop-off logged successfully',
+                'dropoff': {
+                  '_id': 'DROP-201',
+                  'bin': options.data['binId'] ?? options.data['qrCode'],
+                  'wasteType': options.data['wasteType'],
+                  'quantity': options.data['quantity'],
+                  'status': 'pending',
+                  'pointsAwarded': 0,
+                  'pointsProjected': 50,
+                  'rejectionReason': null,
+                  'createdAt': '2026-09-08T08:00:00Z',
+                },
+                'projectedPoints': 50,
+              },
+            ),
+          );
+          return;
+        } else if (options.path == '/bin-dropoffs') {
+          data = {'dropOffs': <Object>[]};
+        } else {
+          data = {
+            '_id': 'DROP-1',
+            'bin': {'_id': 'BIN-1', 'name': 'Main Bin'},
+            'createdAt': '2026-08-14T08:00:00Z',
+            'status': 'pending',
+            'category': 'laptop',
+            'quantity': 1,
+          };
+        }
+        handler.resolve(Response(requestOptions: options, data: data));
+      },
+    ),
+  );
+  return dio;
 }

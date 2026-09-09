@@ -12,32 +12,105 @@ import 'public_bin_repository.dart';
 abstract class DropOffRepository {
   Future<PublicBin> validateBinQr(BinQrPayload payload);
 
-  Future<DropOffRecord> registerDropOff({
+  Future<DropOffSubmissionResult> registerDropOff({
     BinQrPayload? payload,
     PublicBin? bin,
-    required List<DropOffSubmissionItem> items,
-    required String submissionMethod,
-    String? idempotencyKey,
+    required String wasteType,
+    required num quantity,
+    String? notes,
+    String? image,
   });
 
   Future<List<DropOffRecord>> getMyDropOffHistory();
 
+  Future<DropOffRecord> getDropOffDetail(String dropOffId);
+
   Future<List<RewardTransaction>> getMyRewards();
 }
 
-class DropOffSubmissionItem {
-  const DropOffSubmissionItem({
-    required this.category,
+class DropOffSubmission {
+  const DropOffSubmission({
+    this.binId,
+    this.qrCode,
+    required this.wasteType,
     required this.quantity,
+    this.notes,
+    this.image,
   });
 
-  final String category;
-  final int quantity;
+  final String? binId;
+  final String? qrCode;
+  final String wasteType;
+  final num quantity;
+  final String? notes;
+  final String? image;
 
   Map<String, dynamic> toJson() => {
-        'category': category,
+        if ((binId ?? '').isNotEmpty) 'binId': binId,
+        if ((binId ?? '').isEmpty && (qrCode ?? '').isNotEmpty)
+          'qrCode': qrCode,
+        'wasteType': wasteType,
         'quantity': quantity,
+        if ((notes ?? '').isNotEmpty) 'notes': notes,
+        if ((image ?? '').isNotEmpty) 'image': image,
       };
+}
+
+class DropOffSubmissionResult {
+  const DropOffSubmissionResult({
+    required this.message,
+    required this.dropOff,
+    this.projectedPoints,
+  });
+
+  final String message;
+  final DropOffRecord dropOff;
+  final int? projectedPoints;
+}
+
+class DropOffWasteTypes {
+  const DropOffWasteTypes._();
+
+  static const values = <String>{
+    'Battery',
+    'Small Electronics',
+    'Cables & Wires',
+    'Mobile Devices',
+    'Motherboards',
+    'Laptops',
+    'Peripherals',
+    'Monitors',
+  };
+
+  static String? canonicalize(String value) {
+    final normalized = value
+        .trim()
+        .toLowerCase()
+        .replaceAll('&', 'and')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return const {
+      'battery': 'Battery',
+      'batteries': 'Battery',
+      'small_electronics': 'Small Electronics',
+      'cables_and_wires': 'Cables & Wires',
+      'cables': 'Cables & Wires',
+      'wires': 'Cables & Wires',
+      'mobile_devices': 'Mobile Devices',
+      'mobile_device': 'Mobile Devices',
+      'smartphone': 'Mobile Devices',
+      'smartphones': 'Mobile Devices',
+      'motherboard': 'Motherboards',
+      'motherboards': 'Motherboards',
+      'pcb': 'Motherboards',
+      'laptop': 'Laptops',
+      'laptops': 'Laptops',
+      'peripheral': 'Peripherals',
+      'peripherals': 'Peripherals',
+      'monitor': 'Monitors',
+      'monitors': 'Monitors',
+    }[normalized];
+  }
 }
 
 class DropOffRepositoryException implements Exception {
@@ -59,56 +132,89 @@ class ApiDropOffRepository implements DropOffRepository {
   @override
   Future<PublicBin> validateBinQr(BinQrPayload payload) async {
     try {
-      final response = await _apiClient.dio.post(
-        ApiEndpoints.validateBinQr,
-        data: {'qrCode': payload.toQrValue()},
+      final response = await _apiClient.dio.get(
+        ApiEndpoints.publicBinByQrCode(payload.publicBinCode),
       );
       final data = _extractObject(response.data, preferredKey: 'bin');
-      return PublicBin.fromJson(data);
+      final bin = PublicBin.fromJson(data);
+      if (!bin.isActive) {
+        throw const DropOffRepositoryException(
+          'inactive_bin',
+          'This bin is not currently operational.',
+        );
+      }
+      return bin;
     } catch (error) {
       throw _mapError(error, fallback: 'Unable to validate this bin QR.');
     }
   }
 
   @override
-  Future<DropOffRecord> registerDropOff({
+  Future<DropOffSubmissionResult> registerDropOff({
     BinQrPayload? payload,
     PublicBin? bin,
-    required List<DropOffSubmissionItem> items,
-    required String submissionMethod,
-    String? idempotencyKey,
+    required String wasteType,
+    required num quantity,
+    String? notes,
+    String? image,
   }) async {
-    final selectedBin =
-        bin ?? (payload == null ? null : await validateBinQr(payload));
-    if (selectedBin == null) {
+    final canonicalWasteType = DropOffWasteTypes.canonicalize(wasteType);
+    if (canonicalWasteType == null) {
+      throw const DropOffRepositoryException(
+        'unsupported_waste_type',
+        'Please select a supported e-waste type.',
+      );
+    }
+    if (!quantity.isFinite || quantity < 0) {
+      throw const DropOffRepositoryException(
+        'invalid_quantity',
+        'Quantity must be a number greater than or equal to 0.',
+      );
+    }
+
+    final binId = bin?.id.trim();
+    final qrCode = payload?.publicBinCode.trim() ?? bin?.publicQrCode.trim();
+    if ((binId ?? '').isEmpty && (qrCode ?? '').isEmpty) {
       throw const DropOffRepositoryException(
         'missing_bin',
         'Please select a RecyTech bin before submitting.',
       );
     }
 
+    final submission = DropOffSubmission(
+      binId: binId,
+      qrCode: qrCode,
+      wasteType: canonicalWasteType,
+      quantity: quantity,
+      notes: notes?.trim(),
+      image: image,
+    );
+
     try {
       final response = await _apiClient.dio.post(
-        ApiEndpoints.householdDropOffs,
-        data: {
-          'binId': selectedBin.publicQrCode,
-          'submissionMethod': submissionMethod,
-          'items': items.map((item) => item.toJson()).toList(),
-          if ((idempotencyKey ?? '').trim().isNotEmpty)
-            'idempotencyKey': idempotencyKey!.trim(),
-        },
+        ApiEndpoints.binDropoffs,
+        data: submission.toJson(),
+        options: Options(contentType: Headers.jsonContentType),
       );
-      final data = _extractObject(response.data, preferredKey: 'dropOff');
-      return DropOffRecord.fromJson(data);
+      final envelope = response.data is Map
+          ? (response.data as Map).cast<String, dynamic>()
+          : <String, dynamic>{};
+      final dropOffJson = _extractObject(envelope, preferredKey: 'dropoff');
+      return DropOffSubmissionResult(
+        message:
+            _safeMessage(envelope['message']) ?? 'Drop-off logged successfully',
+        dropOff: DropOffRecord.fromJson(dropOffJson),
+        projectedPoints: _parseInt(envelope['projectedPoints']),
+      );
     } catch (error) {
-      throw _mapError(error, fallback: 'Drop-off could not be submitted.');
+      throw _mapError(error, fallback: 'Unable to submit this drop-off.');
     }
   }
 
   @override
   Future<List<DropOffRecord>> getMyDropOffHistory() async {
     try {
-      final response = await _apiClient.dio.get(ApiEndpoints.householdDropOffs);
+      final response = await _apiClient.dio.get(ApiEndpoints.binDropoffs);
       final items = _extractItems(response.data, preferredKey: 'dropOffs');
       return items
           .whereType<Map>()
@@ -120,8 +226,44 @@ class ApiDropOffRepository implements DropOffRepository {
   }
 
   @override
+  Future<DropOffRecord> getDropOffDetail(String dropOffId) async {
+    final id = dropOffId.trim();
+    if (id.isEmpty) {
+      throw const DropOffRepositoryException(
+        'missing_dropoff',
+        'Drop-off details are unavailable.',
+      );
+    }
+
+    try {
+      final response =
+          await _apiClient.dio.get(ApiEndpoints.binDropoffById(id));
+      final data = _extractObject(response.data, preferredKey: 'dropOff');
+      return DropOffRecord.fromJson(data);
+    } catch (error) {
+      throw _mapError(error, fallback: 'Unable to load drop-off details.');
+    }
+  }
+
+  @override
   Future<List<RewardTransaction>> getMyRewards() async {
-    return const [];
+    try {
+      final response = await _apiClient.dio.get(ApiEndpoints.myTransactions);
+      final items = _extractItems(
+        response.data,
+        preferredKey: 'transactions',
+      );
+      return items
+          .whereType<Map>()
+          .map(
+            (item) => RewardTransaction.fromJson(
+              item.cast<String, dynamic>(),
+            ),
+          )
+          .toList(growable: false);
+    } catch (error) {
+      throw _mapError(error, fallback: 'Unable to load reward transactions.');
+    }
   }
 
   Map<String, dynamic> _extractObject(
@@ -141,7 +283,8 @@ class ApiDropOffRepository implements DropOffRepository {
     if (payload is List) return payload;
     if (payload is Map) {
       final map = payload.cast<String, dynamic>();
-      final items = map[preferredKey] ?? map['items'] ?? map['results'];
+      final items =
+          map[preferredKey] ?? map['data'] ?? map['items'] ?? map['results'];
       if (items is List) return items;
     }
     return const [];
@@ -151,14 +294,35 @@ class ApiDropOffRepository implements DropOffRepository {
     Object error, {
     required String fallback,
   }) {
+    if (error is DropOffRepositoryException) return error;
+
     if (error is DioException) {
       final data = error.response?.data;
       if (data is Map) {
         final code = (data['code'] ?? 'request_failed').toString();
-        final message = (data['message'] ?? '').toString().trim();
-        if (message.isNotEmpty) {
+        final message = _safeMessage(data['message']);
+        if (message != null) {
           return DropOffRepositoryException(code, message);
         }
+      }
+      switch (error.response?.statusCode) {
+        case 400:
+          return const DropOffRepositoryException(
+            'invalid_data',
+            'Please check the submitted information and try again.',
+          );
+        case 401:
+          return const DropOffRepositoryException(
+            'unauthorized',
+            'Your session has expired. Please sign in again.',
+          );
+        case 403:
+          return const DropOffRepositoryException(
+            'forbidden',
+            'Your account is not permitted to perform this action.',
+          );
+        case 404:
+          return DropOffRepositoryException('not_found', fallback);
       }
       final exception = error.error;
       if (exception is ApiException) {
@@ -170,12 +334,33 @@ class ApiDropOffRepository implements DropOffRepository {
     }
     return DropOffRepositoryException('request_failed', fallback);
   }
+
+  String? _safeMessage(dynamic value) {
+    final message = (value ?? '').toString().trim();
+    final lowered = message.toLowerCase();
+    if (message.isEmpty ||
+        message.length > 180 ||
+        lowered.contains('<html') ||
+        lowered.contains('mongodb') ||
+        lowered.contains('dioexception') ||
+        lowered.contains('/bin-dropoffs') ||
+        lowered.contains('/bin-locations')) {
+      return null;
+    }
+    return message;
+  }
+
+  int? _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse((value ?? '').toString());
+  }
 }
 
 /// Mock/dev implementation for the Phase 5 household QR flow.
 ///
-/// Backend contract still needed. Mobile must not be the source of truth for
-/// eligibility, duplicate prevention, timestamps, or reward amounts.
+/// Mobile must not be the source of truth for eligibility, timestamps, or
+/// reward amounts.
 class MockDropOffRepository implements DropOffRepository {
   MockDropOffRepository({
     PublicBinRepository? publicBinRepository,
@@ -191,10 +376,10 @@ class MockDropOffRepository implements DropOffRepository {
       building: 'ABC Residences',
       locationDescription: '3rd Floor recycling area',
       createdAt: DateTime(2026, 8, 12, 9, 30),
-      status: 'submitted',
-      rewardStatus: 'credited',
-      pointsStatus: 'credited',
-      pointsAwarded: 20,
+      status: DropOffStatuses.pending,
+      rewardStatus: 'not_processed',
+      pointsStatus: 'not_processed',
+      pointsAwarded: 0,
       submissionMethod: 'qr',
       items: const [
         DropOffRecordItem(category: 'smartphone', quantity: 1),
@@ -207,18 +392,16 @@ class MockDropOffRepository implements DropOffRepository {
       building: 'Public Market',
       locationDescription: 'Gate 2 entrance',
       createdAt: DateTime(2026, 8, 13, 16, 10),
-      status: 'submitted',
-      rewardStatus: 'credited',
-      pointsStatus: 'credited',
-      pointsAwarded: 10,
+      status: DropOffStatuses.pending,
+      rewardStatus: 'not_processed',
+      pointsStatus: 'not_processed',
+      pointsAwarded: 0,
       submissionMethod: 'manual',
       items: const [
         DropOffRecordItem(category: 'battery', quantity: 2),
       ],
     ),
   ];
-
-  static final Map<String, DropOffRecord> _idempotentRecords = {};
 
   @override
   Future<PublicBin> validateBinQr(BinQrPayload payload) async {
@@ -242,12 +425,13 @@ class MockDropOffRepository implements DropOffRepository {
   }
 
   @override
-  Future<DropOffRecord> registerDropOff({
+  Future<DropOffSubmissionResult> registerDropOff({
     BinQrPayload? payload,
     PublicBin? bin,
-    required List<DropOffSubmissionItem> items,
-    required String submissionMethod,
-    String? idempotencyKey,
+    required String wasteType,
+    required num quantity,
+    String? notes,
+    String? image,
   }) async {
     final selectedBin =
         bin ?? (payload == null ? null : await validateBinQr(payload));
@@ -259,30 +443,18 @@ class MockDropOffRepository implements DropOffRepository {
     }
     await Future<void>.delayed(const Duration(milliseconds: 320));
 
-    if (items.isEmpty) {
+    final canonicalWasteType = DropOffWasteTypes.canonicalize(wasteType);
+    if (canonicalWasteType == null) {
       throw const DropOffRepositoryException(
-        'missing_items',
-        'Please add at least one e-waste item.',
+        'unsupported_waste_type',
+        'Please select a supported e-waste type.',
       );
     }
-    for (final item in items) {
-      if (item.quantity <= 0) {
-        throw const DropOffRepositoryException(
-          'invalid_quantity',
-          'Quantity must be a whole number greater than 0.',
-        );
-      }
-      if (!selectedBin.acceptedCategories.contains(item.category)) {
-        throw const DropOffRepositoryException(
-          'category_not_accepted',
-          'This e-waste category is not accepted by this bin.',
-        );
-      }
-    }
-
-    final key = idempotencyKey?.trim();
-    if (key != null && key.isNotEmpty && _idempotentRecords.containsKey(key)) {
-      return _idempotentRecords[key]!;
+    if (!quantity.isFinite || quantity < 0) {
+      throw const DropOffRepositoryException(
+        'invalid_quantity',
+        'Quantity must be a number greater than or equal to 0.',
+      );
     }
 
     final record = DropOffRecord(
@@ -292,25 +464,20 @@ class MockDropOffRepository implements DropOffRepository {
       building: selectedBin.building,
       locationDescription: selectedBin.locationDescription,
       createdAt: DateTime.now(),
-      status: 'submitted',
+      status: DropOffStatuses.pending,
       rewardStatus: 'not_processed',
       partnerOrganizationName: selectedBin.partnerOrganizationName,
-      submissionMethod: submissionMethod,
-      items: items
-          .map(
-            (item) => DropOffRecordItem(
-              category: item.category,
-              quantity: item.quantity,
-            ),
-          )
-          .toList(growable: false),
+      submissionMethod: payload == null ? 'manual' : 'qr',
+      items: [
+        DropOffRecordItem(category: canonicalWasteType, quantity: quantity),
+      ],
       pointsStatus: 'not_processed',
     );
     _records.insert(0, record);
-    if (key != null && key.isNotEmpty) {
-      _idempotentRecords[key] = record;
-    }
-    return record;
+    return DropOffSubmissionResult(
+      message: 'Drop-off logged successfully',
+      dropOff: record,
+    );
   }
 
   @override
@@ -319,6 +486,18 @@ class MockDropOffRepository implements DropOffRepository {
     final records = List<DropOffRecord>.of(_records)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return List<DropOffRecord>.unmodifiable(records);
+  }
+
+  @override
+  Future<DropOffRecord> getDropOffDetail(String dropOffId) async {
+    final records = await getMyDropOffHistory();
+    for (final record in records) {
+      if (record.id == dropOffId) return record;
+    }
+    throw const DropOffRepositoryException(
+      'not_found',
+      'Drop-off details are unavailable.',
+    );
   }
 
   @override

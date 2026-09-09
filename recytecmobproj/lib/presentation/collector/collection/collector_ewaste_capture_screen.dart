@@ -158,19 +158,15 @@ class _CollectorEWasteCaptureScreenState
 
   void _saveItem() {
     final image = _image;
-    final quantity = int.tryParse(_quantity.text.trim()) ?? 0;
+    final quantity = num.tryParse(_quantity.text.trim());
     final confirmed = (_confirmedClass ?? '').trim();
 
-    if (image == null || !image.existsSync()) {
-      setState(() => _message = 'Capture or select an item image first.');
-      return;
-    }
     if (confirmed.isEmpty) {
       setState(() => _message = 'Confirm or change the collected category.');
       return;
     }
-    if (quantity <= 0) {
-      setState(() => _message = 'Quantity must be a whole number above zero.');
+    if (quantity == null || !quantity.isFinite || quantity < 0) {
+      setState(() => _message = 'Quantity must be a non-negative number.');
       return;
     }
 
@@ -179,7 +175,7 @@ class _CollectorEWasteCaptureScreenState
       CollectedEWasteItem(
         id: widget.initialItem?.id ??
             DateTime.now().microsecondsSinceEpoch.toString(),
-        imagePath: image.path,
+        imagePath: image?.path ?? '',
         aiPredictedClass: _result?.detectedClass,
         aiConfidence: _result?.confidence,
         confirmedClass: confirmed,
@@ -246,8 +242,8 @@ class _CollectorEWasteCaptureScreenState
           SizedBox(height: 12.h),
           TextField(
             controller: _quantity,
-            keyboardType: TextInputType.number,
-            decoration: _input('Quantity', 'Whole number greater than 0'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: _input('Quantity', 'Number 0 or greater'),
           ),
           SizedBox(height: 12.h),
           DropdownButtonFormField<String>(

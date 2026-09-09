@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:recytecmobproj/core/constants/app_constants.dart';
+import 'package:recytecmobproj/core/utils/validators.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 import 'package:recytecmobproj/widgets/labeled_textfied.dart';
 
@@ -74,12 +75,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   String? _validationMessage() {
+    final nameParts = name.text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (nameParts.length < 2) {
+      return 'Please enter your first and last name.';
+    }
     if (email.text.trim().isEmpty || pass.text.isEmpty) {
       return 'Email and password are required.';
     }
-    if (pass.text.length < 8) {
-      return 'Password must be at least 8 characters.';
-    }
+    final passwordError = registrationPasswordError(pass.text);
+    if (passwordError != null) return passwordError;
     if (pass.text != confirm.text) {
       return 'Passwords do not match.';
     }
@@ -198,6 +206,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 DropdownMenuItem(value: 'E-Trike', child: Text('E-Trike')),
                 DropdownMenuItem(value: 'Truck', child: Text('Truck')),
                 DropdownMenuItem(value: 'Bike', child: Text('Bike')),
+                DropdownMenuItem(
+                  value: 'Motorcycle',
+                  child: Text('Motorcycle'),
+                ),
+                DropdownMenuItem(value: 'Van', child: Text('Van')),
               ],
               onChanged: auth.isLoading
                   ? null

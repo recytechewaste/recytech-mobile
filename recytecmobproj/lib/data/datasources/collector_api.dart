@@ -1,89 +1,102 @@
-import 'package:dio/dio.dart';
-
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 
 class CollectorApi {
-  final ApiClient _apiClient;
-
   CollectorApi({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
-  Future<List<dynamic>> fetchQueue() async {
-    final Response res = await _apiClient.dio.get(ApiEndpoints.collectorQueue);
+  final ApiClient _apiClient;
 
-    if (res.data is Map && (res.data as Map).containsKey('queue')) {
-      final data = (res.data as Map)['queue'];
-      if (data is List) return List<dynamic>.from(data);
-    }
-
-    if (res.data is List) {
-      return List<dynamic>.from(res.data);
-    }
-
-    if (res.data is Map && (res.data as Map).containsKey('data')) {
-      final data = (res.data as Map)['data'];
-      if (data is List) return List<dynamic>.from(data);
-    }
-
-    return <dynamic>[];
+  Future<Map<String, dynamic>> fetchMe() async {
+    final response = await _apiClient.dio.get(ApiEndpoints.collectorsMe);
+    return _map(response.data);
   }
 
-  Future<Map<String, dynamic>?> fetchCurrentJob() async {
-    final Response res =
-        await _apiClient.dio.get(ApiEndpoints.collectorCurrentJob);
-
-    if (res.data is Map) {
-      final map = res.data as Map;
-      final data = map['currentJob'] ?? map['job'] ?? map['data'];
-      if (data is Map) return Map<String, dynamic>.from(data);
-    }
-
-    return null;
-  }
-
-  Future<Map<String, dynamic>> startCollectionRequest(String requestId) async {
-    final Response res = await _apiClient.dio.post(
-      ApiEndpoints.startCollectionRequest(requestId),
+  Future<Map<String, dynamic>> updateDutyStatus(String status) async {
+    final response = await _apiClient.dio.patch(
+      ApiEndpoints.collectorsStatus,
+      data: {'status': status},
     );
-
-    if (res.data is Map) {
-      final map = Map<String, dynamic>.from(res.data as Map);
-      final request = map['request'];
-      if (request is Map) return Map<String, dynamic>.from(request);
-      return map;
-    }
-
-    return <String, dynamic>{};
+    return _map(response.data);
   }
 
-  Future<Map<String, dynamic>> startNextCollection() async {
-    final Response res = await _apiClient.dio.post(
-      ApiEndpoints.startNextCollection,
+  Future<List<Map<String, dynamic>>> fetchJobs({String? status}) async {
+    final response = await _apiClient.dio.get(
+      ApiEndpoints.collectorsJobs,
+      queryParameters: {
+        if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+      },
     );
-
-    if (res.data is Map) {
-      final map = Map<String, dynamic>.from(res.data as Map);
-      final request = map['request'];
-      if (request is Map) return Map<String, dynamic>.from(request);
-      return map;
-    }
-
-    return <String, dynamic>{};
+    return _list(response.data);
   }
 
-  Future<Map<String, dynamic>> updateRequest(
+  Future<Map<String, dynamic>> fetchStats() async {
+    final response = await _apiClient.dio.get(ApiEndpoints.collectorsStats);
+    return _map(response.data);
+  }
+
+  Future<Map<String, dynamic>> updateRequestStatus(
     String requestId,
-    Map<String, dynamic> payload,
+    String status,
   ) async {
-    final Response res = await _apiClient.dio.put(
+    final response = await _apiClient.dio.put(
       ApiEndpoints.requestById(requestId),
+      data: {'status': status},
+    );
+    return _unwrapMap(response.data, const ['request', 'job', 'data']);
+  }
+
+  Future<Map<String, dynamic>> completeRequest(
+    String requestId, {
+    List<Map<String, dynamic>>? collectedWaste,
+    String? notes,
+  }) async {
+    final payload = <String, dynamic>{
+      if (collectedWaste != null && collectedWaste.isNotEmpty)
+        'collectedWaste': collectedWaste,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    };
+    final response = await _apiClient.dio.patch(
+      ApiEndpoints.completeRequest(requestId),
       data: payload,
     );
+    return _unwrapMap(response.data, const ['request', 'job', 'data']);
+  }
 
-    if (res.data is Map) {
-      return Map<String, dynamic>.from(res.data as Map);
+  static Map<String, dynamic> _map(dynamic value) =>
+      value is Map ? value.cast<String, dynamic>() : <String, dynamic>{};
+
+  static Map<String, dynamic> _unwrapMap(
+    dynamic value,
+    List<String> keys,
+  ) {
+    final map = _map(value);
+    for (final key in keys) {
+      final nested = map[key];
+      if (nested is Map) return nested.cast<String, dynamic>();
     }
+    return map;
+  }
 
-    return <String, dynamic>{};
+  static List<Map<String, dynamic>> _list(dynamic value) {
+    dynamic source = value;
+    if (value is Map) {
+      for (final key in const [
+        'jobs',
+        'requests',
+        'data',
+        'items',
+        'results'
+      ]) {
+        if (value[key] is List) {
+          source = value[key];
+          break;
+        }
+      }
+    }
+    if (source is! List) return const [];
+    return source
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList(growable: false);
   }
 }

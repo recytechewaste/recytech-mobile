@@ -1,5 +1,44 @@
 import '../../core/utils/waste_type_mapper.dart';
 
+class CollectedWastePayloadItem {
+  const CollectedWastePayloadItem({
+    required this.category,
+    required this.quantity,
+    required this.unit,
+  });
+
+  final String category;
+  final num quantity;
+  final String unit;
+
+  bool get isValid =>
+      category.trim().isNotEmpty &&
+      quantity.isFinite &&
+      quantity >= 0 &&
+      unit.trim().isNotEmpty;
+
+  Map<String, dynamic> toJson() {
+    if (!isValid) {
+      throw const FormatException(
+        'Each collected item requires category, non-negative quantity, and unit.',
+      );
+    }
+    return {
+      'category': category.trim(),
+      'quantity': quantity,
+      'unit': unit.trim(),
+    };
+  }
+
+  factory CollectedWastePayloadItem.fromJson(Map<String, dynamic> json) {
+    return CollectedWastePayloadItem(
+      category: (json['category'] ?? '').toString(),
+      quantity: json['quantity'] is num ? json['quantity'] as num : double.nan,
+      unit: (json['unit'] ?? '').toString(),
+    );
+  }
+}
+
 class CollectedEWasteItem {
   CollectedEWasteItem({
     required this.id,
@@ -22,10 +61,18 @@ class CollectedEWasteItem {
   final double? aiConfidence;
   final String confirmedClass;
   final String mappedCategory;
-  final int quantity;
+  final num quantity;
   final String? condition;
   final String? remarks;
   final DateTime capturedAt;
+
+  CollectedWastePayloadItem toCompletionItem() {
+    return CollectedWastePayloadItem(
+      category: _completionCategory(confirmedClass),
+      quantity: quantity,
+      unit: 'pcs',
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -58,7 +105,7 @@ class CollectedEWasteItem {
       confirmedClass:
           (json['confirmedClass'] ?? json['confirmedCategory'] ?? '')
               .toString(),
-      quantity: _readInt(json['quantity']),
+      quantity: _readNum(json['quantity']),
       condition: _nullableString(json['condition']),
       remarks: _nullableString(json['remarks']),
       capturedAt: _readDate(json['capturedAt']) ?? DateTime.now(),
@@ -112,14 +159,14 @@ class CollectionReportDraft {
   DateTime? completedAt;
   final List<CollectedEWasteItem> items;
 
-  int get totalQuantity =>
-      items.fold<int>(0, (total, item) => total + item.quantity);
+  num get totalQuantity =>
+      items.fold<num>(0, (total, item) => total + item.quantity);
 
   int get totalCategories =>
       items.map((item) => item.mappedCategory).toSet().length;
 
-  Map<String, int> get confirmedCategorySummary {
-    final summary = <String, int>{};
+  Map<String, num> get confirmedCategorySummary {
+    final summary = <String, num>{};
     for (final item in items) {
       summary[item.confirmedClass] =
           (summary[item.confirmedClass] ?? 0) + item.quantity;
@@ -135,11 +182,39 @@ class CollectionReportDraft {
       (afterImagePath ?? '').trim().isNotEmpty &&
       (finalBinStatus ?? '').trim().isNotEmpty;
 
-  bool get hasValidItems =>
-      items.isNotEmpty && items.every((item) => item.quantity > 0);
+  bool get hasValidItems => items
+      .map((item) => item.toCompletionItem())
+      .every((item) => item.isValid);
 
-  bool get canSubmit =>
-      hasBeforeDocumentation && hasAfterDocumentation && hasValidItems;
+  bool get canSubmit => hasValidItems;
+
+  List<CollectedWastePayloadItem> get completionItems =>
+      items.map((item) => item.toCompletionItem()).toList(growable: false);
+
+  String? get completionNotes {
+    final values = <String?>[
+      beforeCondition == null ? null : 'Before: $beforeCondition',
+      initialRemarks,
+      finalBinStatus == null ? null : 'After: $finalBinStatus',
+      finalRemarks,
+    ];
+    for (final item in items) {
+      final details = <String?>[item.condition, item.remarks]
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .join(', ');
+      if (details.isNotEmpty) {
+        values.add('${_completionCategory(item.confirmedClass)}: $details');
+      }
+    }
+    final note = values
+        .whereType<String>()
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .join('. ');
+    return note.isEmpty ? null : note;
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -219,10 +294,9 @@ double? _readDouble(dynamic value) {
   return double.tryParse((value ?? '').toString());
 }
 
-int _readInt(dynamic value) {
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  return int.tryParse((value ?? '').toString()) ?? 0;
+num _readNum(dynamic value) {
+  if (value is num) return value;
+  return num.tryParse((value ?? '').toString()) ?? double.nan;
 }
 
 DateTime? _readDate(dynamic value) {
@@ -234,4 +308,48 @@ DateTime? _readDate(dynamic value) {
 Map<String, dynamic> _readMap(dynamic value) {
   if (value is Map) return value.cast<String, dynamic>();
   return <String, dynamic>{};
+}
+
+String _completionCategory(String value) {
+  final normalized =
+      value.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+  switch (normalized) {
+    case 'battery':
+      return 'Battery';
+    case 'smartphone':
+    case 'mobile_device':
+    case 'mobile_devices':
+      return 'Mobile Devices';
+    case 'pcb':
+    case 'motherboard':
+    case 'motherboards':
+      return 'Motherboards';
+    case 'cable':
+    case 'cables':
+    case 'cables_&_wires':
+      return 'Cables & Wires';
+    case 'air_conditioner':
+    case 'fan':
+    case 'microwave':
+    case 'oven':
+    case 'refrigerator':
+    case 'washing_machine':
+      return 'Small Appliances';
+    case 'keyboard':
+    case 'laptop':
+    case 'monitor':
+    case 'mouse':
+    case 'printer':
+    case 'television':
+      return 'Small Electronics';
+    case 'plastic':
+    case 'plastics':
+      return 'Plastics';
+    case 'metal':
+      return 'Metal';
+    case 'other':
+      return 'Other';
+    default:
+      return WasteTypeMapper.toBackendWasteType(value);
+  }
 }

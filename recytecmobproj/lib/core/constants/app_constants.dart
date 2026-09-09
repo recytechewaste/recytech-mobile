@@ -19,25 +19,24 @@ class AppRoles {
   static const collector = 'collector';
   static const staff = 'Staff';
 
+  static const canonicalMobileRoles = {
+    household,
+    partnerOrg,
+    collector,
+  };
+
   static UserRole normalize(String? value) {
     final normalized = (value ?? '').trim().toLowerCase();
     switch (normalized) {
-      case 'staff':
       case 'household':
-      case 'regular_user':
-      case 'regular user':
       case 'registered_user':
-      case 'registered user':
       case 'user':
       case 'resident':
         return UserRole.household;
       case 'lgu':
-      case 'partner_organization':
       case 'partner organization':
+      case 'partnerorganization':
       case 'partner_org':
-      case 'partner org':
-      case 'partner':
-      case 'organization':
         return UserRole.partnerOrg;
       case 'collector':
         return UserRole.collector;
@@ -71,7 +70,7 @@ class AppRoles {
     }
   }
 
-  static String? canonicalApiRole(String? value) {
+  static String? canonicalRole(String? value) {
     switch (normalize(value)) {
       case UserRole.household:
         return household;
@@ -83,6 +82,18 @@ class AppRoles {
         return null;
     }
   }
+
+  // Kept as a compatibility name for existing registration callers.
+  static String? canonicalApiRole(String? value) => canonicalRole(value);
+
+  static bool isCanonical(String? value) =>
+      canonicalMobileRoles.contains(value?.trim());
+
+  static bool isHousehold(String? value) => canonicalRole(value) == household;
+
+  static bool isPartnerOrg(String? value) => canonicalRole(value) == partnerOrg;
+
+  static bool isCollector(String? value) => canonicalRole(value) == collector;
 
   static String displayName(UserRole role) {
     switch (role) {
@@ -96,6 +107,8 @@ class AppRoles {
         return 'Unsupported';
     }
   }
+
+  static String displayNameFor(String? role) => displayName(normalize(role));
 }
 
 class FullnessStatuses {
@@ -252,10 +265,108 @@ class CollectionRequestStatuses {
   }
 }
 
+class PartnerBinStatuses {
+  const PartnerBinStatuses._();
+
+  static const empty = 'Empty';
+  static const operational = 'Operational';
+  static const full = 'Full';
+  static const maintenance = 'Maintenance';
+  static const active = 'Active';
+
+  static const values = [empty, operational, full, maintenance, active];
+
+  static bool isValid(String? value) => values.contains(value);
+}
+
+class RequestStatuses {
+  static const pending = 'pending';
+  static const scheduled = 'scheduled';
+  static const assigned = 'assigned';
+  static const inProgress = 'in_progress';
+  static const inTransit = 'in_transit';
+  static const arrived = 'arrived';
+  static const completed = 'completed';
+  static const cancelled = 'cancelled';
+
+  static const values = [
+    pending,
+    scheduled,
+    assigned,
+    inProgress,
+    inTransit,
+    arrived,
+    completed,
+    cancelled,
+  ];
+
+  static const activeValues = [
+    pending,
+    scheduled,
+    assigned,
+    inProgress,
+    inTransit,
+    arrived,
+  ];
+
+  static String normalize(String? value) {
+    final normalized = _normalizeKey(value);
+    if (values.contains(normalized)) return normalized;
+
+    switch (normalized) {
+      case 'queued':
+      case 'pending_review':
+        return pending;
+      case 'approved':
+      case 'collector_assigned':
+        return assigned;
+      case 'rescheduled':
+        return scheduled;
+      case 'started':
+      case 'collection_started':
+        return inProgress;
+      case 'on_the_way':
+        return inTransit;
+      case 'canceled':
+      case 'rejected':
+        return cancelled;
+      default:
+        throw FormatException('Unsupported request status: $value');
+    }
+  }
+
+  static bool isActive(String? value) =>
+      activeValues.contains(normalize(value));
+
+  static String label(String? value) {
+    switch (normalize(value)) {
+      case pending:
+        return 'Pending';
+      case scheduled:
+        return 'Scheduled';
+      case assigned:
+        return 'Assigned';
+      case inProgress:
+        return 'In Progress';
+      case inTransit:
+        return 'In Transit';
+      case arrived:
+        return 'Arrived';
+      case completed:
+        return 'Completed';
+      case cancelled:
+        return 'Cancelled';
+    }
+
+    throw StateError('Unreachable request status label');
+  }
+}
+
 class CollectorJobStatuses {
-  static const assigned = 'collector_assigned';
+  static const assigned = 'assigned';
   static const queued = assigned;
-  static const onTheWay = 'on_the_way';
+  static const inTransit = 'in_transit';
+  static const onTheWay = inTransit;
   static const arrived = 'arrived';
   static const inProgress = 'in_progress';
   static const readyForCompletion = 'ready_for_completion';
@@ -264,9 +375,9 @@ class CollectorJobStatuses {
 
   static const values = [
     assigned,
-    inProgress,
-    onTheWay,
+    inTransit,
     arrived,
+    inProgress,
     readyForCompletion,
     completed,
     cancelled,
@@ -285,8 +396,8 @@ class CollectorJobStatuses {
     if (normalized == 'started' || normalized == 'collection_started') {
       return inProgress;
     }
-    if (normalized == 'in_transit') {
-      return onTheWay;
+    if (normalized == 'on_the_way') {
+      return inTransit;
     }
     if (normalized == 'ready' ||
         normalized == 'ready_for_completion' ||
@@ -300,13 +411,13 @@ class CollectorJobStatuses {
   static String backendValue(String status) {
     switch (normalize(status)) {
       case assigned:
-        return 'Approved';
-      case onTheWay:
-        return 'In-Transit';
+        return assigned;
+      case inTransit:
+        return inTransit;
       case arrived:
-        return 'Arrived';
+        return arrived;
       case inProgress:
-        return 'In Progress';
+        return inProgress;
       case readyForCompletion:
         return 'Collected';
       case completed:
@@ -321,9 +432,9 @@ class CollectorJobStatuses {
   static String label(String? value) {
     switch (normalize(value)) {
       case assigned:
-        return 'Queued';
-      case onTheWay:
-        return 'On The Way';
+        return 'Assigned';
+      case inTransit:
+        return 'On the Way';
       case arrived:
         return 'Arrived';
       case inProgress:
@@ -342,13 +453,13 @@ class CollectorJobStatuses {
   static String? next(String? current) {
     switch (normalize(current)) {
       case assigned:
-        return onTheWay;
-      case onTheWay:
+        return inTransit;
+      case inTransit:
         return arrived;
       case arrived:
         return inProgress;
       case inProgress:
-        return readyForCompletion;
+        return completed;
       case readyForCompletion:
         return completed;
       case completed:
@@ -361,6 +472,13 @@ class CollectorJobStatuses {
 
   static bool canTransition(String? from, String to) {
     return next(from) == normalize(to);
+  }
+
+  static bool isOperationalUpdate(String? status) {
+    final normalized = normalize(status);
+    return normalized == inTransit ||
+        normalized == arrived ||
+        normalized == inProgress;
   }
 }
 

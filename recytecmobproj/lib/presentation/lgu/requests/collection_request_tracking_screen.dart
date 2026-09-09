@@ -42,13 +42,12 @@ class _CollectionRequestTrackingScreenState
     if (_filter == 'all') return requests;
     if (_filter == 'active') {
       return requests
-          .where(
-              (request) => CollectionRequestStatuses.isActive(request.status))
+          .where((request) => RequestStatuses.isActive(request.status))
           .toList();
     }
     return requests
-        .where((request) =>
-            CollectionRequestStatuses.normalize(request.status) == _filter)
+        .where(
+            (request) => RequestStatuses.normalize(request.status) == _filter)
         .toList();
   }
 
@@ -112,8 +111,8 @@ class _CollectionRequestTrackingScreenState
     final filters = <MapEntry<String, String>>[
       const MapEntry('active', 'Active'),
       const MapEntry('all', 'All'),
-      ...CollectionRequestStatuses.values.map(
-        (status) => MapEntry(status, CollectionRequestStatuses.label(status)),
+      ...RequestStatuses.values.map(
+        (status) => MapEntry(status, RequestStatuses.label(status)),
       ),
     ];
 
@@ -135,7 +134,7 @@ class _CollectionRequestTrackingScreenState
   }
 
   Widget _requestCard(CollectionRequestSummary request) {
-    final statusLabel = CollectionRequestStatuses.label(request.status);
+    final statusLabel = RequestStatuses.label(request.status);
 
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
@@ -181,8 +180,8 @@ class _CollectionRequestTrackingScreenState
           ),
           _info('Collector', request.assignedCollectorName ?? '-'),
           _info('Started', formatDateTime(request.startedAt)),
-          if (CollectionRequestStatuses.normalize(request.status) ==
-              CollectionRequestStatuses.completed) ...[
+          if (RequestStatuses.normalize(request.status) ==
+              RequestStatuses.completed) ...[
             _info('Completed', formatDateTime(request.completedAt)),
             _info('Collected', request.completionItemSummaryText ?? '-'),
             _info(
@@ -224,7 +223,7 @@ class _CollectionRequestTrackingScreenState
   }
 
   String _emptyTitle(List<CollectionRequestSummary> allRequests) {
-    if (_filter == CollectionRequestStatuses.completed) {
+    if (_filter == RequestStatuses.completed) {
       return 'You have no completed collection requests yet.';
     }
     if (_filter == 'active' || (_filter == 'all' && allRequests.isEmpty)) {
@@ -234,7 +233,7 @@ class _CollectionRequestTrackingScreenState
   }
 
   String? _emptyMessage(List<CollectionRequestSummary> allRequests) {
-    if (_filter == CollectionRequestStatuses.completed) return null;
+    if (_filter == RequestStatuses.completed) return null;
     if (_filter == 'active' || (_filter == 'all' && allRequests.isEmpty)) {
       return 'Collection requests you submit will appear here.';
     }

@@ -5,6 +5,7 @@ import '../../../core/theme/recytechtheme.dart';
 import '../../../data/models/drop_off_record_model.dart';
 import '../../../data/repositories/drop_off_repository.dart';
 import '../../../widgets/empty_state.dart';
+import 'drop_off_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({
@@ -102,51 +103,75 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _dropOffCard(DropOffRecord record) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: RecyTechTheme.card,
-        borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: RecyTechTheme.border),
-      ),
-      child: Column(
-        children: [
-          _row(Icons.delete_outline, 'Bin', record.binName),
-          _divider(),
-          _row(Icons.place_outlined, 'Location', record.locationLabel),
-          _divider(),
-          if ((record.partnerOrganizationName ?? '').trim().isNotEmpty) ...[
-            _row(
-              Icons.apartment_outlined,
-              'Partner',
-              record.partnerOrganizationName!,
-            ),
-            _divider(),
-          ],
-          if (record.items.isNotEmpty) ...[
-            _row(Icons.category_outlined, 'Items', _itemsLabel(record)),
-            _divider(),
-          ],
-          if ((record.submissionMethod ?? '').trim().isNotEmpty) ...[
-            _row(
-              Icons.input_outlined,
-              'Method',
-              record.submissionMethod!.toUpperCase(),
-            ),
-            _divider(),
-          ],
-          _row(Icons.event_available_outlined, 'Recorded',
-              _formatDateTime(record.createdAt)),
-          _divider(),
-          _row(Icons.info_outline, 'Status', record.status),
-          _divider(),
-          _row(
-            Icons.emoji_events_outlined,
-            'Points',
-            record.pointsAwarded > 0 ? record.rewardLabel : record.pointsStatus,
+    return InkWell(
+      borderRadius: BorderRadius.circular(18.r),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DropOffDetailScreen(
+            initialRecord: record,
+            repository: _repository,
           ),
-        ],
+        ),
+      ),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(14.w),
+        decoration: BoxDecoration(
+          color: RecyTechTheme.card,
+          borderRadius: BorderRadius.circular(18.r),
+          border: Border.all(color: RecyTechTheme.border),
+        ),
+        child: Column(
+          children: [
+            _row(Icons.delete_outline, 'Bin', record.binName),
+            _divider(),
+            _row(Icons.place_outlined, 'Location', record.locationLabel),
+            _divider(),
+            if ((record.partnerOrganizationName ?? '').trim().isNotEmpty) ...[
+              _row(
+                Icons.apartment_outlined,
+                'Partner',
+                record.partnerOrganizationName!,
+              ),
+              _divider(),
+            ],
+            if (record.items.isNotEmpty) ...[
+              _row(Icons.category_outlined, 'Items', _itemsLabel(record)),
+              _divider(),
+            ],
+            if ((record.submissionMethod ?? '').trim().isNotEmpty) ...[
+              _row(
+                Icons.input_outlined,
+                'Method',
+                record.submissionMethod!.toUpperCase(),
+              ),
+              _divider(),
+            ],
+            _row(Icons.event_available_outlined, 'Recorded',
+                _formatDateTime(record.createdAt)),
+            _divider(),
+            _row(Icons.info_outline, 'Status', record.statusLabel),
+            _divider(),
+            if (record.status == DropOffStatuses.approved ||
+                record.status == DropOffStatuses.rejected)
+              _row(
+                Icons.emoji_events_outlined,
+                'Points',
+                record.pointsAwarded > 0
+                    ? record.rewardLabel
+                    : record.pointsAwarded.toString(),
+              ),
+            if (record.transactionId != null) ...[
+              _divider(),
+              _row(
+                Icons.receipt_long_outlined,
+                'Transaction',
+                record.transactionId!,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

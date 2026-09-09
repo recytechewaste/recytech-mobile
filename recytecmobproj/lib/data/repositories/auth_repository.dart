@@ -1,25 +1,24 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
+
+import '../../core/network/api_exceptions.dart';
 import '../../core/storage/secure_storage.dart';
 import '../datasources/auth_api.dart';
 import '../models/user_model.dart';
 
 class RegistrationResult {
   const RegistrationResult({
-    required this.email,
     required this.message,
-    required this.role,
+    required this.user,
+    required this.profileId,
     required this.accountStatus,
-    required this.emailVerificationRequired,
-    required this.emailSent,
   });
 
-  final String email;
   final String message;
-  final String role;
+  final UserModel user;
+  final String profileId;
   final String accountStatus;
-  final bool emailVerificationRequired;
-  final bool emailSent;
 }
 
 class EmailVerificationResult {
@@ -50,10 +49,18 @@ class AuthRepository {
       password: password,
     );
 
-    await _saveTokenIfPresent(response.token);
-    await _saveUserIfPresent(response.user);
-    if (response.user == null) {
+    final token = response.token;
+    if (token == null || token.isEmpty) {
+      throw ApiException(
+        'Authentication failed because the server returned an incomplete response.',
+      );
+    }
+    try {
+      await _storage.saveToken(token);
+      await _saveUser(response.user);
+    } catch (_) {
       await _storage.clearAuthSession();
+      rethrow;
     }
     return response.user;
   }
@@ -85,12 +92,10 @@ class AuthRepository {
 
     await _storage.clearAuthSession();
     return RegistrationResult(
-      email: response.email,
       message: response.message,
-      role: response.role,
+      user: response.user,
+      profileId: response.profileId,
       accountStatus: response.accountStatus,
-      emailVerificationRequired: response.emailVerificationRequired,
-      emailSent: response.emailSent,
     );
   }
 
@@ -119,14 +124,17 @@ class AuthRepository {
     if (token == null || token.isEmpty) return null;
 
     try {
+      await _migrateCachedIdentity();
       final response = await _api.me();
-      await _saveTokenIfPresent(response.token);
-      await _saveUserIfPresent(response.user);
-      if (response.user != null) return response.user;
-    } catch (_) {
-      await _storage.clearAuthSession();
+      await _saveUser(response.user);
+      return response.user;
+    } catch (error) {
+      final statusCode = _statusCode(error);
+      if (statusCode == 401 || statusCode == 403 || error is ApiException) {
+        await _storage.clearAuthSession();
+      }
+      rethrow;
     }
-    return null;
   }
 
   Future<void> logout() async {
@@ -176,14 +184,30 @@ class AuthRepository {
     );
   }
 
-  Future<void> _saveTokenIfPresent(String? token) async {
-    if (token == null || token.isEmpty) return;
-    await _storage.saveToken(token);
+  Future<void> _saveUser(UserModel user) async {
+    await _storage.saveUserJson(jsonEncode(user.toJson()));
   }
 
-  Future<void> _saveUserIfPresent(UserModel? user) async {
-    if (user == null) return;
-    await _storage.saveUserJson(jsonEncode(user.toJson()));
+  Future<void> _migrateCachedIdentity() async {
+    final cachedJson = await _storage.readUserJson();
+    if (cachedJson == null || cachedJson.trim().isEmpty) return;
+
+    try {
+      final decoded = jsonDecode(cachedJson);
+      if (decoded is! Map) return;
+      final user = UserModel.fromSessionJson(decoded.cast<String, dynamic>());
+      await _saveUser(user);
+    } on FormatException {
+      // The server remains authoritative. /auth/me will refresh or reject it.
+    }
+  }
+
+  int? _statusCode(Object error) {
+    if (error is ApiException) return error.statusCode;
+    if (error is DioException && error.error is ApiException) {
+      return (error.error as ApiException).statusCode;
+    }
+    return null;
   }
 
   String _messageFromResponse(

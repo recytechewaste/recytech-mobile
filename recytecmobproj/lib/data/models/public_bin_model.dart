@@ -9,6 +9,10 @@ class PublicBin {
     this.locationDescription,
     this.accessInfo,
     this.partnerOrganizationName,
+    this.assignedLguId,
+    this.assignedLguContactPerson,
+    this.assignedLguEmail,
+    this.assignedLguPhone,
     this.acceptedCategories = const [],
     this.acceptedCategoryLabels = const [],
     this.latitude,
@@ -26,6 +30,10 @@ class PublicBin {
   final String? locationDescription;
   final String? accessInfo;
   final String? partnerOrganizationName;
+  final String? assignedLguId;
+  final String? assignedLguContactPerson;
+  final String? assignedLguEmail;
+  final String? assignedLguPhone;
   final List<String> acceptedCategories;
   final List<String> acceptedCategoryLabels;
   final double? latitude;
@@ -35,6 +43,7 @@ class PublicBin {
 
   factory PublicBin.fromJson(Map<String, dynamic> json) {
     final location = _asMap(json['location']);
+    final assignedLgu = _asMap(json['assignedLgu']);
     final coordinates = json['coordinates'] is List
         ? json['coordinates'] as List
         : location['coordinates'] is List
@@ -82,10 +91,19 @@ class PublicBin {
       address: address.trim().isEmpty ? 'Address unavailable' : address,
       accessInfo: _optionalString(json['accessInfo']),
       partnerOrganizationName: _optionalString(
-        json['partnerOrganizationName'] ??
+        assignedLgu['name'] ??
+            json['partnerOrganizationName'] ??
             json['partnerName'] ??
             json['organizationName'],
       ),
+      assignedLguId: _optionalString(
+        assignedLgu['_id'] ?? assignedLgu['id'],
+      ),
+      assignedLguContactPerson: _optionalString(
+        assignedLgu['contactPerson'],
+      ),
+      assignedLguEmail: _optionalString(assignedLgu['email']),
+      assignedLguPhone: _optionalString(assignedLgu['phone']),
       acceptedCategories: _readStringList(json['acceptedCategories']),
       acceptedCategoryLabels: _readCategoryLabels(
         json['acceptedCategoryDisplayNames'],
@@ -108,7 +126,7 @@ class PublicBin {
         location['lon'],
         coordinates.isNotEmpty ? coordinates[0] : null,
       ),
-      isActive: activeValue is bool ? activeValue : true,
+      isActive: _readOperationalState(activeValue, status),
       rewards: _readRewards(json['rewards']),
     );
   }
@@ -166,6 +184,15 @@ class PublicBin {
   static String? _optionalString(dynamic value) {
     final text = (value ?? '').toString().trim();
     return text.isEmpty ? null : text;
+  }
+
+  static bool _readOperationalState(dynamic activeValue, String? status) {
+    if (activeValue is bool) return activeValue;
+
+    final normalized = (status ?? '').trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+    return const {'operational', 'active', 'open', 'available'}
+        .contains(normalized);
   }
 
   static List<String> _readStringList(dynamic value) {

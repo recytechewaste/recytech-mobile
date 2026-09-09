@@ -6,9 +6,14 @@ class RecyTechBin {
     String? id,
     String? binName,
     String? name,
+    this.databaseId,
+    this.recyclingCenterId,
     this.assignedLguId,
     this.partnerOrganizationName,
     this.publicQrCode,
+    this.apiStatus,
+    this.fillLevelKg,
+    this.notes,
     this.acceptedCategories = const [],
     this.acceptedCategoryLabels = const [],
     required this.location,
@@ -37,10 +42,15 @@ class RecyTechBin {
         lastCollectionAt = lastCollectionAt ?? lastCollectionDate;
 
   final String binId;
+  final String? databaseId;
+  final String? recyclingCenterId;
   final String? binName;
   final String? assignedLguId;
   final String? partnerOrganizationName;
   final String? publicQrCode;
+  final String? apiStatus;
+  final double? fillLevelKg;
+  final String? notes;
   final List<String> acceptedCategories;
   final List<String> acceptedCategoryLabels;
   final String location;
@@ -61,6 +71,9 @@ class RecyTechBin {
   final String? latestImageUrl;
 
   String get id => binId;
+  String get apiId => (databaseId ?? '').trim().isEmpty ? binId : databaseId!;
+  String get requestBinId =>
+      (databaseId ?? '').trim().isEmpty ? binId : databaseId!;
   String? get name => binName;
   double? get fillLevel => fillPercentage;
   DateTime? get lastMonitoringUpdate => lastUpdatedAt;
@@ -76,28 +89,52 @@ class RecyTechBin {
       CollectionRequestStatuses.isActive(activeCollectionRequest!.status);
 
   factory RecyTechBin.fromJson(Map<String, dynamic> json) {
+    final location = _readMap(json['location']);
+    final coordinates = location['coordinates'] is List
+        ? location['coordinates'] as List
+        : const <dynamic>[];
+    final assigned = _readMap(
+      json['assignedLgu'] ?? json['partnerOrganization'],
+    );
     return RecyTechBin(
-      binId: _readString(json, ['binId', 'binCode', 'code', 'id', '_id']),
+      binId: _readString(json, ['binId', 'binCode', 'code', '_id']),
+      databaseId: _nullableString(json['_id']),
+      recyclingCenterId: _nullableString(
+        _readMap(json['recyclingCenterId']).isEmpty
+            ? json['recyclingCenterId']
+            : _readMap(json['recyclingCenterId'])['_id'] ??
+                _readMap(json['recyclingCenterId'])['id'],
+      ),
       binName:
           _nullableString(json['binName'] ?? json['name'] ?? json['label']),
       assignedLguId: _nullableString(
-        json['assignedLguId'] ??
+        assigned['_id'] ??
+            assigned['id'] ??
+            json['assignedLguId'] ??
             json['lguId'] ??
             json['assigned_lgu_id'] ??
             json['partnerOrganizationId'],
       ),
       partnerOrganizationName: _nullableString(
-        json['partnerOrganizationName'] ??
+        assigned['organizationName'] ??
+            assigned['name'] ??
+            json['partnerOrganizationName'] ??
             json['partnerName'] ??
             json['organizationName'],
       ),
-      publicQrCode: _nullableString(json['publicQrCode']),
+      publicQrCode: _nullableString(json['qrCode'] ?? json['publicQrCode']),
+      apiStatus: _nullableString(json['status']),
+      fillLevelKg: _readDouble(json['fillLevelKg']),
+      notes: _nullableString(json['notes']),
       acceptedCategories: _readStringList(json['acceptedCategories']),
       acceptedCategoryLabels: _readCategoryLabels(
         json['acceptedCategoryDisplayNames'],
         json['acceptedCategories'],
       ),
-      location: _readString(json, ['location', 'address']),
+      location: _nullableString(
+            location['address'] ?? json['address'] ?? json['location'],
+          ) ??
+          '',
       distanceCm: _readDouble(json['distanceCm'] ?? json['distance_cm']),
       fillPercentage: _readDouble(
         json['fillPercentage'] ??
@@ -123,10 +160,20 @@ class RecyTechBin {
       controllerStatus: _nullableString(
         json['controllerStatus'] ?? json['esp32Status'],
       ),
-      latitude: _readDouble(json['latitude'] ?? json['lat']),
-      longitude: _readDouble(json['longitude'] ?? json['lng'] ?? json['lon']),
+      latitude: _readDouble(
+        json['latitude'] ??
+            json['lat'] ??
+            (coordinates.length > 1 ? coordinates[1] : null),
+      ),
+      longitude: _readDouble(
+        json['longitude'] ??
+            json['lng'] ??
+            json['lon'] ??
+            (coordinates.isNotEmpty ? coordinates[0] : null),
+      ),
       lastUpdatedAt: _readDate(
-        json['lastUpdatedAt'] ??
+        json['updatedAt'] ??
+            json['lastUpdatedAt'] ??
             json['lastMonitoringUpdate'] ??
             json['lastSensorUpdatedAt'],
       ),
@@ -257,6 +304,9 @@ class CollectionRequestSummary {
     this.reason = '',
     this.remarks,
     this.assignedCollectorName,
+    this.assignedCollectorId,
+    this.requestType,
+    this.scheduledDate,
     this.startedAt,
     this.completedAt,
     this.completionItemSummaryText,
@@ -279,6 +329,9 @@ class CollectionRequestSummary {
   final String reason;
   final String? remarks;
   final String? assignedCollectorName;
+  final String? assignedCollectorId;
+  final String? requestType;
+  final DateTime? scheduledDate;
   final DateTime? startedAt;
   final DateTime? completedAt;
   final String? completionItemSummaryText;
@@ -289,18 +342,47 @@ class CollectionRequestSummary {
     final completionReport = _readMap(json['completionReport']);
     final itemSummary = completionReport['itemSummary'];
     final optionalWeight = _readMap(completionReport['optionalTotalWeight']);
+    final bin = _readMap(json['bin']);
+    final lgu = _readMap(json['lgu']);
+    final assignedCollector = _readMap(json['assignedCollector']);
+    final binLocation = _readMap(bin['location']);
+    final assignedCollectorName = [
+      assignedCollector['firstName'],
+      assignedCollector['lastName'],
+    ].where((part) => (part ?? '').toString().trim().isNotEmpty).join(' ');
 
     return CollectionRequestSummary(
       id: _readString(json, ['id', '_id', 'reference', 'requestCode']),
       lguId: _nullableString(
-        json['lguId'] ?? json['lgu_id'] ?? json['partnerOrganizationId'],
+        lgu['_id'] ??
+            lgu['id'] ??
+            json['lguId'] ??
+            json['lgu_id'] ??
+            json['partnerOrganizationId'],
       ),
       partnerOrganizationName: _nullableString(
-        json['partnerOrganizationName'] ?? json['organizationName'],
+        lgu['name'] ??
+            lgu['organizationName'] ??
+            json['partnerOrganizationName'] ??
+            json['organizationName'],
       ),
-      binId: _readString(json, ['binId', 'binCode']),
-      binName: _nullableString(json['binName'] ?? json['name']),
-      location: _readString(json, ['location', 'binLocation', 'address']),
+      binId: _readString(
+        bin,
+        ['_id', 'id', 'binId', 'binCode'],
+        fallback: _readString(json, ['binId', 'binCode']),
+      ),
+      binName: _nullableString(
+        bin['name'] ?? bin['binName'] ?? json['binName'] ?? json['name'],
+      ),
+      location: _readString(
+        binLocation,
+        ['address'],
+        fallback: _readString(
+          bin,
+          ['address'],
+          fallback: _readString(json, ['binLocation', 'address']),
+        ),
+      ),
       latitude: _readDouble(json['latitude'] ?? json['lat']),
       longitude: _readDouble(json['longitude'] ?? json['lng'] ?? json['lon']),
       fillPercentage: _readDouble(
@@ -311,9 +393,8 @@ class CollectionRequestSummary {
       fullnessStatus: _nullableString(
         json['fullnessStatus'] ?? json['currentFullnessStatus'],
       ),
-      status: CollectionRequestStatuses.normalize(
-        _readString(json, ['status'],
-            fallback: CollectionRequestStatuses.pending),
+      status: RequestStatuses.normalize(
+        _readString(json, ['status'], fallback: RequestStatuses.pending),
       ),
       requestedAt: _readDate(
             json['requestedAt'] ??
@@ -324,8 +405,17 @@ class CollectionRequestSummary {
       reason: _readString(json, ['reason'], fallback: ''),
       remarks: _nullableString(json['remarks'] ?? json['notes']),
       assignedCollectorName: _nullableString(
-        json['assignedCollectorName'] ?? json['collectorName'],
+        assignedCollectorName.isNotEmpty
+            ? assignedCollectorName
+            : json['assignedCollectorName'] ?? json['collectorName'],
       ),
+      assignedCollectorId: _nullableString(
+        assignedCollector['_id'] ??
+            assignedCollector['id'] ??
+            json['assignedCollectorId'],
+      ),
+      requestType: _nullableString(json['requestType']),
+      scheduledDate: _readDate(json['scheduledDate'] ?? json['scheduledAt']),
       startedAt: _readDate(json['startedAt']),
       completedAt: _readDate(json['completedAt']),
       completionItemSummaryText: _itemSummaryText(itemSummary),

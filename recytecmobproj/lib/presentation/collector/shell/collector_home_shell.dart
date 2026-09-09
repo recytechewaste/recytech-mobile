@@ -38,12 +38,18 @@ class _CollectorHomeShellState extends State<CollectorHomeShell> {
             icon: Icons.assignment_outlined,
             label: 'Assigned Requests',
           ),
-          AppNavigationItem(icon: Icons.history, label: 'History'),
+          AppNavigationItem(
+            icon: Icons.history,
+            label: 'History',
+          ),
           AppNavigationItem(
             icon: Icons.notifications_outlined,
             label: 'Notifications',
           ),
-          AppNavigationItem(icon: Icons.person_outline, label: 'Profile'),
+          AppNavigationItem(
+            icon: Icons.person_outline,
+            label: 'Profile',
+          ),
         ],
       ),
     );

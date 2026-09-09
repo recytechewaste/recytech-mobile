@@ -1,3 +1,43 @@
+class DropOffStatuses {
+  const DropOffStatuses._();
+
+  static const pending = 'pending';
+  static const approved = 'approved';
+  static const rejected = 'rejected';
+  static const values = [pending, approved, rejected];
+
+  static String normalize(String? value) {
+    final normalized =
+        (value ?? '').trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+    if (values.contains(normalized)) return normalized;
+
+    switch (normalized) {
+      case 'submitted':
+      case 'recorded':
+        return pending;
+      case 'accepted':
+      case 'verified':
+        return approved;
+      case 'declined':
+        return rejected;
+      default:
+        throw FormatException('Unsupported drop-off status: $value');
+    }
+  }
+
+  static String label(String? value) {
+    switch (normalize(value)) {
+      case pending:
+        return 'Pending';
+      case approved:
+        return 'Approved';
+      case rejected:
+        return 'Rejected';
+    }
+    throw StateError('Unreachable drop-off status label');
+  }
+}
+
 class DropOffRecord {
   const DropOffRecord({
     required this.id,
@@ -17,6 +57,10 @@ class DropOffRecord {
     this.items = const [],
     this.pointsStatus = 'not_processed',
     this.pointsAwarded = 0,
+    this.pointsProjected,
+    this.imageUrls = const [],
+    this.rejectionNotes,
+    this.transactionId,
   });
 
   final String id;
@@ -36,6 +80,12 @@ class DropOffRecord {
   final List<DropOffRecordItem> items;
   final String pointsStatus;
   final int pointsAwarded;
+  final int? pointsProjected;
+  final List<String> imageUrls;
+  final String? rejectionNotes;
+  final String? transactionId;
+
+  String get statusLabel => DropOffStatuses.label(status);
 
   String get locationLabel {
     final parts = [
@@ -61,6 +111,7 @@ class DropOffRecord {
 
   factory DropOffRecord.fromJson(Map<String, dynamic> json) {
     final bin = _asMap(json['bin']);
+    final transaction = _asMap(json['transaction']);
     final created = DateTime.tryParse(
           (json['createdAt'] ?? json['timestamp'] ?? '').toString(),
         ) ??
@@ -68,7 +119,11 @@ class DropOffRecord {
 
     return DropOffRecord(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
-      binId: (json['binId'] ?? json['binCode'] ?? bin['id'] ?? bin['_id'] ?? '')
+      binId: (json['binId'] ??
+              json['binCode'] ??
+              bin['id'] ??
+              bin['_id'] ??
+              (json['bin'] is String ? json['bin'] : ''))
           .toString(),
       binName: (json['binName'] ?? bin['name'] ?? 'RecyTech Bin').toString(),
       userId: _optionalString(json['userId']),
@@ -80,7 +135,7 @@ class DropOffRecord {
             bin['address'],
       ),
       createdAt: created,
-      status: (json['status'] ?? 'Recorded').toString(),
+      status: DropOffStatuses.normalize(json['status']?.toString()),
       rewardEligible: json['rewardEligible'] == true,
       rewardValue: _optionalString(json['rewardValue'] ?? json['reward']),
       rewardPoints: _parseInt(json['rewardPoints'] ?? json['points']),
@@ -89,11 +144,32 @@ class DropOffRecord {
         json['partnerOrganizationName'] ?? json['partnerName'],
       ),
       submissionMethod: _optionalString(json['submissionMethod']),
-      items: _readItems(json['items']),
+      items: _readItems(
+        json['items'],
+        category: json['category'] ?? json['wasteType'],
+        quantity: json['quantity'],
+      ),
       pointsStatus: (json['pointsStatus'] ?? 'not_processed').toString(),
       pointsAwarded: _parseInt(json['pointsAwarded']) ??
           _parseInt(json['rewardPoints'] ?? json['points']) ??
           0,
+      pointsProjected:
+          _parseInt(json['projectedPoints'] ?? json['pointsProjected']),
+      imageUrls: _readImageUrls(
+        json['image'] ??
+            json['images'] ??
+            json['photos'] ??
+            json['eWasteImages'],
+      ),
+      rejectionNotes: _optionalString(
+        json['rejectionNotes'] ?? json['rejectionReason'],
+      ),
+      transactionId: _optionalString(
+        transaction['_id'] ??
+            transaction['id'] ??
+            json['transactionId'] ??
+            (json['transaction'] is String ? json['transaction'] : null),
+      ),
     );
   }
 
@@ -117,6 +193,10 @@ class DropOffRecord {
         'items': items.map((item) => item.toJson()).toList(),
         'pointsStatus': pointsStatus,
         'pointsAwarded': pointsAwarded,
+        if (pointsProjected != null) 'pointsProjected': pointsProjected,
+        'imageUrls': imageUrls,
+        if (rejectionNotes != null) 'rejectionNotes': rejectionNotes,
+        if (transactionId != null) 'transactionId': transactionId,
       };
 
   static Map<String, dynamic> _asMap(dynamic value) {
@@ -135,11 +215,46 @@ class DropOffRecord {
     return int.tryParse((value ?? '').toString());
   }
 
-  static List<DropOffRecordItem> _readItems(dynamic value) {
+  static List<DropOffRecordItem> _readItems(
+    dynamic value, {
+    dynamic category,
+    dynamic quantity,
+  }) {
+    if (value is List) {
+      return value
+          .whereType<Map>()
+          .map(
+            (item) => DropOffRecordItem.fromJson(
+              item.cast<String, dynamic>(),
+            ),
+          )
+          .toList(growable: false);
+    }
+
+    final categoryText = (category ?? '').toString().trim();
+    final parsedQuantity = _parseNum(quantity);
+    if (categoryText.isEmpty || parsedQuantity == null) return const [];
+    return [
+      DropOffRecordItem(category: categoryText, quantity: parsedQuantity),
+    ];
+  }
+
+  static num? _parseNum(dynamic value) {
+    if (value is num) return value;
+    return num.tryParse((value ?? '').toString());
+  }
+
+  static List<String> _readImageUrls(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) return [value.trim()];
     if (value is! List) return const [];
     return value
-        .whereType<Map>()
-        .map((item) => DropOffRecordItem.fromJson(item.cast<String, dynamic>()))
+        .map((item) {
+          if (item is Map) {
+            return (item['url'] ?? item['imageUrl'] ?? '').toString().trim();
+          }
+          return item.toString().trim();
+        })
+        .where((item) => item.isNotEmpty)
         .toList(growable: false);
   }
 }
@@ -152,7 +267,7 @@ class DropOffRecordItem {
   });
 
   final String category;
-  final int quantity;
+  final num quantity;
   final String? categoryLabel;
 
   factory DropOffRecordItem.fromJson(Map<String, dynamic> json) {
@@ -161,7 +276,7 @@ class DropOffRecordItem {
       category: category,
       categoryLabel:
           _optionalString(json['categoryLabel']) ?? _displayCategory(category),
-      quantity: _parseInt(json['quantity']) ?? 0,
+      quantity: _parseNum(json['quantity']) ?? 0,
     );
   }
 
@@ -176,10 +291,9 @@ class DropOffRecordItem {
     return text.isEmpty ? null : text;
   }
 
-  static int? _parseInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse((value ?? '').toString());
+  static num? _parseNum(dynamic value) {
+    if (value is num) return value;
+    return num.tryParse((value ?? '').toString());
   }
 
   static String _displayCategory(String value) {

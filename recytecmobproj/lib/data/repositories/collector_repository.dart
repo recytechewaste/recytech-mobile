@@ -1,132 +1,86 @@
+import '../../core/constants/app_constants.dart';
 import '../datasources/collector_api.dart';
+import '../datasources/request_api.dart';
 import '../models/collector_job_model.dart';
+import '../models/collector_profile_model.dart';
 
 class CollectorRepository {
+  CollectorRepository({CollectorApi? api, RequestApi? requestApi})
+      : _api = api ?? CollectorApi(),
+        _requestApi = requestApi ?? RequestApi();
+
+  static const completionContractConflict =
+      'WEB CONTRACT CONFLICT — COLLECTEDWASTE SCHEMA REQUIRED';
+
   final CollectorApi _api;
+  final RequestApi _requestApi;
 
-  CollectorRepository({CollectorApi? api}) : _api = api ?? CollectorApi();
+  Future<CollectorProfile> fetchProfile() async =>
+      CollectorProfile.fromJson(await _api.fetchMe());
 
-  Future<List<CollectorJob>> fetchAvailableJobs() async {
-    final jobs = await _fetchQueue();
-    return jobs.where((job) => job.isAvailableForAssignment).toList();
+  Future<CollectorProfile> updateDutyStatus(String status) async {
+    if (status != 'Active' && status != 'Inactive') {
+      throw ArgumentError.value(status, 'status', 'Must be Active or Inactive');
+    }
+    await _api.updateDutyStatus(status);
+    return fetchProfile();
   }
 
   Future<List<CollectorJob>> fetchAssignedJobs({
     String? collectorId,
     String? collectorName,
     String? collectorEmail,
-  }) async {
-    final currentJob = await _api.fetchCurrentJob();
-    if (currentJob == null) return <CollectorJob>[];
-
-    final job = CollectorJob.fromJson(currentJob);
-    return job.id.isEmpty ? <CollectorJob>[] : <CollectorJob>[job];
-  }
+  }) =>
+      _fetchJobs('active');
 
   Future<List<CollectorJob>> fetchCompletedJobs({
     String? collectorId,
     String? collectorName,
     String? collectorEmail,
-  }) async {
-    final jobs = await _fetchQueue();
+  }) =>
+      _fetchJobs('completed');
+
+  Future<List<CollectorJob>> _fetchJobs(String status) async {
+    final jobs = await _api.fetchJobs(status: status);
     return jobs
-        .where(
-          (job) =>
-              job.id.isNotEmpty &&
-              job.isCompleted &&
-              job.isAssignedTo(
-                collectorId: collectorId,
-                collectorName: collectorName,
-                collectorEmail: collectorEmail,
-              ),
-        )
-        .toList()
-      ..sort((a, b) => _scheduledThenOldest(b, a));
+        .map(CollectorJob.fromJson)
+        .where((job) => job.id.isNotEmpty)
+        .toList(growable: false);
   }
 
-  Future<List<CollectorJob>> _fetchQueue() async {
-    final list = await _api.fetchQueue();
+  Future<CollectorStats> fetchStats() async =>
+      CollectorStats.fromJson(await _api.fetchStats());
 
-    return list
-        .whereType<Map>()
-        .map((e) => CollectorJob.fromJson(e.cast<String, dynamic>()))
-        .toList();
-  }
-
-  Future<CollectorJob> startCollection({
-    required String requestId,
-  }) async {
-    final updated = await _api.startCollectionRequest(requestId);
-    return CollectorJob.fromJson(updated);
-  }
-
-  Future<CollectorJob> startNextCollection() async {
-    final updated = await _api.startNextCollection();
-    return CollectorJob.fromJson(updated);
+  Future<CollectorJob> fetchRequestDetail(String requestId) async {
+    final response = await _requestApi.fetchRequest(requestId);
+    final nested = response['request'] ?? response['job'] ?? response['data'];
+    return CollectorJob.fromJson(
+      nested is Map ? nested.cast<String, dynamic>() : response,
+    );
   }
 
   Future<CollectorJob> updateJobStatus({
     required String requestId,
     required String status,
+    String? currentStatus,
     String? collectorId,
     String? collectorName,
     String? collectorEmail,
   }) async {
-    final payload = <String, dynamic>{
-      'status': status,
-    };
-
-    final trimmedCollectorId = collectorId?.trim() ?? '';
-    final trimmedCollectorName = collectorName?.trim() ?? '';
-    final trimmedCollectorEmail = collectorEmail?.trim() ?? '';
-
-    if (trimmedCollectorId.isNotEmpty) {
-      payload['assignedCollector'] = trimmedCollectorId;
-      payload['assignedCollectorId'] = trimmedCollectorId;
+    final canonical = status.trim().toLowerCase();
+    if (!CollectorJobStatuses.isOperationalUpdate(canonical) ||
+        status != canonical) {
+      throw ArgumentError.value(status, 'status', 'Unsupported status update');
     }
-
-    if (trimmedCollectorName.isNotEmpty) {
-      payload['assignedCollectorName'] = trimmedCollectorName;
-      payload['collectorName'] = trimmedCollectorName;
+    if (currentStatus != null &&
+        !CollectorJobStatuses.canTransition(currentStatus, canonical)) {
+      throw StateError('Unsupported collector status transition.');
     }
-
-    if (trimmedCollectorEmail.isNotEmpty) {
-      payload['collectorEmail'] = trimmedCollectorEmail;
-    }
-
-    final updated = await _api.updateRequest(
-      requestId,
-      payload,
-    );
-
+    final updated = await _api.updateRequestStatus(requestId, canonical);
     return CollectorJob.fromJson(updated);
   }
 
-  int _oldestFirst(CollectorJob a, CollectorJob b) {
-    final aDate = DateTime.tryParse(a.createdAt);
-    final bDate = DateTime.tryParse(b.createdAt);
-
-    if (aDate != null && bDate != null) {
-      return aDate.compareTo(bDate);
-    }
-
-    if (aDate != null) return -1;
-    if (bDate != null) return 1;
-
-    return a.createdAt.compareTo(b.createdAt);
-  }
-
-  int _scheduledThenOldest(CollectorJob a, CollectorJob b) {
-    final aDate = a.scheduledDate ?? a.createdDate;
-    final bDate = b.scheduledDate ?? b.createdDate;
-
-    if (aDate != null && bDate != null) {
-      return aDate.compareTo(bDate);
-    }
-
-    if (aDate != null) return -1;
-    if (bDate != null) return 1;
-
-    return _oldestFirst(a, b);
+  Future<Never> completeCollection({required String requestId}) async {
+    throw StateError(completionContractConflict);
   }
 }

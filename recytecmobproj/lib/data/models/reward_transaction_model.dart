@@ -30,6 +30,12 @@ class RewardTransaction {
   }
 
   factory RewardTransaction.fromJson(Map<String, dynamic> json) {
+    final dropOff = _map(json['dropOff'] ?? json['dropoff']);
+    final dropOffReference = json['dropOff'] is String
+        ? json['dropOff']
+        : json['dropoff'] is String
+            ? json['dropoff']
+            : null;
     final created = DateTime.tryParse(
           (json['createdAt'] ?? json['timestamp'] ?? '').toString(),
         ) ??
@@ -37,13 +43,23 @@ class RewardTransaction {
 
     return RewardTransaction(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
-      dropOffId: (json['dropOffId'] ?? json['dropoffId'] ?? '').toString(),
+      dropOffId: (json['dropOffId'] ??
+              json['dropoffId'] ??
+              dropOff['_id'] ??
+              dropOff['id'] ??
+              dropOffReference ??
+              '')
+          .toString(),
       createdAt: created,
       status: (json['status'] ?? 'Recorded').toString(),
       rewardValue: _optionalString(json['rewardValue'] ?? json['reward']),
-      rewardPoints: _parseInt(json['rewardPoints'] ?? json['points']),
-      binName: _optionalString(json['binName']),
-      locationDescription: _optionalString(json['locationDescription']),
+      rewardPoints: _parseInt(
+        json['rewardPoints'] ?? json['pointsAwarded'] ?? json['points'],
+      ),
+      binName: _optionalString(json['binName'] ?? dropOff['binName']),
+      locationDescription: _optionalString(
+        json['locationDescription'] ?? dropOff['locationDescription'],
+      ),
     );
   }
 
@@ -69,4 +85,7 @@ class RewardTransaction {
     if (value is num) return value.toInt();
     return int.tryParse((value ?? '').toString());
   }
+
+  static Map<String, dynamic> _map(dynamic value) =>
+      value is Map ? value.cast<String, dynamic>() : <String, dynamic>{};
 }

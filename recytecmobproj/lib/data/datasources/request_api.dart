@@ -1,14 +1,79 @@
 import 'package:dio/dio.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../../core/network/api_exceptions.dart';
+
+class RequestListResponse {
+  const RequestListResponse({
+    required this.requests,
+    required this.totalRequests,
+    required this.totalPages,
+    required this.currentPage,
+  });
+
+  final List<Map<String, dynamic>> requests;
+  final int totalRequests;
+  final int totalPages;
+  final int currentPage;
+
+  factory RequestListResponse.fromJson(dynamic data) {
+    if (data is! Map ||
+        data['requests'] is! List ||
+        data['totalRequests'] is! num ||
+        data['totalPages'] is! num ||
+        data['currentPage'] is! num) {
+      throw ApiException(
+        'Requests could not be loaded because the server response was incomplete.',
+      );
+    }
+
+    final requests = (data['requests'] as List)
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList(growable: false);
+
+    return RequestListResponse(
+      requests: requests,
+      totalRequests: (data['totalRequests'] as num).toInt(),
+      totalPages: (data['totalPages'] as num).toInt(),
+      currentPage: (data['currentPage'] as num).toInt(),
+    );
+  }
+}
 
 class RequestApi {
-  final ApiClient _apiClient = ApiClient();
+  RequestApi({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
-  Future<List<dynamic>> fetchRequests() async {
-    final Response res = await _apiClient.dio.get(ApiEndpoints.requests);
+  final ApiClient _apiClient;
 
-    return _readList(res.data);
+  Future<RequestListResponse> fetchRequests({
+    int? page,
+    int? limit,
+    String? status,
+    String? search,
+  }) async {
+    final Response res = await _apiClient.dio.get(
+      ApiEndpoints.requests,
+      queryParameters: {
+        if (page != null) 'page': page,
+        if (limit != null) 'limit': limit,
+        if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      },
+    );
+
+    return RequestListResponse.fromJson(res.data);
+  }
+
+  Future<Map<String, dynamic>> fetchRequest(String requestId) async {
+    final Response res =
+        await _apiClient.dio.get(ApiEndpoints.requestById(requestId));
+    if (res.data is! Map) {
+      throw ApiException(
+        'Request details could not be loaded because the server response was incomplete.',
+      );
+    }
+    return (res.data as Map).cast<String, dynamic>();
   }
 
   Future<List<dynamic>> fetchMyRequests() async {

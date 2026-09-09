@@ -39,7 +39,7 @@ void main() {
   });
 
   group('collection report model', () {
-    test('calculates quantity totals and requires evidence', () {
+    test('calculates quantity totals without requiring image evidence', () {
       final draft = CollectionReportDraft(
         assignmentId: 'REQ-1',
         requestReference: 'REQ-1',
@@ -47,7 +47,7 @@ void main() {
         collectorId: 'COL-1',
       );
 
-      expect(draft.canSubmit, isFalse);
+      expect(draft.canSubmit, isTrue);
       draft.beforeImagePath = 'before.jpg';
       draft.beforeCondition = 'Full';
       draft.afterImagePath = 'after.jpg';
@@ -102,7 +102,7 @@ void main() {
       expect(draft.toJson()['items'].first['wasCorrected'], isTrue);
     });
 
-    test('rejects invalid item quantities during completion validation', () {
+    test('accepts zero item quantity during completion validation', () {
       final draft = CollectionReportDraft(
         assignmentId: 'REQ-2',
         requestReference: 'REQ-2',
@@ -121,8 +121,8 @@ void main() {
         ],
       );
 
-      expect(draft.hasValidItems, isFalse);
-      expect(draft.canSubmit, isFalse);
+      expect(draft.hasValidItems, isTrue);
+      expect(draft.canSubmit, isTrue);
     });
 
     test('aggregates duplicate confirmed categories without losing scans', () {

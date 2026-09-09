@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:dio/dio.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
+import '../../../core/utils/helpers.dart';
 import '../../../core/utils/map_launcher.dart';
 import '../../../data/models/bin_monitoring_models.dart';
 import '../../../data/repositories/bin_monitoring_repository.dart';
@@ -11,6 +13,8 @@ import '../../../widgets/empty_state.dart';
 import '../../../widgets/status_bagde.dart';
 import '../requests/collection_request_form_screen.dart';
 import '../requests/collection_request_tracking_screen.dart';
+import '../sensor_incidents/sensor_incident_form_screen.dart';
+import '../sensor_incidents/sensor_incident_history_screen.dart';
 
 class BinDetailsScreen extends StatefulWidget {
   const BinDetailsScreen({
@@ -70,6 +74,58 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
       ),
     );
     if (mounted) await _refresh();
+  }
+
+  Future<void> _reportSensorIssue(RecyTechBin bin) async {
+    final created = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SensorIncidentFormScreen(bin: bin),
+      ),
+    );
+    if (created == true && mounted) await _refresh();
+  }
+
+  Future<void> _openIncidentHistory() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const SensorIncidentHistoryScreen(),
+      ),
+    );
+  }
+
+  Future<void> _updateBin(RecyTechBin bin) async {
+    final input = await showDialog<_BinUpdateInput>(
+      context: context,
+      builder: (_) => _BinStatusDialog(bin: bin),
+    );
+    if (input == null) return;
+    try {
+      await _repository.updateBinStatus(
+        binId: bin.apiId,
+        status: input.status,
+        fillLevelKg: input.fillLevelKg,
+        notes: input.notes,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bin status updated.')),
+      );
+      await _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      final forbidden =
+          error is DioException && error.response?.statusCode == 403;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(forbidden
+              ? 'You are not allowed to update this bin.'
+              : userFacingError(error,
+                  fallback: 'Bin status could not be updated.')),
+        ),
+      );
+    }
   }
 
   Future<void> _openMaps(RecyTechBin bin) async {
@@ -136,6 +192,25 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
                   _recommendationBanner(),
                 _conditionPanel(data.bin, data.monitoring),
                 SizedBox(height: 18.h),
+                OutlinedButton.icon(
+                  onPressed: () => _updateBin(data.bin),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Update Bin Status'),
+                ),
+                SizedBox(height: 10.h),
+                OutlinedButton.icon(
+                  key: const Key('report-sensor-issue'),
+                  onPressed: () => _reportSensorIssue(data.bin),
+                  icon: const Icon(Icons.report_problem_outlined),
+                  label: const Text('Report Sensor Issue'),
+                ),
+                SizedBox(height: 10.h),
+                OutlinedButton.icon(
+                  onPressed: _openIncidentHistory,
+                  icon: const Icon(Icons.history_outlined),
+                  label: const Text('Incident History'),
+                ),
+                SizedBox(height: 10.h),
                 ElevatedButton.icon(
                   onPressed: () => _requestCollection(data.bin),
                   icon: const Icon(Icons.local_shipping_outlined),
@@ -217,6 +292,13 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
             bin.partnerOrganizationName ?? bin.assignedLguId ?? '-',
           ),
           _infoRow('Location', bin.location),
+          _infoRow('Status', bin.apiStatus ?? 'Not supplied'),
+          _infoRow(
+            'Fill level (kg)',
+            bin.fillLevelKg == null ? 'Not supplied' : '${bin.fillLevelKg} kg',
+          ),
+          if ((bin.notes ?? '').trim().isNotEmpty)
+            _infoRow('Notes', bin.notes!),
           _infoRow('Coordinates', _coordinatesLabel(bin)),
           if (hasSensorReading) ...[
             _infoRow('Distance', _distanceLabel(monitoring.distanceCm)),
@@ -352,4 +434,125 @@ class _BinDetailsData {
 
   final RecyTechBin bin;
   final BinMonitoringData monitoring;
+}
+
+class _BinUpdateInput {
+  const _BinUpdateInput({
+    required this.status,
+    this.fillLevelKg,
+    this.notes,
+  });
+
+  final String status;
+  final double? fillLevelKg;
+  final String? notes;
+}
+
+class _BinStatusDialog extends StatefulWidget {
+  const _BinStatusDialog({required this.bin});
+
+  final RecyTechBin bin;
+
+  @override
+  State<_BinStatusDialog> createState() => _BinStatusDialogState();
+}
+
+class _BinStatusDialogState extends State<_BinStatusDialog> {
+  String? _status;
+  late final TextEditingController _fill;
+  late final TextEditingController _notes;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = PartnerBinStatuses.isValid(widget.bin.apiStatus)
+        ? widget.bin.apiStatus
+        : null;
+    _fill = TextEditingController(
+      text: widget.bin.fillLevelKg?.toString() ?? '',
+    );
+    _notes = TextEditingController(text: widget.bin.notes ?? '');
+  }
+
+  @override
+  void dispose() {
+    _fill.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_status == null) {
+      setState(() => _error = 'Select a bin status.');
+      return;
+    }
+    final text = _fill.text.trim();
+    final fill = text.isEmpty ? null : double.tryParse(text);
+    if (text.isNotEmpty &&
+        (fill == null || !fill.isFinite || fill.isNegative)) {
+      setState(() => _error = 'Fill level must be a non-negative number.');
+      return;
+    }
+    Navigator.pop(
+      context,
+      _BinUpdateInput(
+        status: _status!,
+        fillLevelKg: fill,
+        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Update Bin Status'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _status,
+              decoration: const InputDecoration(labelText: 'Status'),
+              items: PartnerBinStatuses.values
+                  .map((status) => DropdownMenuItem(
+                        value: status,
+                        child: Text(status),
+                      ))
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value != null) setState(() => _status = value);
+              },
+            ),
+            TextField(
+              controller: _fill,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Fill level (kg)'),
+            ),
+            TextField(
+              controller: _notes,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Notes (optional)'),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!,
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error)),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(onPressed: _submit, child: const Text('Update')),
+      ],
+    );
+  }
 }

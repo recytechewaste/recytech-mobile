@@ -14,7 +14,7 @@ class ApiPublicBinRepository implements PublicBinRepository {
 
   @override
   Future<List<PublicBin>> fetchPublicBins() async {
-    final response = await _apiClient.dio.get(ApiEndpoints.publicBins);
+    final response = await _apiClient.dio.get(ApiEndpoints.binLocations);
     final items = _extractItems(response.data);
     return items
         .whereType<Map>()

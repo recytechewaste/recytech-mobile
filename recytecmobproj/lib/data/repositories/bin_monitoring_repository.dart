@@ -11,6 +11,12 @@ abstract class LguBinRepository {
   Future<List<RecyTechBin>> fetchAssignedBins();
   Future<RecyTechBin> fetchBin(String binId);
   Future<BinMonitoringData> fetchMonitoring(String binId);
+  Future<RecyTechBin> updateBinStatus({
+    required String binId,
+    required String status,
+    double? fillLevelKg,
+    String? notes,
+  });
 }
 
 class ApiPartnerBinRepository implements LguBinRepository {
@@ -22,7 +28,8 @@ class ApiPartnerBinRepository implements LguBinRepository {
   @override
   Future<List<RecyTechBin>> fetchAssignedBins() async {
     try {
-      final response = await _apiClient.dio.get(ApiEndpoints.partnerBins);
+      final response =
+          await _apiClient.dio.get(ApiEndpoints.partnerOrganizationBins);
       _debugPartnerBinsResponse(
         statusCode: response.statusCode,
         body: response.data,
@@ -42,16 +49,56 @@ class ApiPartnerBinRepository implements LguBinRepository {
 
   @override
   Future<RecyTechBin> fetchBin(String binId) async {
-    final response =
-        await _apiClient.dio.get(ApiEndpoints.partnerBinById(binId));
-    return RecyTechBin.fromJson(_extractObject(response.data));
+    final bins = await fetchAssignedBins();
+    return bins.firstWhere(
+      (bin) => bin.binId == binId || bin.apiId == binId,
+      orElse: () => throw StateError('Assigned bin was not found.'),
+    );
   }
 
   @override
   Future<BinMonitoringData> fetchMonitoring(String binId) async {
-    final response =
-        await _apiClient.dio.get(ApiEndpoints.partnerBinById(binId));
-    return BinMonitoringData.fromJson(_extractObject(response.data));
+    final bin = await fetchBin(binId);
+    return BinMonitoringData(
+      binId: bin.binId,
+      distanceCm: bin.distanceCm,
+      fillPercentage: bin.fillPercentage,
+      fullnessStatus: bin.fullnessStatus,
+      sensorStatus: bin.sensorStatus,
+      controllerStatus: bin.controllerStatus,
+      lastUpdatedAt: bin.lastUpdatedAt,
+      activeCollectionRequest: bin.activeCollectionRequest,
+    );
+  }
+
+  @override
+  Future<RecyTechBin> updateBinStatus({
+    required String binId,
+    required String status,
+    double? fillLevelKg,
+    String? notes,
+  }) async {
+    if (!PartnerBinStatuses.isValid(status)) {
+      throw ArgumentError.value(status, 'status', 'Unsupported bin status');
+    }
+    if (fillLevelKg != null && (!fillLevelKg.isFinite || fillLevelKg < 0)) {
+      throw ArgumentError.value(
+        fillLevelKg,
+        'fillLevelKg',
+        'Must be finite and non-negative',
+      );
+    }
+    final response = await _apiClient.dio.patch(
+      ApiEndpoints.partnerOrganizationBinStatus(binId),
+      data: {
+        'status': status,
+        if (fillLevelKg != null) 'fillLevelKg': fillLevelKg,
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      },
+    );
+    final value = _extractObject(response.data);
+    if (value.isNotEmpty) return RecyTechBin.fromJson(value);
+    return fetchBin(binId);
   }
 
   List<Map<dynamic, dynamic>> _extractItems(dynamic payload) {
@@ -259,6 +306,19 @@ class MockBinMonitoringService implements BinMonitoringService {
       activeCollectionRequest: bin.activeCollectionRequest,
       lastUpdatedAt: bin.lastUpdatedAt,
     );
+  }
+
+  @override
+  Future<RecyTechBin> updateBinStatus({
+    required String binId,
+    required String status,
+    double? fillLevelKg,
+    String? notes,
+  }) async {
+    if (!PartnerBinStatuses.isValid(status)) {
+      throw ArgumentError.value(status, 'status', 'Unsupported bin status');
+    }
+    return fetchBin(binId);
   }
 
   @override

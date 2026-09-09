@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
-import 'package:recytecmobproj/core/constants/app_constants.dart';
-import 'package:recytecmobproj/presentation/collector/shell/collector_home_shell.dart';
-import 'package:recytecmobproj/presentation/lgu/shell/lgu_home_shell.dart';
-import 'package:recytecmobproj/presentation/shell/access_denied_screen.dart';
-import 'package:recytecmobproj/presentation/shell/user_app_shell.dart';
+import 'package:recytecmobproj/presentation/shell/role_shell.dart';
 import 'package:recytecmobproj/services/auth_provider.dart';
 import 'package:recytecmobproj/widgets/labeled_textfied.dart';
 import '../../widgets/primary_button.dart';
@@ -55,30 +51,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _routeAuthenticatedUser() {
     final user = context.read<AuthProvider>().currentUser;
-    final target = AppRoles.shellTargetFor(user?.role);
-
-    if (target == AppShellTarget.accessDenied) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AccessDeniedScreen(role: user?.role),
-        ),
-        (_) => false,
-      );
-      return;
-    }
-
-    final route = switch (target) {
-      AppShellTarget.household => UserAppShell.route,
-      AppShellTarget.partnerOrg => LguHomeShell.route,
-      AppShellTarget.collector => CollectorHomeShell.route,
-      AppShellTarget.accessDenied => AccessDeniedScreen.route,
-    };
-
     Navigator.pushNamedAndRemoveUntil(
       context,
-      route,
+      RoleShell.route,
       (_) => false,
+      arguments: user?.role,
     );
   }
 
@@ -150,6 +127,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: scheme.onSurfaceVariant,
                             ),
                           ),
+                          if (auth.error != null) ...[
+                            SizedBox(height: 12.h),
+                            Text(
+                              auth.error!,
+                              style: TextStyle(
+                                fontSize: 11.sp,
+                                color: scheme.error,
+                              ),
+                            ),
+                          ],
                           SizedBox(height: 20.h),
                           LabeledTextField(
                             label: 'Email',

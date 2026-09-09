@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/constants/app_constants.dart';
 import '../core/utils/helpers.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/models/user_model.dart';
@@ -7,7 +8,7 @@ class AuthProvider extends ChangeNotifier {
   final AuthRepository _repo;
 
   AuthProvider(this._repo) {
-    _restoreSession();
+    restoreSession();
   }
 
   UserModel? user;
@@ -16,15 +17,26 @@ class AuthProvider extends ChangeNotifier {
   String? pendingVerificationEmail;
 
   UserModel? get currentUser => user;
+  String? get userId => user?.id;
+  String? get profileId => user?.profileId;
+  String? get role => user?.role;
+  bool get isHousehold => role == AppRoles.household;
+  bool get isPartnerOrg => role == AppRoles.partnerOrg;
+  bool get isCollector => role == AppRoles.collector;
 
-  Future<void> _restoreSession() async {
+  Future<void> restoreSession() async {
     isLoading = true;
+    error = null;
     notifyListeners();
 
     try {
       user = await _repo.currentUser();
-    } catch (_) {
+    } catch (exception) {
       user = null;
+      error = _messageForAuthError(
+        exception,
+        fallback: 'Unable to verify your session. Please try again.',
+      );
     } finally {
       isLoading = false;
       notifyListeners();
@@ -88,8 +100,7 @@ class AuthProvider extends ChangeNotifier {
         plateNumber: plateNumber,
       );
       user = null;
-      pendingVerificationEmail =
-          result.emailVerificationRequired ? result.email : null;
+      pendingVerificationEmail = null;
       return result;
     } catch (e) {
       error = _messageForAuthError(

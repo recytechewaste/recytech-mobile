@@ -3,34 +3,135 @@ import 'package:dio/dio.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../../core/network/api_exceptions.dart';
 import '../models/user_model.dart';
 
 class AuthResponse {
   final String? token;
-  final UserModel? user;
+  final UserModel user;
+  final String? profileId;
+  final String accountStatus;
 
   const AuthResponse({
     this.token,
-    this.user,
+    required this.user,
+    required this.profileId,
+    required this.accountStatus,
   });
+
+  factory AuthResponse.fromJson(
+    dynamic data, {
+    required bool requireToken,
+  }) {
+    final map = AuthApi.asMap(data);
+    final nestedUser = AuthApi.asMap(map['user']);
+    final userMap = requireToken
+        ? map
+        : map.containsKey('_id')
+            ? map
+            : nestedUser;
+    const requiredUserFields = [
+      '_id',
+      'firstName',
+      'lastName',
+      'email',
+      'role',
+      'status',
+    ];
+    final missingUserField = requiredUserFields.any(
+      (key) => (userMap[key] ?? '').toString().trim().isEmpty,
+    );
+    final hasProfileId = map.containsKey('profileId');
+    final accountStatus = (map['accountStatus'] ?? '').toString().trim();
+    final token = (map['token'] ?? '').toString().trim();
+    final rawRole = (userMap['role'] ?? '').toString();
+    final canonicalRole = AppRoles.canonicalRole(rawRole);
+
+    if (missingUserField ||
+        !hasProfileId ||
+        accountStatus.isEmpty ||
+        canonicalRole == null ||
+        (requireToken && token.isEmpty)) {
+      throw ApiException(
+        'Authentication failed because the server returned an incomplete response.',
+      );
+    }
+
+    final rawProfileId = map['profileId'];
+    final profileId =
+        rawProfileId == null || rawProfileId.toString().trim().isEmpty
+            ? null
+            : rawProfileId.toString();
+    if (profileId == null && AppRoles.isCanonical(rawRole)) {
+      throw ApiException(
+        'Authentication failed because the server did not return the required profile identity.',
+      );
+    }
+    final user = UserModel.fromSessionJson({
+      ...userMap,
+      'accountStatus': accountStatus,
+      if (profileId != null) 'profileId': profileId,
+    });
+
+    return AuthResponse(
+      token: token.isEmpty ? null : token,
+      user: user,
+      profileId: profileId,
+      accountStatus: accountStatus,
+    );
+  }
 }
 
 class RegistrationResponse {
   final String message;
-  final String email;
-  final String role;
+  final UserModel user;
+  final String profileId;
   final String accountStatus;
-  final bool emailVerificationRequired;
-  final bool emailSent;
 
   const RegistrationResponse({
     required this.message,
-    required this.email,
-    required this.role,
+    required this.user,
+    required this.profileId,
     required this.accountStatus,
-    required this.emailVerificationRequired,
-    required this.emailSent,
   });
+
+  factory RegistrationResponse.fromJson(dynamic data) {
+    final map = AuthApi.asMap(data);
+    final userMap = AuthApi.asMap(map['user']);
+
+    final requiredTopLevelFields = ['message', 'profileId', 'accountStatus'];
+    final requiredUserFields = [
+      '_id',
+      'firstName',
+      'lastName',
+      'email',
+      'role',
+      'status',
+    ];
+    final topLevelMissing = requiredTopLevelFields.any(
+      (key) => (map[key] ?? '').toString().trim().isEmpty,
+    );
+    final userMissing = requiredUserFields.any(
+      (key) => (userMap[key] ?? '').toString().trim().isEmpty,
+    );
+
+    if (topLevelMissing || userMissing) {
+      throw ApiException(
+        'Registration failed because the server returned an incomplete response.',
+      );
+    }
+
+    return RegistrationResponse(
+      message: map['message'].toString(),
+      user: UserModel.fromSessionJson({
+        ...userMap,
+        'profileId': map['profileId'],
+        'accountStatus': map['accountStatus'],
+      }),
+      profileId: map['profileId'].toString(),
+      accountStatus: map['accountStatus'].toString(),
+    );
+  }
 }
 
 class EmailVerificationResponse {
@@ -59,7 +160,7 @@ class AuthApi {
       password: password,
     );
 
-    return _parseAuthResponse(res.data);
+    return AuthResponse.fromJson(res.data, requireToken: true);
   }
 
   Future<RegistrationResponse> register({
@@ -74,39 +175,80 @@ class AuthApi {
     String? vehicleType,
     String? plateNumber,
   }) async {
-    final names = _splitName(fullName);
-    final canonicalRole = AppRoles.canonicalApiRole(role) ?? role;
-
     final Response res = await _apiClient.dio.post(
       ApiEndpoints.register,
-      data: {
-        'firstName': names.first,
-        'lastName': names.last,
-        'fullName': fullName,
-        'email': email,
-        'password': password,
-        'role': canonicalRole,
-        if (_hasValue(organizationName)) 'organizationName': organizationName,
-        if (_hasValue(contactPerson)) 'contactPerson': contactPerson,
-        if (_hasValue(contactNumber)) 'contactNumber': contactNumber,
-        if (_hasValue(phone)) 'phone': phone,
-        if (_hasValue(vehicleType)) 'vehicleType': vehicleType,
-        if (_hasValue(plateNumber)) 'vehiclePlate': plateNumber,
-      },
+      data: buildRegistrationPayload(
+        fullName: fullName,
+        email: email,
+        password: password,
+        role: role,
+        organizationName: organizationName,
+        contactPerson: contactPerson,
+        contactNumber: contactNumber,
+        phone: phone,
+        vehicleType: vehicleType,
+        plateNumber: plateNumber,
+      ),
     );
 
-    final map = _asMap(res.data);
-    return RegistrationResponse(
-      message: _messageFromMap(
-        map,
-        fallback: 'Registration successful. You can now log in.',
-      ),
-      email: (map['email'] ?? email).toString(),
-      role: (map['role'] ?? canonicalRole).toString(),
-      accountStatus: (map['accountStatus'] ?? 'active').toString(),
-      emailVerificationRequired: map['emailVerificationRequired'] == true,
-      emailSent: map['emailSent'] == true,
-    );
+    return RegistrationResponse.fromJson(res.data);
+  }
+
+  static Map<String, dynamic> buildRegistrationPayload({
+    String? fullName,
+    required String email,
+    required String password,
+    String role = AppRoles.household,
+    String? organizationName,
+    String? contactPerson,
+    String? contactNumber,
+    String? phone,
+    String? vehicleType,
+    String? plateNumber,
+  }) {
+    final names = splitName(fullName);
+    final canonicalRole = AppRoles.canonicalApiRole(role);
+    if (canonicalRole == null) {
+      throw ArgumentError.value(role, 'role', 'Unsupported public role');
+    }
+    if (canonicalRole == AppRoles.partnerOrg && !hasValue(organizationName)) {
+      throw ArgumentError.value(
+        organizationName,
+        'organizationName',
+        'Organization name is required',
+      );
+    }
+    if (canonicalRole == AppRoles.collector && !hasValue(phone)) {
+      throw ArgumentError.value(
+        phone,
+        'phone',
+        'Phone is required for collector registration',
+      );
+    }
+    final canonicalVehicleType = canonicalRole == AppRoles.collector
+        ? normalizeVehicleType(vehicleType)
+        : null;
+
+    return {
+      'firstName': names.first,
+      'lastName': names.last,
+      'email': email.trim(),
+      'password': password,
+      'role': canonicalRole,
+      if (canonicalRole == AppRoles.household && hasValue(phone))
+        'phone': phone!.trim(),
+      if (canonicalRole == AppRoles.partnerOrg && hasValue(organizationName))
+        'organizationName': organizationName!.trim(),
+      if (canonicalRole == AppRoles.partnerOrg && hasValue(contactPerson))
+        'contactPerson': contactPerson!.trim(),
+      if (canonicalRole == AppRoles.partnerOrg && hasValue(contactNumber))
+        'contactNumber': contactNumber!.trim(),
+      if (canonicalRole == AppRoles.collector && hasValue(phone))
+        'phone': phone!.trim(),
+      if (canonicalVehicleType != null) 'vehicleType': canonicalVehicleType,
+      if (canonicalRole == AppRoles.collector && hasValue(plateNumber))
+        'vehiclePlate': plateNumber!.trim(),
+    };
   }
 
   Future<EmailVerificationResponse> verifyEmail({
@@ -137,7 +279,7 @@ class AuthApi {
 
   Future<AuthResponse> me() async {
     final Response res = await _apiClient.dio.get(ApiEndpoints.me);
-    return _parseAuthResponse(res.data);
+    return AuthResponse.fromJson(res.data, requireToken: false);
   }
 
   Future<Map<String, dynamic>> resendVerification({
@@ -200,24 +342,6 @@ class AuthApi {
     return _asMap(res.data);
   }
 
-  AuthResponse _parseAuthResponse(dynamic data) {
-    final map = _asMap(data);
-    return AuthResponse(
-      token: _extractToken(map),
-      user: _parseUser(map),
-    );
-  }
-
-  String? _extractToken(Map<String, dynamic> map) {
-    final token = map['token'] ??
-        map['accessToken'] ??
-        map['jwt'] ??
-        _asMap(map['data'])['token'] ??
-        _asMap(map['data'])['accessToken'];
-
-    return token?.toString();
-  }
-
   UserModel? _parseUser(dynamic data) {
     final map = _asMap(data);
     final dataMap = _asMap(map['data']);
@@ -243,26 +367,57 @@ class AuthApi {
   }) {
     return _apiClient.dio.post(
       ApiEndpoints.login,
-      data: {
-        'email': email,
-        'password': password,
-      },
+      data: buildLoginPayload(email: email, password: password),
     );
   }
 
-  Map<String, dynamic> _asMap(dynamic value) {
+  static Map<String, dynamic> buildLoginPayload({
+    required String email,
+    required String password,
+  }) =>
+      {
+        'email': email.trim(),
+        'password': password,
+      };
+
+  static Map<String, dynamic> asMap(dynamic value) {
     if (value is Map) return value.cast<String, dynamic>();
     return <String, dynamic>{};
   }
+
+  Map<String, dynamic> _asMap(dynamic value) => asMap(value);
 
   String _messageFromMap(Map<String, dynamic> map, {required String fallback}) {
     final message = (map['message'] ?? '').toString().trim();
     return message.isEmpty ? fallback : message;
   }
 
-  bool _hasValue(String? value) => value != null && value.trim().isNotEmpty;
+  static bool hasValue(String? value) =>
+      value != null && value.trim().isNotEmpty;
 
-  ({String first, String last}) _splitName(String? fullName) {
+  static String? normalizeVehicleType(String? value) {
+    final normalized =
+        (value ?? '').trim().toLowerCase().replaceAll(RegExp(r'[ _-]+'), ' ');
+    const vehicleTypes = {
+      'not assigned': 'Not Assigned',
+      'e trike': 'E-Trike',
+      'truck': 'Truck',
+      'bike': 'Bike',
+      'motorcycle': 'Motorcycle',
+      'van': 'Van',
+    };
+    final canonical = vehicleTypes[normalized];
+    if (canonical == null) {
+      throw ArgumentError.value(
+        value,
+        'vehicleType',
+        'Invalid collector vehicle type',
+      );
+    }
+    return canonical;
+  }
+
+  static ({String first, String last}) splitName(String? fullName) {
     final parts = (fullName ?? '')
         .trim()
         .split(RegExp(r'\s+'))
@@ -270,11 +425,15 @@ class AuthApi {
         .toList();
 
     if (parts.isEmpty) {
-      return (first: 'Mobile', last: 'User');
+      throw ArgumentError.value(fullName, 'fullName', 'Name is required');
     }
 
     if (parts.length == 1) {
-      return (first: parts.first, last: 'User');
+      throw ArgumentError.value(
+        fullName,
+        'fullName',
+        'First and last name are required',
+      );
     }
 
     return (first: parts.first, last: parts.sublist(1).join(' '));

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
 import '../../../data/models/bin_monitoring_models.dart';
+import '../../../data/models/partner_organization_model.dart';
 import '../../../data/repositories/bin_monitoring_repository.dart';
-import '../../../data/repositories/collection_request_repository.dart';
+import '../../../data/repositories/partner_organization_repository.dart';
 import '../../../presentation/bin_monitoring/widgets/bin_monitoring_components.dart';
-import '../../../services/auth_provider.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/status_bagde.dart';
 import '../../notifications/notification_center_screen.dart';
@@ -23,8 +22,8 @@ class LguDashboardScreen extends StatefulWidget {
 
 class _LguDashboardScreenState extends State<LguDashboardScreen> {
   final LguBinRepository _binRepository = ApiPartnerBinRepository();
-  final CollectionRequestRepository _requestRepository =
-      ApiCollectionRequestRepository();
+  final PartnerOrganizationRepository _partnerRepository =
+      PartnerOrganizationRepository();
 
   late Future<_DashboardData> _dashboardFuture;
 
@@ -37,11 +36,13 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
   Future<_DashboardData> _loadDashboard() async {
     final results = await Future.wait([
       _binRepository.fetchAssignedBins(),
-      _requestRepository.fetchCollectionRequests(),
+      _partnerRepository.fetchProfile(),
+      _partnerRepository.fetchStats(),
     ]);
     return _DashboardData(
       bins: results[0] as List<RecyTechBin>,
-      requests: results[1] as List<CollectionRequestSummary>,
+      profile: results[1] as PartnerOrganizationProfile,
+      stats: results[2] as PartnerOrganizationStats,
     );
   }
 
@@ -53,11 +54,6 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().currentUser;
-    final lguName = user?.fullName.trim().isNotEmpty == true
-        ? user!.fullName.trim()
-        : 'Partner Organization';
-
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
@@ -98,44 +94,34 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
             );
           }
 
-          final data = snapshot.data ?? const _DashboardData();
-          final activeRequests = data.requests
-              .where((request) => CollectionRequestStatuses.isActive(
-                    request.status,
-                  ))
-              .length;
-          final completed = data.requests
-              .where((request) =>
-                  CollectionRequestStatuses.normalize(request.status) ==
-                  CollectionRequestStatuses.completed)
-              .length;
+          final data = snapshot.data!;
+          final metrics = <String, dynamic>{
+            ...data.profile.overview,
+            ...data.stats.values,
+          };
 
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
               padding: EdgeInsets.all(16.w),
               children: [
-                _header(lguName),
+                _header(data.profile.organizationName.isEmpty
+                    ? 'Partner Organization'
+                    : data.profile.organizationName),
                 SizedBox(height: 14.h),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 10.h,
-                  crossAxisSpacing: 10.w,
-                  childAspectRatio: 1.35,
-                  children: [
-                    _metric('My Bins', data.bins.length.toString()),
-                    _metric(
-                        'Full', _countBins(data.bins, FullnessStatuses.full)),
-                    _metric(
-                      'Nearly Full',
-                      _countBins(data.bins, FullnessStatuses.nearlyFull),
-                    ),
-                    _metric('Active Requests', activeRequests.toString()),
-                    _metric('Completed', completed.toString()),
-                  ],
-                ),
+                if (metrics.isNotEmpty)
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 10.h,
+                    crossAxisSpacing: 10.w,
+                    childAspectRatio: 1.35,
+                    children: metrics.entries
+                        .map((entry) => _metric(
+                            _metricLabel(entry.key), _display(entry.value)))
+                        .toList(growable: false),
+                  ),
                 SizedBox(height: 18.h),
                 Text(
                   'Priority bins',
@@ -307,23 +293,31 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
     );
   }
 
-  String _countBins(List<RecyTechBin> bins, String status) {
-    return bins
-        .where(
-            (bin) => FullnessStatuses.normalize(bin.fullnessStatus) == status)
-        .length
-        .toString();
+  String _metricLabel(String value) => value
+      .replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]}')
+      .replaceAll('_', ' ');
+
+  String _display(dynamic value) {
+    if (value is Map) {
+      return value.entries
+          .map((entry) => '${entry.key}: ${entry.value}')
+          .join(', ');
+    }
+    if (value is List) return value.join(', ');
+    return value.toString();
   }
 }
 
 class _DashboardData {
   const _DashboardData({
-    this.bins = const <RecyTechBin>[],
-    this.requests = const <CollectionRequestSummary>[],
+    required this.bins,
+    required this.profile,
+    required this.stats,
   });
 
   final List<RecyTechBin> bins;
-  final List<CollectionRequestSummary> requests;
+  final PartnerOrganizationProfile profile;
+  final PartnerOrganizationStats stats;
 
   List<RecyTechBin> get priorityBins {
     return bins.where((bin) {

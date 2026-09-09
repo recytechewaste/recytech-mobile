@@ -12,9 +12,11 @@ class CollectionRequestFormScreen extends StatefulWidget {
   const CollectionRequestFormScreen({
     super.key,
     required this.bin,
+    this.repository,
   });
 
   final RecyTechBin bin;
+  final CollectionRequestRepository? repository;
 
   @override
   State<CollectionRequestFormScreen> createState() =>
@@ -23,10 +25,15 @@ class CollectionRequestFormScreen extends StatefulWidget {
 
 class _CollectionRequestFormScreenState
     extends State<CollectionRequestFormScreen> {
-  final CollectionRequestRepository _repository =
-      ApiCollectionRequestRepository();
+  late final CollectionRequestRepository _repository;
   final TextEditingController _remarks = TextEditingController();
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = widget.repository ?? ApiCollectionRequestRepository();
+  }
 
   @override
   void dispose() {
@@ -36,12 +43,23 @@ class _CollectionRequestFormScreenState
 
   Future<void> _submit() async {
     if (_submitting) return;
+    final requestBinId = widget.bin.requestBinId.trim();
+    if (requestBinId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Collection request could not be created: This bin is missing its backend request identifier.',
+          ),
+        ),
+      );
+      return;
+    }
     setState(() => _submitting = true);
 
     try {
       await _repository.createCollectionRequest(
         lguId: widget.bin.assignedLguId ?? '',
-        binId: widget.bin.binId,
+        binId: requestBinId,
         binLocation: widget.bin.location,
         fillPercentage: widget.bin.fillPercentage,
         fullnessStatus: widget.bin.fullnessStatus,
@@ -58,7 +76,9 @@ class _CollectionRequestFormScreenState
       if (!mounted) return;
       final message = e is DuplicateCollectionRequestException
           ? e.message
-          : 'Unable to create request. Please try again.';
+          : e is CollectionRequestException
+              ? 'Collection request could not be created: ${e.message}'
+              : 'Unable to create request. Please try again.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );

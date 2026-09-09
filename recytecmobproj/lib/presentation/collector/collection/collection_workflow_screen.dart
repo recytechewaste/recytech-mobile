@@ -1,16 +1,15 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
+import '../../../core/utils/helpers.dart';
 import '../../../core/utils/waste_type_mapper.dart';
 import '../../../data/models/collected_item_model.dart';
 import '../../../data/models/collector_job_model.dart';
 import '../../../data/repositories/collection_completion_repository.dart';
+import '../../../data/repositories/collector_repository.dart';
 import '../../../services/auth_provider.dart';
 import 'collector_ewaste_capture_screen.dart';
 
@@ -28,15 +27,11 @@ class CollectionWorkflowScreen extends StatefulWidget {
 }
 
 class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
-  final ImagePicker _picker = ImagePicker();
   final CollectionCompletionRepository _completionRepository =
       ApiCollectionCompletionRepository();
-  final TextEditingController _initialRemarks = TextEditingController();
-  final TextEditingController _finalRemarks = TextEditingController();
+  final CollectorRepository _collectorRepository = CollectorRepository();
 
   late final CollectionReportDraft _draft;
-  String? _beforeCondition;
-  String? _finalStatus;
   bool _isSubmitting = false;
   String? _message;
 
@@ -47,12 +42,12 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     _draft = CollectionReportDraft(
       assignmentId: widget.job.id,
       requestReference: widget.job.requestCode,
-      collectorId: user?.id,
+      collectorId: user?.profileId,
       collectorName: user?.fullName.trim().isNotEmpty == true
           ? user!.fullName.trim()
           : 'Collector',
       lguName: widget.job.partnerOrganizationName,
-      binId: widget.job.binCode,
+      binId: widget.job.binId,
       binName: widget.job.displayItem,
       binLocation: widget.job.location,
     );
@@ -60,31 +55,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
 
   @override
   void dispose() {
-    _initialRemarks.dispose();
-    _finalRemarks.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickBeforeImage() async {
-    await _pickImage((path) => _draft.beforeImagePath = path);
-  }
-
-  Future<void> _pickAfterImage() async {
-    await _pickImage((path) => _draft.afterImagePath = path);
-  }
-
-  Future<void> _pickImage(ValueChanged<String> onPicked) async {
-    try {
-      final image = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 78,
-        maxWidth: 1280,
-      );
-      if (image == null || !mounted) return;
-      setState(() => onPicked(image.path));
-    } catch (_) {
-      setState(() => _message = 'Could not open camera. Please try again.');
-    }
   }
 
   Future<void> _addItem() async {
@@ -117,18 +88,10 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
   Future<void> _complete() async {
     if (_isSubmitting) return;
 
-    _draft.beforeCondition = _beforeCondition;
-    _draft.initialRemarks = _initialRemarks.text.trim().isEmpty
-        ? null
-        : _initialRemarks.text.trim();
-    _draft.finalBinStatus = _finalStatus;
-    _draft.finalRemarks =
-        _finalRemarks.text.trim().isEmpty ? null : _finalRemarks.text.trim();
-
     if (!_draft.canSubmit) {
       setState(() {
         _message =
-            'Before image, before condition, at least one item, after image, and final status are required.';
+            'Each collected item requires a category, non-negative quantity, and unit.';
       });
       return;
     }
@@ -141,18 +104,34 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     });
 
     try {
-      _draft.completedAt = DateTime.now();
-      await _completionRepository.submitCollectionReport(_draft);
+      final completedJob =
+          await _completionRepository.submitCollectionReport(_draft);
+      if (!completedJob.isCompleted) {
+        throw const FormatException(
+          'Completion response did not include completed request status.',
+        );
+      }
+      try {
+        await Future.wait([
+          _collectorRepository.fetchProfile(),
+          _collectorRepository.fetchStats(),
+        ]);
+      } catch (_) {
+        // Completion succeeded; operational summaries can refresh later.
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Collection completed.')),
       );
-      Navigator.pop(context, true);
-    } catch (_) {
+      Navigator.pop(context, completedJob);
+    } catch (error) {
       if (!mounted) return;
       setState(() {
-        _message = 'Completion failed. Please retry.';
+        _message = userFacingError(
+          error,
+          fallback: 'Completion failed. Please retry.',
+        );
         _isSubmitting = false;
       });
     }
@@ -160,9 +139,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasUnsaved = _draft.items.isNotEmpty ||
-        (_draft.beforeImagePath ?? '').isNotEmpty ||
-        (_draft.afterImagePath ?? '').isNotEmpty;
+    final hasUnsaved = _draft.items.isNotEmpty;
 
     return PopScope(
       canPop: !hasUnsaved || _isSubmitting,
@@ -179,11 +156,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
           children: [
             _stepHeader(),
             SizedBox(height: 12.h),
-            _beforeSection(),
-            SizedBox(height: 16.h),
             _itemsSection(),
-            SizedBox(height: 16.h),
-            _afterSection(),
             SizedBox(height: 16.h),
             _reviewSection(),
             if (_message != null) ...[
@@ -226,51 +199,18 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     );
   }
 
-  Widget _beforeSection() {
-    return _panel(
-      title: 'Before Collection',
-      children: [
-        _imagePreview(_draft.beforeImagePath),
-        SizedBox(height: 10.h),
-        OutlinedButton.icon(
-          onPressed: _pickBeforeImage,
-          icon: const Icon(Icons.photo_camera_outlined),
-          label: const Text('Capture Before Image'),
-        ),
-        SizedBox(height: 10.h),
-        DropdownButtonFormField<String>(
-          initialValue: _beforeCondition,
-          decoration: _input('Bin condition'),
-          items: CollectorCollectionConstants.beforeBinConditions
-              .map((condition) => DropdownMenuItem(
-                    value: condition,
-                    child: Text(condition),
-                  ))
-              .toList(),
-          onChanged: (value) => setState(() => _beforeCondition = value),
-        ),
-        SizedBox(height: 10.h),
-        TextField(
-          controller: _initialRemarks,
-          maxLines: 2,
-          decoration: _input('Initial remarks'),
-        ),
-      ],
-    );
-  }
-
   Widget _itemsSection() {
     return _panel(
       title: 'Collected Items',
       trailing: OutlinedButton.icon(
         onPressed: _addItem,
         icon: const Icon(Icons.add),
-        label: const Text('Add Another Item'),
+        label: const Text('Scan / Capture E-Waste'),
       ),
       children: [
         if (_draft.items.isEmpty)
           Text(
-            'No collected items added yet.',
+            'No e-waste items scanned or captured yet.',
             style: TextStyle(color: RecyTechTheme.textMuted, fontSize: 11.sp),
           )
         else
@@ -284,39 +224,6 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     );
   }
 
-  Widget _afterSection() {
-    return _panel(
-      title: 'After Collection',
-      children: [
-        _imagePreview(_draft.afterImagePath),
-        SizedBox(height: 10.h),
-        OutlinedButton.icon(
-          onPressed: _pickAfterImage,
-          icon: const Icon(Icons.photo_camera_outlined),
-          label: const Text('Capture After Image'),
-        ),
-        SizedBox(height: 10.h),
-        DropdownButtonFormField<String>(
-          initialValue: _finalStatus,
-          decoration: _input('Final bin status'),
-          items: CollectorCollectionConstants.finalBinStatuses
-              .map((status) => DropdownMenuItem(
-                    value: status,
-                    child: Text(status),
-                  ))
-              .toList(),
-          onChanged: (value) => setState(() => _finalStatus = value),
-        ),
-        SizedBox(height: 10.h),
-        TextField(
-          controller: _finalRemarks,
-          maxLines: 2,
-          decoration: _input('Final remarks'),
-        ),
-      ],
-    );
-  }
-
   Widget _reviewSection() {
     return _panel(
       title: 'Review',
@@ -325,8 +232,6 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
         _reviewRow('Collector', _draft.collectorName),
         _reviewRow('Bin / Item', widget.job.displayItem),
         _reviewRow('Location', widget.job.location),
-        _reviewRow('Before condition', _beforeCondition ?? '-'),
-        _reviewRow('Final status', _finalStatus ?? '-'),
         _reviewRow('Total quantity', _draft.totalQuantity.toString()),
         SizedBox(height: 4.h),
         ..._draft.confirmedCategorySummary.entries.map(
@@ -399,35 +304,6 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     );
   }
 
-  Widget _imagePreview(String? path) {
-    final value = (path ?? '').trim();
-    if (value.isEmpty || !File(value).existsSync()) {
-      return Container(
-        height: 110.h,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: RecyTechTheme.pill,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: RecyTechTheme.border),
-        ),
-        child: Text(
-          value.isEmpty ? 'No image captured' : 'Image file unavailable',
-          style: TextStyle(color: RecyTechTheme.textMuted, fontSize: 11.sp),
-        ),
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Image.file(
-        File(value),
-        width: double.infinity,
-        height: 140.h,
-        fit: BoxFit.cover,
-      ),
-    );
-  }
-
   Widget _reviewRow(String label, String value) {
     return Padding(
       padding: EdgeInsets.only(bottom: 8.h),
@@ -489,13 +365,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
   }
 
   double _progress() {
-    var complete = 0;
-    if ((_draft.beforeImagePath ?? '').trim().isNotEmpty) complete++;
-    if (_beforeCondition != null) complete++;
-    if (_draft.items.isNotEmpty) complete++;
-    if ((_draft.afterImagePath ?? '').trim().isNotEmpty) complete++;
-    if (_finalStatus != null) complete++;
-    return complete / 5;
+    return _draft.items.isEmpty ? 0 : 1;
   }
 
   Future<bool> _confirmDiscard() async {

@@ -1,11 +1,11 @@
 class Env {
   // Override with:
-  // flutter run --dart-define=RECYTECH_API_BASE_URL=http://<host>:5000/api
+  // flutter run --dart-define=RECYTECH_API_BASE_URL=https://<host>/api
   //
-  // Defaults to Android emulator localhost. Physical devices and deployed
-  // backends should be configured through the dart-define above.
+  // Render is the shared authoritative backend. A local override is valid only
+  // when it points to a local copy of that same web backend.
   static const String baseUrl = String.fromEnvironment(
     'RECYTECH_API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5000/api',
+    defaultValue: 'https://recytech-web.onrender.com/api',
   );
 }

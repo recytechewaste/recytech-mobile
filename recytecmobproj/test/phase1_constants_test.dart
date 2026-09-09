@@ -7,36 +7,34 @@ void main() {
   group('role normalization', () {
     test('recognizes Household, Partner Organization, and Collector variants',
         () {
-      expect(AppRoles.normalize('Staff'), UserRole.household);
-      expect(AppRoles.normalize('staff'), UserRole.household);
+      expect(AppRoles.normalize('Staff'), UserRole.unsupported);
+      expect(AppRoles.normalize('staff'), UserRole.unsupported);
       expect(AppRoles.normalize('Household'), UserRole.household);
       expect(AppRoles.normalize('resident'), UserRole.household);
       expect(AppRoles.normalize('LGU'), UserRole.partnerOrg);
       expect(AppRoles.normalize('lgu'), UserRole.partnerOrg);
       expect(AppRoles.normalize('partner_org'), UserRole.partnerOrg);
-      expect(AppRoles.normalize('partner org'), UserRole.partnerOrg);
       expect(AppRoles.normalize('Partner Organization'), UserRole.partnerOrg);
-      expect(AppRoles.normalize('Partner'), UserRole.partnerOrg);
+      expect(AppRoles.normalize('PartnerOrganization'), UserRole.partnerOrg);
       expect(AppRoles.normalize('Collector'), UserRole.collector);
       expect(AppRoles.normalize('collector'), UserRole.collector);
     });
 
     test('returns canonical API roles for auth payloads', () {
-      expect(AppRoles.canonicalApiRole('Registered User'), AppRoles.household);
-      expect(AppRoles.canonicalApiRole('Staff'), AppRoles.household);
+      expect(AppRoles.canonicalApiRole('registered_user'), AppRoles.household);
+      expect(AppRoles.canonicalApiRole('Staff'), isNull);
       expect(
         AppRoles.canonicalApiRole('Partner Organization'),
         AppRoles.partnerOrg,
       );
-      expect(AppRoles.canonicalApiRole('Partner'), AppRoles.partnerOrg);
       expect(AppRoles.canonicalApiRole('LGU'), AppRoles.partnerOrg);
       expect(AppRoles.canonicalApiRole('Collector'), AppRoles.collector);
       expect(AppRoles.canonicalApiRole('admin'), isNull);
     });
 
     test('routes supported roles to their production shells', () {
-      expect(AppRoles.shellTargetFor('Staff'), AppShellTarget.household);
-      expect(AppRoles.shellTargetFor('staff'), AppShellTarget.household);
+      expect(AppRoles.shellTargetFor('Staff'), AppShellTarget.accessDenied);
+      expect(AppRoles.shellTargetFor('staff'), AppShellTarget.accessDenied);
       expect(AppRoles.shellTargetFor('LGU'), AppShellTarget.partnerOrg);
       expect(AppRoles.shellTargetFor('lgu'), AppShellTarget.partnerOrg);
       expect(AppRoles.shellTargetFor('partner_org'), AppShellTarget.partnerOrg);
@@ -55,6 +53,7 @@ void main() {
         'email': 'partner@example.com',
         'role': 'partner_org',
         'accountStatus': 'active',
+        'profileId': 'partner-profile-1',
       });
 
       expect(user.role, AppRoles.partnerOrg);

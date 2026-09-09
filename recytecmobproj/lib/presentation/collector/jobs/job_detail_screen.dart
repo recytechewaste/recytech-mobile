@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
 import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/core/utils/helpers.dart';
@@ -8,7 +7,6 @@ import 'package:recytecmobproj/core/utils/map_launcher.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
 import 'package:recytecmobproj/presentation/collector/collection/collection_workflow_screen.dart';
-import 'package:recytecmobproj/services/auth_provider.dart';
 
 class JobDetailScreen extends StatefulWidget {
   final CollectorJob job;
@@ -28,11 +26,35 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   late CollectorJob job;
   bool isUpdating = false;
+  bool isLoadingDetail = true;
 
   @override
   void initState() {
     super.initState();
     job = widget.job;
+    _loadCanonicalDetail();
+  }
+
+  Future<void> _loadCanonicalDetail() async {
+    try {
+      final detail = await _repository.fetchRequestDetail(job.id);
+      if (mounted) setState(() => job = detail);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              userFacingError(
+                error,
+                fallback: 'Unable to refresh request details.',
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isLoadingDetail = false);
+    }
   }
 
   Future<void> _startCollection() async {
@@ -43,16 +65,18 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     });
 
     try {
-      final updated = await _repository.startCollection(requestId: job.id);
+      final updated = await _repository.updateJobStatus(
+        requestId: job.id,
+        status: CollectorJobStatuses.inProgress,
+        currentStatus: job.status,
+      );
 
       if (!mounted) return;
 
       setState(() {
         job = updated.id.isEmpty
             ? job.copyWith(
-                status: CollectorJobStatuses.backendValue(
-                  CollectorJobStatuses.inProgress,
-                ),
+                status: CollectorJobStatuses.inProgress,
                 startedAt: DateTime.now().toIso8601String(),
               )
             : updated;
@@ -79,8 +103,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _updateStatus(String status, String successMessage) async {
     if (isUpdating) return;
 
-    final collector = context.read<AuthProvider>().currentUser;
-
     setState(() {
       isUpdating = true;
     });
@@ -88,10 +110,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     try {
       final updated = await _repository.updateJobStatus(
         requestId: job.id,
-        status: CollectorJobStatuses.backendValue(status),
-        collectorId: collector?.id,
-        collectorName: _collectorName(collector),
-        collectorEmail: collector?.email,
+        status: status,
+        currentStatus: job.status,
       );
 
       if (!mounted) return;
@@ -99,7 +119,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       setState(() {
         job = updated.id.isEmpty
             ? job.copyWith(
-                status: CollectorJobStatuses.backendValue(status),
+                status: status,
                 updatedAt: DateTime.now().toIso8601String(),
               )
             : updated;
@@ -149,19 +169,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _continueCollection() async {
-    final completed = await Navigator.push<bool>(
+    final completed = await Navigator.push<CollectorJob>(
       context,
       MaterialPageRoute(builder: (_) => CollectionWorkflowScreen(job: job)),
     );
 
-    if (completed == true && mounted) {
+    if (completed != null && mounted) {
       setState(() {
-        job = job.copyWith(
-          status: CollectorJobStatuses.backendValue(
-            CollectorJobStatuses.completed,
-          ),
-          updatedAt: DateTime.now().toIso8601String(),
-        );
+        job = completed;
       });
     }
   }
@@ -177,6 +192,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         padding: EdgeInsets.all(16.w),
         child: ListView(
           children: [
+            if (isLoadingDetail) const LinearProgressIndicator(),
+            if (isLoadingDetail) SizedBox(height: 12.h),
             Text(
               'Request Reference: ${job.requestCode}',
               style: TextStyle(
@@ -257,12 +274,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     switch (normalized) {
       case CollectorJobStatuses.assigned:
         return _primaryAction(
-          label: 'Accept',
-          icon: Icons.check_circle_outline,
+          label: 'Start Trip',
+          icon: Icons.directions_car_outlined,
           onPressed: canUpdate
               ? () => _updateStatus(
                     CollectorJobStatuses.onTheWay,
-                    'Request accepted.',
+                    'Trip started.',
                   )
               : null,
         );
@@ -373,16 +390,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final minute = local.minute.toString().padLeft(2, '0');
 
     return '${local.year}-$month-$day $hour:$minute';
-  }
-
-  String _collectorName(user) {
-    if (user == null) return '';
-    if (user.fullName.trim().isNotEmpty) return user.fullName.trim();
-
-    return [
-      user.firstName,
-      user.lastName,
-    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
   }
 
   String _messageForError(Object error) {

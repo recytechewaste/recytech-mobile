@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/recytechtheme.dart';
 import '../../../data/models/drop_off_record_model.dart';
@@ -26,8 +29,10 @@ class DropOffFormScreen extends StatefulWidget {
 class _DropOffFormScreenState extends State<DropOffFormScreen> {
   late final DropOffRepository _repository;
   late final TextEditingController _quantityController;
-  late final String _idempotencyKey;
+  late final TextEditingController _notesController;
+  final ImagePicker _imagePicker = ImagePicker();
   String? _selectedCategory;
+  XFile? _selectedImage;
   bool _submitting = false;
   String? _errorMessage;
 
@@ -36,16 +41,15 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
     super.initState();
     _repository = widget.repository ?? ApiDropOffRepository();
     _quantityController = TextEditingController(text: '1');
-    _selectedCategory = widget.bin.acceptedCategories.isNotEmpty
-        ? widget.bin.acceptedCategories.first
-        : null;
-    _idempotencyKey =
-        '${widget.submissionMethod}-${widget.bin.publicQrCode}-${DateTime.now().microsecondsSinceEpoch}';
+    _notesController = TextEditingController();
+    final categories = _categoryOptions;
+    _selectedCategory = categories.isEmpty ? null : categories.first;
   }
 
   @override
   void dispose() {
     _quantityController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -53,14 +57,14 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
     if (_submitting) return;
 
     final category = _selectedCategory;
-    final quantity = int.tryParse(_quantityController.text.trim());
+    final quantity = num.tryParse(_quantityController.text.trim());
     if (category == null || category.isEmpty) {
       setState(() => _errorMessage = 'Please select an accepted category.');
       return;
     }
-    if (quantity == null || quantity <= 0) {
-      setState(() =>
-          _errorMessage = 'Quantity must be a whole number greater than 0.');
+    if (quantity == null || !quantity.isFinite || quantity < 0) {
+      setState(() => _errorMessage =
+          'Quantity must be a number greater than or equal to 0.');
       return;
     }
 
@@ -70,16 +74,16 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
     });
 
     try {
-      final record = await _repository.registerDropOff(
+      final image = await _encodeSelectedImage();
+      final result = await _repository.registerDropOff(
         bin: widget.bin,
-        submissionMethod: widget.submissionMethod,
-        idempotencyKey: _idempotencyKey,
-        items: [
-          DropOffSubmissionItem(category: category, quantity: quantity),
-        ],
+        wasteType: category,
+        quantity: quantity,
+        notes: _notesController.text,
+        image: image,
       );
       if (!mounted) return;
-      await _showSuccess(record);
+      await _showSuccess(result);
     } on DropOffRepositoryException catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
@@ -92,7 +96,43 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
     }
   }
 
-  Future<void> _showSuccess(DropOffRecord record) {
+  Future<String?> _encodeSelectedImage() async {
+    final selectedImage = _selectedImage;
+    if (selectedImage == null) return null;
+    final bytes = await selectedImage.readAsBytes();
+    if (bytes.length > 3500000) {
+      throw const DropOffRepositoryException(
+        'image_too_large',
+        'Please choose an image smaller than 3.5 MB.',
+      );
+    }
+    final mimeType = selectedImage.mimeType ?? _mimeType(selectedImage.name);
+    return 'data:$mimeType;base64,${base64Encode(bytes)}';
+  }
+
+  String _mimeType(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    return 'image/jpeg';
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final image = await _imagePicker.pickImage(
+      source: source,
+      imageQuality: 80,
+    );
+    if (image != null && mounted) setState(() => _selectedImage = image);
+  }
+
+  Future<void> _showSuccess(DropOffSubmissionResult result) {
+    final record = result.dropOff;
+    final projectedPoints = result.projectedPoints ?? record.pointsProjected;
+    final pointsText = projectedPoints == null
+        ? 'Points are pending validation.'
+        : 'Projected / Pending: $projectedPoints points';
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -100,7 +140,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
         return AlertDialog(
           title: const Text('Drop-off submitted successfully.'),
           content: Text(
-            '${record.binName}\n${_itemsLabel(record)}\nReward processing will be handled in a later update.',
+            '${result.message}\n${record.binName}\n${_itemsLabel(record)}\n$pointsText',
           ),
           actions: [
             TextButton(
@@ -128,7 +168,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final categoryOptions = widget.bin.acceptedCategories;
+    final categoryOptions = _categoryOptions;
 
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
@@ -181,12 +221,55 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                 TextField(
                   controller: _quantityController,
                   enabled: !_submitting,
-                  keyboardType: TextInputType.number,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'Quantity',
                     border: OutlineInputBorder(),
                   ),
                 ),
+                SizedBox(height: 12.h),
+                TextField(
+                  controller: _notesController,
+                  enabled: !_submitting,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _submitting
+                            ? null
+                            : () => _pickImage(ImageSource.camera),
+                        icon: const Icon(Icons.camera_alt_outlined),
+                        label: const Text('Take photo'),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _submitting
+                            ? null
+                            : () => _pickImage(ImageSource.gallery),
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: const Text('Choose photo'),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_selectedImage != null)
+                  Text(
+                    'One photo selected',
+                    style: TextStyle(
+                      fontSize: 11.sp,
+                      color: RecyTechTheme.textMuted,
+                    ),
+                  ),
                 if (_errorMessage != null) ...[
                   SizedBox(height: 12.h),
                   Text(
@@ -297,12 +380,14 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
   }
 
   String _categoryLabel(String category) {
-    final index = widget.bin.acceptedCategories.indexOf(category);
-    if (index >= 0 && index < widget.bin.acceptedCategoryLabels.length) {
-      return widget.bin.acceptedCategoryLabels[index];
-    }
-    return _displayCategory(category);
+    return category;
   }
+
+  List<String> get _categoryOptions => widget.bin.acceptedCategories
+      .map(DropOffWasteTypes.canonicalize)
+      .whereType<String>()
+      .toSet()
+      .toList(growable: false);
 
   String _itemsLabel(DropOffRecord record) {
     if (record.items.isEmpty) return 'Item recorded.';

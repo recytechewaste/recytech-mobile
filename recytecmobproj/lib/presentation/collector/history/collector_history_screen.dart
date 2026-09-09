@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/recytechtheme.dart';
-import '../../../data/models/collected_item_model.dart';
-import '../../../data/repositories/collection_completion_repository.dart';
+import '../../../data/models/collector_job_model.dart';
+import '../../../data/repositories/collector_repository.dart';
 import '../../../widgets/empty_state.dart';
+import '../jobs/job_detail_screen.dart';
 
 class CollectorHistoryScreen extends StatefulWidget {
   const CollectorHistoryScreen({super.key});
@@ -13,18 +16,17 @@ class CollectorHistoryScreen extends StatefulWidget {
 }
 
 class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
-  final CollectionCompletionRepository _repository =
-      ApiCollectionCompletionRepository();
-  late Future<List<CollectionReportDraft>> _future;
+  final CollectorRepository _repository = CollectorRepository();
+  late Future<List<CollectorJob>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _repository.fetchCompletedReports();
+    _future = _repository.fetchCompletedJobs();
   }
 
   Future<void> _refresh() async {
-    final future = _repository.fetchCompletedReports();
+    final future = _repository.fetchCompletedJobs();
     setState(() => _future = future);
     await future;
   }
@@ -34,7 +36,7 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(title: const Text('Collection History')),
-      body: FutureBuilder<List<CollectionReportDraft>>(
+      body: FutureBuilder<List<CollectorJob>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -47,21 +49,20 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
               onRetry: _refresh,
             );
           }
-
-          final reports = snapshot.data ?? <CollectionReportDraft>[];
-          if (reports.isEmpty) {
-            return _state(
-              icon: Icons.history,
-              title: 'You have no completed collection requests yet.',
-              message: 'Completed collections will appear here.',
-            );
-          }
-
+          final jobs = snapshot.data ?? const <CollectorJob>[];
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
               padding: EdgeInsets.all(16.w),
-              children: reports.map(_reportCard).toList(),
+              children: jobs.isEmpty
+                  ? const [
+                      EmptyState(
+                        icon: Icons.history,
+                        title: 'You have no completed collection requests yet.',
+                        message: 'Completed collections will appear here.',
+                      ),
+                    ]
+                  : jobs.map(_jobCard).toList(growable: false),
             ),
           );
         },
@@ -69,10 +70,12 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
     );
   }
 
-  Widget _reportCard(CollectionReportDraft report) {
+  Widget _jobCard(CollectorJob job) {
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => _showReport(report),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
+      ),
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),
         padding: EdgeInsets.all(14.w),
@@ -84,84 +87,19 @@ class _CollectorHistoryScreenState extends State<CollectorHistoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              report.requestReference,
-              style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w900),
-            ),
+            Text(job.requestCode,
+                style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w900)),
             SizedBox(height: 6.h),
-            Text('Partner Organization: ${report.lguName ?? '-'}'),
-            Text('Bin: ${report.binName ?? '-'}'),
-            Text('Completed: ${_formatDate(report.completedAt)}'),
-            Text('Categories: ${_summaryText(report)}'),
-            Text('Total quantity: ${report.totalQuantity}'),
-            Text('Final status: ${report.finalBinStatus ?? '-'}'),
+            Text(
+                'Partner Organization: ${_value(job.partnerOrganizationName)}'),
+            Text('Bin: ${_value(job.displayItem)}'),
+            Text('Scheduled: ${_value(job.schedule)}'),
+            Text('Status: ${RequestStatuses.label(job.status)}'),
           ],
         ),
       ),
     );
   }
 
-  void _showReport(CollectionReportDraft report) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return ListView(
-          padding: EdgeInsets.all(16.w),
-          children: [
-            Text(
-              report.requestReference,
-              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w900),
-            ),
-            SizedBox(height: 12.h),
-            ...report.items.map(
-              (item) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(item.mappedCategory),
-                subtitle: Text(
-                  'AI: ${item.aiPredictedClass ?? '-'}\n'
-                  'Confirmed: ${item.confirmedClass}\n'
-                  'Qty ${item.quantity}',
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _state({
-    required IconData icon,
-    required String title,
-    String? message,
-    Widget? action,
-  }) {
-    return ListView(
-      padding: EdgeInsets.all(16.w),
-      children: [
-        EmptyState(
-          icon: icon,
-          title: title,
-          message: message,
-          action: action,
-        ),
-      ],
-    );
-  }
-
-  String _formatDate(DateTime? value) {
-    if (value == null) return '-';
-    final local = value.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    return '${local.year}-$month-$day';
-  }
-
-  String _summaryText(CollectionReportDraft report) {
-    if (report.confirmedCategorySummary.isEmpty) return '-';
-    return report.confirmedCategorySummary.entries
-        .map((entry) => '${entry.key} x ${entry.value}')
-        .join(', ');
-  }
+  String _value(String value) => value.trim().isEmpty ? '-' : value;
 }

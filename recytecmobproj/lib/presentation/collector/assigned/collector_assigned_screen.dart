@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
 import 'package:recytecmobproj/core/constants/app_constants.dart';
 import 'package:recytecmobproj/core/theme/recytechtheme.dart';
 import 'package:recytecmobproj/data/models/collector_job_model.dart';
-import 'package:recytecmobproj/data/models/user_model.dart';
+import 'package:recytecmobproj/data/models/collector_profile_model.dart';
 import 'package:recytecmobproj/data/repositories/collector_repository.dart';
 import 'package:recytecmobproj/presentation/collector/collection/collection_workflow_screen.dart';
 import 'package:recytecmobproj/presentation/collector/jobs/job_detail_screen.dart';
-import 'package:recytecmobproj/services/auth_provider.dart';
 import 'package:recytecmobproj/widgets/empty_state.dart';
 import 'package:recytecmobproj/widgets/status_bagde.dart';
 
@@ -24,33 +22,30 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   final CollectorRepository _repository = CollectorRepository();
 
   late Future<List<CollectorJob>> _jobsFuture;
+  late Future<CollectorProfile> _profileFuture;
   String? _updatingRequestId;
 
   @override
   void initState() {
     super.initState();
     _jobsFuture = _fetchAssignedJobs();
+    _profileFuture = _repository.fetchProfile();
   }
 
   Future<List<CollectorJob>> _fetchAssignedJobs() {
-    final collector = context.read<AuthProvider>().currentUser;
-    final collectorName = _collectorName(collector);
-
-    return _repository.fetchAssignedJobs(
-      collectorId: collector?.id,
-      collectorName: collectorName,
-      collectorEmail: collector?.email,
-    );
+    return _repository.fetchAssignedJobs();
   }
 
   Future<void> _refreshJobs() async {
     final future = _fetchAssignedJobs();
+    final profileFuture = _repository.fetchProfile();
     setState(() {
       _jobsFuture = future;
+      _profileFuture = profileFuture;
     });
 
     try {
-      await future;
+      await Future.wait([future, profileFuture]);
     } catch (e) {
       if (!mounted) return;
 
@@ -74,7 +69,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   }
 
   Future<void> _continueCollection(CollectorJob job) async {
-    await Navigator.push<bool>(
+    await Navigator.push<CollectorJob>(
       context,
       MaterialPageRoute(builder: (_) => CollectionWorkflowScreen(job: job)),
     );
@@ -87,35 +82,13 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   Future<void> _updateStatus(CollectorJob job, String status) async {
     if (_updatingRequestId != null || job.id.isEmpty) return;
 
-    final collector = context.read<AuthProvider>().currentUser;
-    final collectorName = _collectorName(collector);
-
     setState(() => _updatingRequestId = job.id);
     try {
       await _repository.updateJobStatus(
         requestId: job.id,
-        status: CollectorJobStatuses.backendValue(status),
-        collectorId: collector?.id,
-        collectorName: collectorName,
-        collectorEmail: collector?.email,
+        status: status,
+        currentStatus: job.status,
       );
-      if (mounted) await _refreshJobs();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_messageForError(e))),
-      );
-    } finally {
-      if (mounted) setState(() => _updatingRequestId = null);
-    }
-  }
-
-  Future<void> _startCollection(CollectorJob job) async {
-    if (_updatingRequestId != null || job.id.isEmpty) return;
-
-    setState(() => _updatingRequestId = job.id);
-    try {
-      await _repository.startCollection(requestId: job.id);
       if (mounted) await _refreshJobs();
     } catch (e) {
       if (!mounted) return;
@@ -156,6 +129,8 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                 ? ListView(
                     padding: EdgeInsets.all(16.w),
                     children: [
+                      _profileSummary(),
+                      SizedBox(height: 12.h),
                       _messageState(
                         context,
                         'You have no assigned collection requests right now.',
@@ -167,6 +142,8 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                 : ListView(
                     padding: EdgeInsets.all(16.w),
                     children: [
+                      _profileSummary(),
+                      SizedBox(height: 12.h),
                       _queueNotice(context, jobs.length),
                       SizedBox(height: 12.h),
                       for (var i = 0; i < jobs.length; i++)
@@ -176,6 +153,46 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _profileSummary() {
+    return FutureBuilder<CollectorProfile>(
+      future: _profileFuture,
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        if (profile == null) return const SizedBox.shrink();
+        final name = profile.fullName.isEmpty ? 'Collector' : profile.fullName;
+        final vehicle = [profile.vehicleType, profile.vehiclePlate]
+            .where((value) => value.trim().isNotEmpty)
+            .join(' • ');
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(14.w),
+          decoration: BoxDecoration(
+            color: RecyTechTheme.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: RecyTechTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  style:
+                      TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w900)),
+              if (vehicle.isNotEmpty) Text(vehicle),
+              SizedBox(height: 6.h),
+              Text(
+                '${profile.isActive ? 'On Duty' : 'Off Duty'}  •  '
+                '${profile.activeJobs} active  •  '
+                '${profile.completedJobs} completed',
+                style:
+                    TextStyle(color: RecyTechTheme.textMuted, fontSize: 11.sp),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -291,7 +308,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
 
     switch (normalized) {
       case CollectorJobStatuses.assigned:
-        label = 'Accept';
+        label = 'Start Trip';
         onPressed = isUpdating
             ? null
             : () => _updateStatus(job, CollectorJobStatuses.onTheWay);
@@ -302,7 +319,9 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
             : () => _updateStatus(job, CollectorJobStatuses.arrived);
       case CollectorJobStatuses.arrived:
         label = 'Start Collection';
-        onPressed = isUpdating ? null : () => _startCollection(job);
+        onPressed = isUpdating
+            ? null
+            : () => _updateStatus(job, CollectorJobStatuses.inProgress);
       case CollectorJobStatuses.inProgress:
       case CollectorJobStatuses.readyForCompletion:
         label = 'Continue Collection';
@@ -333,16 +352,6 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
 
   String _valueOrDash(String value) {
     return value.trim().isEmpty ? '-' : value;
-  }
-
-  String _collectorName(UserModel? user) {
-    if (user == null) return '';
-    if (user.fullName.trim().isNotEmpty) return user.fullName.trim();
-
-    return [
-      user.firstName,
-      user.lastName,
-    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
   }
 
   Widget _messageState(

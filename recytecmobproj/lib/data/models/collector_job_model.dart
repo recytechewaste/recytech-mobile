@@ -1,4 +1,5 @@
 import '../../core/constants/app_constants.dart';
+import 'collected_item_model.dart';
 
 class CollectorJob {
   final String id;
@@ -20,6 +21,7 @@ class CollectorJob {
   final String createdAt;
   final String updatedAt;
   final String partnerOrganizationName;
+  final String binId;
   final String binCode;
   final String binName;
   final double? latitude;
@@ -29,6 +31,9 @@ class CollectorJob {
   final String remarks;
   final String requestedAt;
   final String startedAt;
+  final String requestType;
+  final List<CollectedWastePayloadItem> collectedWaste;
+  final DateTime? completionDate;
 
   const CollectorJob({
     required this.id,
@@ -50,6 +55,7 @@ class CollectorJob {
     required this.createdAt,
     required this.updatedAt,
     this.partnerOrganizationName = '',
+    this.binId = '',
     this.binCode = '',
     this.binName = '',
     this.latitude,
@@ -59,6 +65,9 @@ class CollectorJob {
     this.remarks = '',
     this.requestedAt = '',
     this.startedAt = '',
+    this.requestType = '',
+    this.collectedWaste = const [],
+    this.completionDate,
   });
 
   String get requestCode => id.isEmpty ? 'Request' : 'CR-$idSuffix';
@@ -140,7 +149,17 @@ class CollectorJob {
 
     final resident = _asMap(json['resident']);
     final assignedCollector = _asMap(json['assignedCollector']);
-    final partnerOrganization = _asMap(json['partnerOrganizationId']);
+    final partnerOrganization = _asMap(
+      json['lgu'] ?? json['partnerOrganizationId'],
+    );
+    final bin = _asMap(json['bin']);
+    final binLocation = _asMap(bin['location']);
+    final canonicalLocation = (binLocation['address'] ??
+            bin['address'] ??
+            (locationMap.isNotEmpty ? locationMap['address'] : locationValue) ??
+            json['address'] ??
+            '')
+        .toString();
     final assignedCollectorName = [
       assignedCollector['firstName'],
       assignedCollector['lastName'],
@@ -157,7 +176,8 @@ class CollectorJob {
       residentName:
           (json['residentName'] ?? json['partnerOrganizationName'] ?? '')
               .toString(),
-      location: locationAddress,
+      location:
+          canonicalLocation.isNotEmpty ? canonicalLocation : locationAddress,
       wasteType:
           (json['wasteType'] ?? json['category'] ?? 'Partner Bin').toString(),
       itemCategory: (json['itemCategory'] ??
@@ -174,7 +194,9 @@ class CollectorJob {
           (json['residentEmail'] ?? resident['email'] ?? '').toString(),
       phone: (json['phone'] ?? resident['phone'] ?? '').toString(),
       wasteImage: (json['wasteImage'] ?? '').toString(),
-      status: (json['status'] ?? 'Pending').toString(),
+      status: RequestStatuses.normalize(
+        (json['status'] ?? RequestStatuses.pending).toString(),
+      ),
       assignedCollector: assignedCollectorName.isNotEmpty
           ? assignedCollectorName
           : fallbackCollectorName,
@@ -185,24 +207,62 @@ class CollectorJob {
                   ? json['assignedCollector']
                   : ''))
           .toString(),
-      scheduledAt: (json['scheduledAt'] ?? '').toString(),
+      scheduledAt:
+          (json['scheduledDate'] ?? json['scheduledAt'] ?? '').toString(),
       createdAt: (json['createdAt'] ?? json['requestedAt'] ?? '').toString(),
       updatedAt: (json['updatedAt'] ?? '').toString(),
       partnerOrganizationName: (json['partnerOrganizationName'] ??
+              partnerOrganization['name'] ??
               partnerOrganization['organizationName'] ??
               '')
           .toString(),
-      binCode: (json['binCode'] ?? json['binId'] ?? '').toString(),
-      binName: (json['binName'] ?? json['name'] ?? '').toString(),
-      latitude: _parseNullableDouble(json['latitude'] ?? json['lat']),
+      binId: (bin['_id'] ?? bin['id'] ?? json['binId'] ?? '').toString(),
+      binCode: (bin['binCode'] ??
+              bin['code'] ??
+              json['binCode'] ??
+              json['binId'] ??
+              '')
+          .toString(),
+      binName: (bin['name'] ??
+              bin['binName'] ??
+              json['binName'] ??
+              json['name'] ??
+              '')
+          .toString(),
+      latitude: _parseNullableDouble(
+        json['latitude'] ??
+            json['lat'] ??
+            (binLocation['coordinates'] is List &&
+                    (binLocation['coordinates'] as List).length > 1
+                ? (binLocation['coordinates'] as List)[1]
+                : null),
+      ),
       longitude: _parseNullableDouble(
-        json['longitude'] ?? json['lng'] ?? json['lon'],
+        json['longitude'] ??
+            json['lng'] ??
+            json['lon'] ??
+            (binLocation['coordinates'] is List &&
+                    (binLocation['coordinates'] as List).isNotEmpty
+                ? (binLocation['coordinates'] as List)[0]
+                : null),
       ),
       fillPercentage: _parseNullableDouble(json['fillPercentage']),
       fullnessStatus: (json['fullnessStatus'] ?? '').toString(),
       remarks: (json['remarks'] ?? json['notes'] ?? '').toString(),
       requestedAt: (json['requestedAt'] ?? '').toString(),
       startedAt: (json['startedAt'] ?? '').toString(),
+      requestType: (json['requestType'] ?? '').toString(),
+      collectedWaste: json['collectedWaste'] is List
+          ? (json['collectedWaste'] as List)
+              .whereType<Map>()
+              .map((item) => CollectedWastePayloadItem.fromJson(
+                    item.cast<String, dynamic>(),
+                  ))
+              .toList(growable: false)
+          : const [],
+      completionDate: DateTime.tryParse(
+        (json['completionDate'] ?? '').toString(),
+      ),
     );
   }
 
@@ -235,6 +295,7 @@ class CollectorJob {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       partnerOrganizationName: partnerOrganizationName,
+      binId: binId,
       binCode: binCode,
       binName: binName,
       latitude: latitude,
@@ -244,6 +305,9 @@ class CollectorJob {
       remarks: remarks,
       requestedAt: requestedAt ?? this.requestedAt,
       startedAt: startedAt ?? this.startedAt,
+      requestType: requestType,
+      collectedWaste: collectedWaste,
+      completionDate: completionDate,
     );
   }
 
