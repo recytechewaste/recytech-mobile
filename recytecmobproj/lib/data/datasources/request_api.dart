@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/network/api_exceptions.dart';
@@ -68,26 +69,35 @@ class RequestApi {
   Future<Map<String, dynamic>> fetchRequest(String requestId) async {
     final Response res =
         await _apiClient.dio.get(ApiEndpoints.requestById(requestId));
+
     if (res.data is! Map) {
       throw ApiException(
         'Request details could not be loaded because the server response was incomplete.',
       );
     }
+
     return (res.data as Map).cast<String, dynamic>();
   }
 
   Future<List<dynamic>> fetchMyRequests() async {
-    final Response res = await _apiClient.dio.get(ApiEndpoints.myRequests);
+    final Response res = await _apiClient.dio.get(
+      ApiEndpoints.myRequests,
+    );
 
     return _readList(res.data);
   }
 
   Future<List<dynamic>> fetchMyTransactions() async {
-    final Response res = await _apiClient.dio.get(ApiEndpoints.myTransactions);
+    final Response res = await _apiClient.dio.get(
+      ApiEndpoints.myTransactions,
+    );
 
     if (res.data is Map && (res.data as Map).containsKey('transactions')) {
       final transactions = (res.data as Map)['transactions'];
-      if (transactions is List) return List<dynamic>.from(transactions);
+
+      if (transactions is List) {
+        return List<dynamic>.from(transactions);
+      }
     }
 
     if (res.data is List) {
@@ -105,33 +115,64 @@ class RequestApi {
       data: payload,
     );
 
-    return Map<String, dynamic>.from(res.data);
+    if (res.data is! Map) {
+      throw ApiException(
+        'Request could not be created because the server response was incomplete.',
+      );
+    }
+
+    return Map<String, dynamic>.from(res.data as Map);
   }
 
   Future<List<dynamic>> fetchActiveWasteCategories() async {
     final Response res = await _apiClient.dio.get(
-      ApiEndpoints.activeWasteCategories,
+      ApiEndpoints.rewardPoints,
     );
 
-    if (res.data is Map && (res.data as Map).containsKey('categories')) {
-      final categories = (res.data as Map)['categories'];
-      if (categories is List) return List<dynamic>.from(categories);
+    final data = res.data;
+
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+
+      for (final key in [
+        'categoryList',
+        'categories',
+        'wasteTypes',
+        'points',
+        'data',
+      ]) {
+        final value = map[key];
+
+        if (value is List) {
+          return List<dynamic>.from(value);
+        }
+      }
     }
 
-    if (res.data is List) {
-      return List<dynamic>.from(res.data as List);
+    if (data is List) {
+      return List<dynamic>.from(data);
     }
 
     return <dynamic>[];
   }
 
   List<dynamic> _readList(dynamic data) {
-    if (data is List) return List<dynamic>.from(data);
+    if (data is List) {
+      return List<dynamic>.from(data);
+    }
 
     if (data is Map) {
-      for (final key in ['data', 'requests', 'items', 'results']) {
+      for (final key in [
+        'data',
+        'requests',
+        'items',
+        'results',
+      ]) {
         final value = data[key];
-        if (value is List) return List<dynamic>.from(value);
+
+        if (value is List) {
+          return List<dynamic>.from(value);
+        }
       }
     }
 

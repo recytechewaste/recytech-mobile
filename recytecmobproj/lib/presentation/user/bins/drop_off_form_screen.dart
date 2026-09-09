@@ -1,13 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/recytechtheme.dart';
+import '../../../data/datasources/request_api.dart';
 import '../../../data/models/drop_off_record_model.dart';
 import '../../../data/models/public_bin_model.dart';
 import '../../../data/repositories/drop_off_repository.dart';
+import '../../../data/repositories/request_repository.dart';
 import '../history/history_screen.dart';
 
 class DropOffFormScreen extends StatefulWidget {
@@ -28,22 +31,33 @@ class DropOffFormScreen extends StatefulWidget {
 
 class _DropOffFormScreenState extends State<DropOffFormScreen> {
   late final DropOffRepository _repository;
+  late final RequestRepository _requestRepository;
   late final TextEditingController _quantityController;
   late final TextEditingController _notesController;
+
   final ImagePicker _imagePicker = ImagePicker();
+
   String? _selectedCategory;
   XFile? _selectedImage;
+
+  List<String> _categoryOptions = const [];
+  bool _loadingCategories = true;
+  String? _categoryLoadError;
+
   bool _submitting = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+
     _repository = widget.repository ?? ApiDropOffRepository();
+    _requestRepository = RequestRepository(RequestApi());
+
     _quantityController = TextEditingController(text: '1');
     _notesController = TextEditingController();
-    final categories = _categoryOptions;
-    _selectedCategory = categories.isEmpty ? null : categories.first;
+
+    _loadCategories();
   }
 
   @override
@@ -52,6 +66,58 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
     _notesController.dispose();
     super.dispose();
   }
+
+  Future<void> _loadCategories() async {
+  setState(() {
+    _loadingCategories = true;
+    _categoryLoadError = null;
+  });
+
+  try {
+    final activeCategories =
+        await _requestRepository.fetchActiveWasteCategories();
+
+    final active = activeCategories
+        .map((category) => category.trim())
+        .where((category) => category.isNotEmpty)
+        .toSet();
+
+    final binCategories = widget.bin.acceptedCategories
+        .map((category) => category.trim())
+        .where((category) => category.isNotEmpty)
+        .toSet();
+
+    final options = binCategories.isEmpty
+        ? active.toList()
+        : active
+            .where(
+              (category) => binCategories.any(
+                (binCategory) =>
+                    binCategory.toLowerCase() == category.toLowerCase(),
+              ),
+            )
+            .toList();
+
+    options.sort();
+
+    if (!mounted) return;
+
+    setState(() {
+      _categoryOptions = options;
+      _selectedCategory = options.isEmpty ? null : options.first;
+      _loadingCategories = false;
+    });
+  } catch (_) {
+    if (!mounted) return;
+
+    setState(() {
+      _categoryOptions = const [];
+      _selectedCategory = null;
+      _loadingCategories = false;
+      _categoryLoadError = 'Accepted categories could not be loaded.';
+    });
+  }
+}
 
   Future<void> _submit() async {
     if (_submitting) return;
@@ -168,8 +234,6 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final categoryOptions = _categoryOptions;
-
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
@@ -199,24 +263,101 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                   ),
                 ),
                 SizedBox(height: 12.h),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedCategory,
-                  items: categoryOptions
-                      .map(
-                        (category) => DropdownMenuItem(
-                          value: category,
-                          child: Text(_categoryLabel(category)),
+                if (_loadingCategories)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 16.h,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: RecyTechTheme.border),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 18.w,
+                          height: 18.w,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
                         ),
-                      )
-                      .toList(),
-                  onChanged: _submitting
-                      ? null
-                      : (value) => setState(() => _selectedCategory = value),
-                  decoration: const InputDecoration(
-                    labelText: 'Accepted category',
-                    border: OutlineInputBorder(),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Text(
+                            'Loading accepted categories...',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: RecyTechTheme.textMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_categoryLoadError != null)
+                  Container(
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: RecyTechTheme.border),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _categoryLoadError!,
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: RecyTechTheme.danger,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _loadCategories,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_categoryOptions.isEmpty)
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Accepted category',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(
+                      'No accepted categories are currently available.',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: RecyTechTheme.textMuted,
+                      ),
+                    ),
+                  )
+                else
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedCategory,
+                    items: _categoryOptions
+                        .map(
+                          (category) => DropdownMenuItem<String>(
+                            value: category,
+                            child: Text(_categoryLabel(category)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _submitting
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _selectedCategory = value;
+                              _errorMessage = null;
+                            });
+                          },
+                    decoration: const InputDecoration(
+                      labelText: 'Accepted category',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
                 SizedBox(height: 12.h),
                 TextField(
                   controller: _quantityController,
@@ -262,14 +403,63 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                     ),
                   ],
                 ),
-                if (_selectedImage != null)
+                if (_selectedImage != null) ...[
+                  SizedBox(height: 12.h),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12.r),
+                    child: Stack(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          height: 180.h,
+                          child: Image.file(
+                            File(_selectedImage!.path),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) {
+                              return Container(
+                                alignment: Alignment.center,
+                                color: RecyTechTheme.bg,
+                                child: const Text(
+                                  'Unable to preview selected photo.',
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned(
+                          top: 8.h,
+                          right: 8.w,
+                          child: Material(
+                            color: Colors.black54,
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: 'Remove photo',
+                              onPressed: _submitting
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _selectedImage = null;
+                                      });
+                                    },
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 6.h),
                   Text(
-                    'One photo selected',
+                    'Photo selected',
                     style: TextStyle(
                       fontSize: 11.sp,
                       color: RecyTechTheme.textMuted,
                     ),
                   ),
+                ],
                 if (_errorMessage != null) ...[
                   SizedBox(height: 12.h),
                   Text(
@@ -285,8 +475,12 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed:
-                        _submitting || categoryOptions.isEmpty ? null : _submit,
+                    onPressed: _submitting ||
+                            _loadingCategories ||
+                            _categoryOptions.isEmpty ||
+                            _selectedCategory == null
+                        ? null
+                        : _submit,
                     icon: _submitting
                         ? SizedBox(
                             width: 16.w,
@@ -297,8 +491,9 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                             ),
                           )
                         : const Icon(Icons.check_circle_outline),
-                    label:
-                        Text(_submitting ? 'Submitting...' : 'Submit Drop-Off'),
+                    label: Text(
+                      _submitting ? 'Submitting...' : 'Submit Drop-Off',
+                    ),
                   ),
                 ),
               ],
@@ -382,12 +577,6 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
   String _categoryLabel(String category) {
     return category;
   }
-
-  List<String> get _categoryOptions => widget.bin.acceptedCategories
-      .map(DropOffWasteTypes.canonicalize)
-      .whereType<String>()
-      .toSet()
-      .toList(growable: false);
 
   String _itemsLabel(DropOffRecord record) {
     if (record.items.isEmpty) return 'Item recorded.';

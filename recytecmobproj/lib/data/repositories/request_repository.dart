@@ -12,18 +12,27 @@ class RequestRepository {
   RequestRepository(this._api);
 
   Future<List<String>> fetchActiveWasteCategories() async {
-    final list = await _api.fetchActiveWasteCategories();
+  final list = await _api.fetchActiveWasteCategories();
 
-    return list
-        .map((item) {
-          if (item is Map) {
-            return (item['value'] ?? item['label'] ?? '').toString();
-          }
-          return item.toString();
-        })
-        .where((category) => category.trim().isNotEmpty)
-        .toList();
-  }
+  return list
+      .map((item) {
+        if (item is Map) {
+          return (item['wasteType'] ??
+                  item['value'] ??
+                  item['label'] ??
+                  item['category'] ??
+                  item['name'] ??
+                  '')
+              .toString();
+        }
+
+        return item.toString();
+      })
+      .map((category) => category.trim())
+      .where((category) => category.isNotEmpty)
+      .toSet()
+      .toList();
+}
 
   Future<List<EWasteRequestModel>> fetchMyRequests() async {
     final list = await _api.fetchMyRequests();

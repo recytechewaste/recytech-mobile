@@ -215,7 +215,8 @@ class ApiDropOffRepository implements DropOffRepository {
   Future<List<DropOffRecord>> getMyDropOffHistory() async {
     try {
       final response = await _apiClient.dio.get(ApiEndpoints.binDropoffs);
-      final items = _extractItems(response.data, preferredKey: 'dropOffs');
+      final items = _extractItems(response.data, preferredKey: 'dropoffs');
+
       return items
           .whereType<Map>()
           .map((item) => DropOffRecord.fromJson(item.cast<String, dynamic>()))
