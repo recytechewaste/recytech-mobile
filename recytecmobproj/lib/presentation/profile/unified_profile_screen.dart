@@ -99,7 +99,7 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
     return Scaffold(
       backgroundColor: RecyTechTheme.bg,
       appBar: AppBar(
-        title: const Text('Profile & Account'),
+        title: const Text('Profile'),
         actions: [
           IconButton(
             onPressed: () => Navigator.pushNamed(context, SettingsScreen.route),
@@ -134,75 +134,20 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.all(16.w),
               children: [
-                CircleAvatar(
-                  radius: 42.r,
-                  backgroundColor: RecyTechTheme.pill,
-                  child: Icon(Icons.person,
-                      size: 40.sp, color: RecyTechTheme.primary),
-                ),
-                SizedBox(height: 12.h),
-                Text(
-                  profile.identityName ?? 'Name unavailable',
-                  key: const Key('profile-display-name'),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  profile.roleLabel,
-                  key: const Key('profile-role-label'),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: RecyTechTheme.textMuted,
-                  ),
-                ),
+                _identityCard(profile),
                 SizedBox(height: 18.h),
-                _row('Email', profile.email),
-                _row(
-                  'Account Status',
-                  profile.accountStatus.isEmpty
-                      ? profile.status
-                      : profile.accountStatus,
+                _sectionTitle(
+                  'Account details',
+                  'Your verified contact and role information.',
                 ),
-                _row('User ID', profile.userId),
-                _row('Profile ID', profile.profileId),
-                ...profile.linkedProfileFields.entries
-                    .where((entry) => !const ['_id', 'id'].contains(entry.key))
-                    .where((entry) =>
-                        entry.value is String ||
-                        entry.value is num ||
-                        entry.value is bool)
-                    .map((entry) =>
-                        _row(_label(entry.key), entry.value.toString())),
+                SizedBox(height: 10.h),
+                _detailsCard(profile),
                 if (profile.role == 'collector') _collectorOperations(),
+                SizedBox(height: 18.h),
+                _sectionTitle('Account actions', null),
                 SizedBox(height: 10.h),
-                OutlinedButton.icon(
-                  onPressed: () => _editProfile(profile),
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Edit Profile'),
-                ),
-                SizedBox(height: 10.h),
-                OutlinedButton.icon(
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => _PasswordChangeDialog(
-                      repository: _repository,
-                    ),
-                  ),
-                  icon: const Icon(Icons.lock_outline),
-                  label: const Text('Change Password'),
-                ),
-                SizedBox(height: 10.h),
-                OutlinedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
-                ),
+                _actionsCard(profile),
+                SizedBox(height: 8.h),
               ],
             ),
           );
@@ -211,16 +156,225 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
     );
   }
 
-  Widget _row(String label, String value) => Card(
-        child: ListTile(
-          title: Text(label),
-          trailing: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.55,
+  Widget _identityCard(UnifiedProfile profile) {
+    final scheme = Theme.of(context).colorScheme;
+    final rawStatus =
+        profile.accountStatus.isEmpty ? profile.status : profile.accountStatus;
+    final status =
+        rawStatus.trim().isEmpty ? 'Status unavailable' : _title(rawStatus);
+
+    return Card(
+      key: const Key('profile-identity-card'),
+      child: Padding(
+        padding: EdgeInsets.all(18.w),
+        child: Row(
+          children: [
+            Container(
+              width: 68.w,
+              height: 68.w,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                profile.role == 'partner_org'
+                    ? Icons.business_outlined
+                    : profile.role == 'collector'
+                        ? Icons.local_shipping_outlined
+                        : Icons.person_outline,
+                size: 32.sp,
+                color: scheme.primary,
+              ),
             ),
-            child: Text(value.trim().isEmpty ? 'Not supplied' : value,
-                textAlign: TextAlign.right),
+            SizedBox(width: 14.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile.identityName ?? 'Name unavailable',
+                    key: const Key('profile-display-name'),
+                    style: TextStyle(
+                      fontSize: 17.sp,
+                      height: 1.2,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  SizedBox(height: 5.h),
+                  Text(
+                    profile.roleLabel,
+                    key: const Key('profile-role-label'),
+                    style: TextStyle(
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Semantics(
+                    label: 'Account status: $status',
+                    child: Container(
+                      key: const Key('profile-account-status'),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 9.w,
+                        vertical: 4.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          color: scheme.primary,
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title, String? subtitle) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w900),
+        ),
+        if (subtitle != null) ...[
+          SizedBox(height: 3.h),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 11.sp,
+              color: scheme.onSurfaceVariant,
+            ),
           ),
+        ],
+      ],
+    );
+  }
+
+  Widget _detailsCard(UnifiedProfile profile) {
+    final fields = _visibleFields(profile);
+    return Card(
+      key: const Key('profile-details-card'),
+      child: Column(
+        children: [
+          for (var index = 0; index < fields.length; index++) ...[
+            _detailRow(fields[index].$1, fields[index].$2, fields[index].$3),
+            if (index != fields.length - 1)
+              const Divider(height: 1, indent: 50),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<(String, String, IconData)> _visibleFields(UnifiedProfile profile) {
+    String value(String key) =>
+        (profile.linkedProfileFields[key] ?? profile.userFields[key] ?? '')
+            .toString();
+
+    return switch (profile.role) {
+      'partner_org' => [
+          ('Email', profile.email, Icons.email_outlined),
+          ('Contact person', value('contactPerson'), Icons.badge_outlined),
+          ('Contact number', value('contactNumber'), Icons.phone_outlined),
+          ('Address', value('address'), Icons.location_on_outlined),
+        ],
+      'collector' => [
+          ('Email', profile.email, Icons.email_outlined),
+          ('Phone', value('phone'), Icons.phone_outlined),
+          ('Vehicle type', value('vehicleType'), Icons.local_shipping_outlined),
+          ('Vehicle plate', value('vehiclePlate'), Icons.pin_outlined),
+        ],
+      _ => [
+          ('Email', profile.email, Icons.email_outlined),
+          ('Phone', value('phone'), Icons.phone_outlined),
+          ('Address', value('address'), Icons.location_on_outlined),
+        ],
+    };
+  }
+
+  Widget _detailRow(String label, String value, IconData icon) {
+    final scheme = Theme.of(context).colorScheme;
+    final display = value.trim().isEmpty ? 'Not supplied' : value.trim();
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20.sp, color: scheme.primary),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  display,
+                  style:
+                      TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionsCard(UnifiedProfile profile) => Card(
+        child: Column(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit profile'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _editProfile(profile),
+            ),
+            const Divider(height: 1, indent: 56),
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Change password'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (_) => _PasswordChangeDialog(repository: _repository),
+              ),
+            ),
+            const Divider(height: 1, indent: 56),
+            ListTile(
+              leading: Icon(Icons.logout, color: RecyTechTheme.danger),
+              title: Text(
+                'Log out',
+                style: TextStyle(
+                  color: RecyTechTheme.danger,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onTap: _logout,
+            ),
+          ],
         ),
       );
 
@@ -232,6 +386,7 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
         final collector = snapshot.data;
         if (collector == null) return const SizedBox.shrink();
         return Card(
+          margin: EdgeInsets.only(top: 10.h),
           child: SwitchListTile(
             title: const Text('Collector Duty Status'),
             subtitle: Text(
@@ -245,9 +400,12 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
     );
   }
 
-  String _label(String value) => value
-      .replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]}')
-      .replaceAll('_', ' ');
+  String _title(String value) => value
+      .replaceAll('_', ' ')
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase() + part.substring(1).toLowerCase())
+      .join(' ');
 }
 
 class _ProfileEditDialog extends StatefulWidget {

@@ -20,7 +20,7 @@ class RewardPointRule {
     return value.isEmpty ? null : value;
   }
 
-  num get pointsValue {
+  num? get pointsValue {
     final value =
         fields['pointsPerItem'] ?? fields['pointsPerKg'] ?? fields['points'];
 
@@ -28,10 +28,12 @@ class RewardPointRule {
       return value;
     }
 
-    return num.tryParse(
-          (value ?? '').toString(),
-        ) ??
-        0;
+    return num.tryParse((value ?? '').toString());
+  }
+
+  String get rateUnit {
+    if (fields['pointsPerKg'] != null) return 'kg';
+    return 'unit';
   }
 
   bool get isActive {

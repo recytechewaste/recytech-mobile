@@ -131,6 +131,72 @@ void main() {
       );
       expect(profile.identityName, isNull);
     });
+
+    testWidgets('shows curated Household details without internal identifiers',
+        (tester) async {
+      await _pumpProfile(
+        tester,
+        UnifiedProfile.fromJson({
+          ..._profile(AppRoles.household),
+          'profile': {
+            ...(_profile(AppRoles.household)['profile'] as Map),
+            'pointsBalance': 80,
+            'privateNotes': 'never render this',
+          },
+        }),
+      );
+
+      expect(find.text('Account details'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
+      expect(find.text('Phone'), findsOneWidget);
+      expect(find.text('Address'), findsOneWidget);
+      expect(find.text('User ID'), findsNothing);
+      expect(find.text('Profile ID'), findsNothing);
+      expect(find.text('user-1'), findsNothing);
+      expect(find.text('profile-1'), findsNothing);
+      expect(find.text('80'), findsNothing);
+      expect(find.text('never render this'), findsNothing);
+    });
+
+    testWidgets('uses role-specific Partner and Collector detail sets',
+        (tester) async {
+      await _pumpProfile(
+        tester,
+        UnifiedProfile.fromJson(_profile(AppRoles.partnerOrg)),
+      );
+      expect(find.text('Contact person'), findsOneWidget);
+      expect(find.text('Contact number'), findsOneWidget);
+      expect(find.text('Vehicle plate'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpProfile(
+        tester,
+        UnifiedProfile.fromJson(_profile(AppRoles.collector)),
+      );
+      expect(find.text('Vehicle type'), findsOneWidget);
+      expect(find.text('Vehicle plate'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Collector Duty Status'),
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Collector Duty Status'), findsOneWidget);
+      expect(find.text('Contact person'), findsNothing);
+    });
+
+    testWidgets('profile layout does not overflow a compact viewport',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await _pumpProfile(
+        tester,
+        UnifiedProfile.fromJson(_profile(AppRoles.collector)),
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('profile update contract', () {
