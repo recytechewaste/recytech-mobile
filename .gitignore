@@ -78,3 +78,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Generated APK release files
+recytecmobproj/release/*.apk

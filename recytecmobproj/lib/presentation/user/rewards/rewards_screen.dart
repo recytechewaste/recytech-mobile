@@ -106,7 +106,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
           onRefresh: _refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +116,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     SizedBox(height: 22.h),
                   ],
                   _catalogHeader(),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 14.h),
                   _catalogSection(),
                   SizedBox(height: 8.h),
                 ],
@@ -337,7 +337,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
             children: [
               for (var index = 0; index < rules.length; index++) ...[
                 _ruleCard(rules[index]),
-                if (index != rules.length - 1) SizedBox(height: 10.h),
+                if (index != rules.length - 1) SizedBox(height: 14.h),
               ],
             ],
           );
@@ -378,11 +378,11 @@ class _RewardsScreenState extends State<RewardsScreen> {
         borderRadius: BorderRadius.circular(RecyTechTheme.cardRadius),
         onTap: () => _openRule(rule),
         child: Padding(
-          padding: EdgeInsets.all(14.w),
+          padding: EdgeInsets.all(16.w),
           child: Row(
             children: [
               _categoryIcon(rule),
-              SizedBox(width: 12.w),
+              SizedBox(width: 14.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,7 +395,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                       ),
                     ),
                     if (rule.description != null) ...[
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 6.h),
                       Text(
                         rule.description!,
                         maxLines: 2,

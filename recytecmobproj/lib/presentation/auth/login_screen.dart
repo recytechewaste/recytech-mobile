@@ -84,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: ListView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 18.h),
+                padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 24.h),
                 children: [
                   Center(
                     child: Image.asset(
@@ -107,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(height: 20.h),
                   Card(
                     child: Padding(
-                      padding: EdgeInsets.all(18.w),
+                      padding: EdgeInsets.all(20.w),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -119,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: scheme.primary,
                             ),
                           ),
-                          SizedBox(height: 5.h),
+                          SizedBox(height: 7.h),
                           Text(
                             'Sign in to access RecyTech.',
                             style: TextStyle(
@@ -146,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             textInputAction: TextInputAction.next,
                             autofillHints: const [AutofillHints.email],
                           ),
-                          SizedBox(height: 14.h),
+                          SizedBox(height: 16.h),
                           LabeledTextField(
                             label: 'Password',
                             hintText: 'Enter your password',
@@ -181,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: const Text('Forgot Password?'),
                             ),
                           ),
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 8.h),
                           auth.isLoading
                               ? SizedBox(
                                   height: 48.h,
@@ -194,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: double.infinity,
                                   onPressed: _handleLogin,
                                 ),
-                          SizedBox(height: 10.h),
+                          SizedBox(height: 12.h),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

@@ -198,10 +198,10 @@ class _CollectorEWasteCaptureScreenState
             : 'Edit Collected Item'),
       ),
       body: ListView(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
         children: [
           _imagePanel(),
-          SizedBox(height: 12.h),
+          SizedBox(height: 14.h),
           Row(
             children: [
               Expanded(
@@ -226,20 +226,20 @@ class _CollectorEWasteCaptureScreenState
             ],
           ),
           if (_isDetecting) ...[
-            SizedBox(height: 14.h),
+            SizedBox(height: 18.h),
             const Center(child: CircularProgressIndicator()),
           ],
           if (_message != null) ...[
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             _messageBox(_message!, isWarning: true),
           ],
           if (_result != null) ...[
-            SizedBox(height: 14.h),
+            SizedBox(height: 18.h),
             _predictionPanel(),
           ],
-          SizedBox(height: 14.h),
+          SizedBox(height: 18.h),
           _categoryDropdown(),
-          SizedBox(height: 12.h),
+          SizedBox(height: 14.h),
           TextField(
             controller: _quantity,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -326,7 +326,7 @@ class _CollectorEWasteCaptureScreenState
   Widget _predictionPanel() {
     final result = _result!;
     return Container(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
@@ -337,7 +337,7 @@ class _CollectorEWasteCaptureScreenState
         children: [
           Text('Prediction: ${result.detectedClass}',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.sp)),
-          SizedBox(height: 4.h),
+          SizedBox(height: 6.h),
           Text(
             'Confidence: ${(result.confidence * 100).toStringAsFixed(1)}%',
           ),
@@ -394,7 +394,7 @@ class _CollectorEWasteCaptureScreenState
     final color = isWarning ? RecyTechTheme.warning : RecyTechTheme.primary;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),

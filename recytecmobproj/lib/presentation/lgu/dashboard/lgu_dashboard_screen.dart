@@ -150,15 +150,15 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
                     color: RecyTechTheme.textDark,
                   ),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 12.h),
                 GridView(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    mainAxisSpacing: 12.h,
-                    crossAxisSpacing: 12.w,
-                    childAspectRatio: 1.08,
+                    mainAxisSpacing: 14.h,
+                    crossAxisSpacing: 14.w,
+                    childAspectRatio: 1,
                   ),
                   children: [
                     _metricCard(
@@ -265,7 +265,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
   }) {
     final card = Container(
       key: key,
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: emphasized
             ? RecyTechTheme.primary.withValues(alpha: 0.07)
@@ -311,7 +311,7 @@ class _LguDashboardScreenState extends State<LguDashboardScreen> {
                   emphasized ? RecyTechTheme.primary : RecyTechTheme.textDark,
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 8.h),
           Text(
             title,
             maxLines: 2,

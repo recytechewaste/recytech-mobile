@@ -95,7 +95,7 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
             onRefresh: _refresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
               children: [
                 _filterBar(),
                 SizedBox(height: 12.h),
@@ -155,8 +155,8 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
       onTap: () => _openBin(bin),
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        margin: EdgeInsets.only(bottom: 12.h),
-        padding: EdgeInsets.all(14.w),
+        margin: EdgeInsets.only(bottom: 14.h),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(16),
@@ -192,13 +192,13 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
               bin.binId,
               style: TextStyle(fontSize: 11.sp, color: RecyTechTheme.textMuted),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 10.h),
             Text(
               bin.location,
               style: TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark),
             ),
             if (bin.acceptedCategoryLabels.isNotEmpty) ...[
-              SizedBox(height: 8.h),
+              SizedBox(height: 10.h),
               Text(
                 'Accepts: ${bin.acceptedCategoryLabels.join(', ')}',
                 style: TextStyle(
@@ -207,12 +207,12 @@ class _AssignedBinsScreenState extends State<AssignedBinsScreen> {
                 ),
               ),
             ],
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             FillLevelIndicator(
               fillLevel: bin.fillPercentage,
               status: fullnessLabel,
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             Wrap(
               spacing: 8.w,
               runSpacing: 8.h,

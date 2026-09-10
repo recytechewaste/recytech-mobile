@@ -194,32 +194,32 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
             onRefresh: _refresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
               children: [
                 if (FullnessStatuses.normalize(data.bin.fullnessStatus) ==
                     FullnessStatuses.full)
                   _recommendationBanner(),
                 _conditionPanel(data.bin, data.monitoring),
-                SizedBox(height: 18.h),
+                SizedBox(height: 22.h),
                 OutlinedButton.icon(
                   onPressed: () => _updateBin(data.bin),
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Update Bin Status'),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 12.h),
                 OutlinedButton.icon(
                   key: const Key('report-sensor-issue'),
                   onPressed: () => _reportSensorIssue(data.bin),
                   icon: const Icon(Icons.report_problem_outlined),
                   label: const Text('Report Sensor Issue'),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 12.h),
                 OutlinedButton.icon(
                   onPressed: _openIncidentHistory,
                   icon: const Icon(Icons.history_outlined),
                   label: const Text('Incident History'),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 12.h),
                 ElevatedButton.icon(
                   onPressed: () => _requestCollection(data.bin),
                   icon: const Icon(Icons.local_shipping_outlined),
@@ -240,8 +240,8 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
   Widget _recommendationBanner() {
     final warning = RecyTechTheme.warning;
     return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(12.w),
+      margin: EdgeInsets.only(bottom: 14.h),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
@@ -277,7 +277,7 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
         monitoring.fillPercentage != null;
 
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
@@ -416,7 +416,7 @@ class _BinDetailsScreenState extends State<BinDetailsScreen> {
     final warning = RecyTechTheme.warning;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),

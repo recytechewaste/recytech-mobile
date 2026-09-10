@@ -66,7 +66,7 @@ class _PendingDropOffValidationDetailScreenState
           children: [
             Expanded(
               child: ListView(
-                padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 18.h),
+                padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
                 children: [
                   _summary(record),
                   SizedBox(height: 14.h),
@@ -98,7 +98,7 @@ class _PendingDropOffValidationDetailScreenState
               ),
             ),
             Container(
-              padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
+              padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 18.h),
               decoration: BoxDecoration(
                 color: RecyTechTheme.card,
                 border: Border(top: BorderSide(color: RecyTechTheme.border)),
@@ -144,7 +144,7 @@ class _PendingDropOffValidationDetailScreenState
                         color: RecyTechTheme.textDark,
                       ),
                     ),
-                    SizedBox(height: 5.h),
+                    SizedBox(height: 7.h),
                     Text(
                       dropOffDate(record.createdAt),
                       style: TextStyle(
@@ -278,7 +278,7 @@ class _ValidationSheetState extends State<_ValidationSheet> {
                   color: RecyTechTheme.textDark,
                 ),
               ),
-              SizedBox(height: 7.h),
+              SizedBox(height: 8.h),
               Text(
                 'Review the submitted item before approving or rejecting it.',
                 style: TextStyle(
@@ -287,7 +287,7 @@ class _ValidationSheetState extends State<_ValidationSheet> {
                   color: RecyTechTheme.textMuted,
                 ),
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 18.h),
               TextField(
                 controller: _notesController,
                 maxLines: 3,
@@ -297,7 +297,7 @@ class _ValidationSheetState extends State<_ValidationSheet> {
                   hintText: 'Add a short note for this decision',
                 ),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 12.h),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
@@ -307,7 +307,7 @@ class _ValidationSheetState extends State<_ValidationSheet> {
                   label: const Text('Approve Drop-Off'),
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 10.h),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

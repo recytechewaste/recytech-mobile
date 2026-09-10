@@ -318,7 +318,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
             onRefresh: _refresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
               children: [
                 _locationNotice(data.location),
                 if (data.location.availability !=
@@ -381,8 +381,8 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
         _showBinDetails(bin);
       },
       child: Container(
-        margin: EdgeInsets.only(bottom: 12.h),
-        padding: EdgeInsets.all(14.w),
+        margin: EdgeInsets.only(bottom: 14.h),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(16),
@@ -410,7 +410,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
                   ),
               ],
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 10.h),
             Row(
               children: [
                 Expanded(
@@ -507,7 +507,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
                 ),
               ),
             ],
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             Row(
               children: [
                 Expanded(
@@ -537,7 +537,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
     final mappedBins = bins.where((bin) => bin.hasCoordinates).toList();
     if (mappedBins.isEmpty) {
       return Container(
-        padding: EdgeInsets.all(14.w),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(16),
@@ -624,7 +624,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
     }
 
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
@@ -666,7 +666,7 @@ class _BinLocatorScreenState extends State<BinLocatorScreen> {
 
   Widget _missingCoordinatesNotice() {
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),

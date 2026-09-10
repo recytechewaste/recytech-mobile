@@ -117,9 +117,9 @@ class _PendingDropOffValidationsScreenState
               child: ListView.separated(
                 key: const Key('pending-validations-list'),
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 24.h),
+                padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
                 itemCount: records.length,
-                separatorBuilder: (_, __) => SizedBox(height: 12.h),
+                separatorBuilder: (_, __) => SizedBox(height: 14.h),
                 itemBuilder: (context, index) =>
                     _PendingDropOffCard(record: records[index], onTap: _open),
               ),
@@ -184,7 +184,7 @@ class _PendingDropOffCard extends StatelessWidget {
         key: Key('pending-dropoff-${record.id}'),
         onTap: () => onTap(record),
         child: Padding(
-          padding: EdgeInsets.all(14.w),
+          padding: EdgeInsets.all(16.w),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -219,11 +219,11 @@ class _PendingDropOffCard extends StatelessWidget {
                         _pendingBadge(),
                       ],
                     ),
-                    SizedBox(height: 7.h),
+                    SizedBox(height: 8.h),
                     _meta(Icons.inventory_2_outlined, dropOffQuantity(record)),
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 6.h),
                     _meta(Icons.delete_outline, record.binName),
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 6.h),
                     _meta(Icons.schedule, dropOffDate(record.createdAt)),
                     if (notes.isNotEmpty) ...[
                       SizedBox(height: 6.h),

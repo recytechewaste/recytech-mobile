@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import 'presentation/splash/splash_screen.dart';
+
 import 'data/repositories/auth_repository.dart';
 import 'services/auth_provider.dart';
 
@@ -62,9 +64,7 @@ class RecyTechApp extends StatelessWidget {
               home: Consumer<AuthProvider>(
                 builder: (context, auth, _) {
                   if (auth.isLoading) {
-                    return const Scaffold(
-                      body: Center(child: CircularProgressIndicator()),
-                    );
+                    return const SplashScreen();
                   }
 
                   if (auth.user != null) {

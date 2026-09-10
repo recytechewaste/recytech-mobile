@@ -122,15 +122,15 @@ class _DropOffDetailScreenState extends State<DropOffDetailScreen> {
             onRefresh: _retry,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
               children: [
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const LinearProgressIndicator(),
                 if (snapshot.connectionState == ConnectionState.waiting)
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 14.h),
                 _panel(data),
                 if (record.imageUrls.isNotEmpty) ...[
-                  SizedBox(height: 14.h),
+                  SizedBox(height: 18.h),
                   Text(
                     'Submitted photos',
                     style: TextStyle(
@@ -139,7 +139,7 @@ class _DropOffDetailScreenState extends State<DropOffDetailScreen> {
                       color: RecyTechTheme.textDark,
                     ),
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 10.h),
                   ...record.imageUrls.map(_photo),
                 ],
               ],
@@ -153,7 +153,7 @@ class _DropOffDetailScreenState extends State<DropOffDetailScreen> {
   Widget _panel(_DropOffDetailsData data) {
     final record = data.record;
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(18.r),
@@ -197,7 +197,7 @@ class _DropOffDetailScreenState extends State<DropOffDetailScreen> {
 
   Widget _photo(String url) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.only(bottom: 12.h),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14.r),
         child: Image.network(

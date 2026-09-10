@@ -97,6 +97,7 @@ class _CollectionRequestFormScreenState
       appBar: AppBar(title: const Text('Request Collection')),
       body: SafeArea(
         child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.all(16.w),
           children: [
             _summary(bin),

@@ -132,20 +132,20 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
             onRefresh: _refresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
               children: [
                 _identityCard(profile),
-                SizedBox(height: 18.h),
+                SizedBox(height: 22.h),
                 _sectionTitle(
                   'Account details',
                   'Your verified contact and role information.',
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 12.h),
                 _detailsCard(profile),
                 if (profile.role == 'collector') _collectorOperations(),
-                SizedBox(height: 18.h),
+                SizedBox(height: 22.h),
                 _sectionTitle('Account actions', null),
-                SizedBox(height: 10.h),
+                SizedBox(height: 12.h),
                 _actionsCard(profile),
                 SizedBox(height: 8.h),
               ],
@@ -311,7 +311,7 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
     final scheme = Theme.of(context).colorScheme;
     final display = value.trim().isEmpty ? 'Not supplied' : value.trim();
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -329,7 +329,7 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 2.h),
+                SizedBox(height: 4.h),
                 Text(
                   display,
                   style:
@@ -386,7 +386,7 @@ class _UnifiedProfileScreenState extends State<UnifiedProfileScreen> {
         final collector = snapshot.data;
         if (collector == null) return const SizedBox.shrink();
         return Card(
-          margin: EdgeInsets.only(top: 10.h),
+          margin: EdgeInsets.only(top: 14.h),
           child: SwitchListTile(
             title: const Text('Collector Duty Status'),
             subtitle: Text(
@@ -509,7 +509,7 @@ class _ProfileEditDialogState extends State<_ProfileEditDialog> {
             children: [
               for (final field in _fields)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 14),
                   child: field == 'vehicleType'
                       ? DropdownButtonFormField<String>(
                           initialValue: _vehicleType,
@@ -651,6 +651,7 @@ class _PasswordChangeDialogState extends State<_PasswordChangeDialog> {
               autocorrect: false,
               decoration: const InputDecoration(labelText: 'Current password'),
             ),
+            const SizedBox(height: 14),
             TextField(
               controller: _fields.next,
               obscureText: true,
@@ -658,6 +659,7 @@ class _PasswordChangeDialogState extends State<_PasswordChangeDialog> {
               autocorrect: false,
               decoration: const InputDecoration(labelText: 'New password'),
             ),
+            const SizedBox(height: 14),
             TextField(
               controller: _fields.confirm,
               obscureText: true,

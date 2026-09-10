@@ -17,9 +17,9 @@ class HomeFeatureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Card(
-      margin: EdgeInsets.only(bottom: 12.h),
+      margin: EdgeInsets.only(bottom: 14.h),
       child: Padding(
-        padding: EdgeInsets.all(12.w),
+        padding: EdgeInsets.all(16.w),
         child: Row(
           children: [
             // 🔹 IMAGE PLACEHOLDER
@@ -37,7 +37,7 @@ class HomeFeatureCard extends StatelessWidget {
               ),
             ),
 
-            SizedBox(width: 12.w),
+            SizedBox(width: 14.w),
 
             // 🔹 TEXT CONTENT
             Expanded(
@@ -52,12 +52,13 @@ class HomeFeatureCard extends StatelessWidget {
                       color: scheme.onSurface,
                     ),
                   ),
-                  SizedBox(height: 4.h),
+                  SizedBox(height: 6.h),
                   Text(
                     description,
                     style: TextStyle(
                       fontSize: 12.sp,
                       color: scheme.onSurfaceVariant,
+                      height: 1.35,
                     ),
                   ),
                 ],

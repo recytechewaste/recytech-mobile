@@ -22,7 +22,7 @@ class MetricCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(14.w),
+        padding: EdgeInsets.all(16.w),
         child: Row(
           children: [
             Container(
@@ -34,7 +34,7 @@ class MetricCard extends StatelessWidget {
               ),
               child: Icon(icon, color: accent, size: 20.sp),
             ),
-            SizedBox(width: 10.w),
+            SizedBox(width: 12.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,16 +43,18 @@ class MetricCard extends StatelessWidget {
                     value,
                     style: TextStyle(
                       color: scheme.onSurface,
-                      fontSize: 15.sp,
+                      fontSize: 17.sp,
+                      height: 1.15,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  SizedBox(height: 2.h),
+                  SizedBox(height: 4.h),
                   Text(
                     label,
                     style: TextStyle(
                       color: scheme.onSurfaceVariant,
-                      fontSize: 11.sp,
+                      fontSize: 11.5.sp,
+                      height: 1.3,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

@@ -144,10 +144,10 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
             child: jobs.isEmpty
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(16.w),
+                    padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
                     children: [
                       _profileSummary(),
-                      SizedBox(height: 12.h),
+                      SizedBox(height: 14.h),
                       _messageState(
                         context,
                         'You have no assigned collection requests right now.',
@@ -158,12 +158,12 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                   )
                 : ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(16.w),
+                    padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
                     children: [
                       _profileSummary(),
-                      SizedBox(height: 12.h),
+                      SizedBox(height: 14.h),
                       _queueNotice(context, jobs.length),
-                      SizedBox(height: 12.h),
+                      SizedBox(height: 14.h),
                       for (var i = 0; i < jobs.length; i++)
                         _requestCard(context, jobs[i], i + 1),
                     ],
@@ -187,7 +187,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
             .join(' • ');
         return Container(
           width: double.infinity,
-          padding: EdgeInsets.all(14.w),
+          padding: EdgeInsets.all(16.w),
           decoration: BoxDecoration(
             color: RecyTechTheme.card,
             borderRadius: BorderRadius.circular(18),
@@ -200,7 +200,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                   style:
                       TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w900)),
               if (vehicle.isNotEmpty) Text(vehicle),
-              SizedBox(height: 6.h),
+              SizedBox(height: 8.h),
               Text(
                 '${profile.isActive ? 'On Duty' : 'Off Duty'}  •  '
                 '${profile.activeJobs} active  •  '
@@ -218,7 +218,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
   Widget _queueNotice(BuildContext context, int count) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.pill,
         borderRadius: BorderRadius.circular(18),
@@ -240,8 +240,8 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
       borderRadius: BorderRadius.circular(20),
       onTap: () => _openJob(job),
       child: Container(
-        margin: EdgeInsets.only(bottom: 12.h),
-        padding: EdgeInsets.all(14.w),
+        margin: EdgeInsets.only(bottom: 14.h),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(20),
@@ -290,7 +290,7 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
                 ),
               ],
             ),
-            SizedBox(height: 6.h),
+            SizedBox(height: 10.h),
             Text(
                 'Partner Organization: ${_valueOrDash(job.partnerOrganizationName)}',
                 style:
@@ -301,12 +301,12 @@ class _CollectorAssignedScreenState extends State<CollectorAssignedScreen> {
             Text('Smart bin: ${_valueOrDash(job.displayItem)}',
                 style:
                     TextStyle(fontSize: 12.sp, color: RecyTechTheme.textDark)),
-            SizedBox(height: 8.h),
+            SizedBox(height: 10.h),
             Align(
               alignment: Alignment.centerRight,
               child: StatusBadge(label: job.status),
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             _actionButton(job),
           ],
         ),

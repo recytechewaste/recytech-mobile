@@ -162,7 +162,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       appBar: AppBar(title: const Text('Reset Password')),
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 18.h),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(22.w, 20.h, 22.w, 24.h),
           children: [
             _header(),
             SizedBox(height: 18.h),

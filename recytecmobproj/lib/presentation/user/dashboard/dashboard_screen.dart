@@ -32,7 +32,7 @@ class UserDashboardScreen extends StatelessWidget {
       borderRadius: BorderRadius.circular(20.r),
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.all(14.w),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(20.r),
@@ -56,7 +56,7 @@ class UserDashboardScreen extends StatelessWidget {
               ),
               child: Icon(icon, color: tint, size: 24.sp),
             ),
-            SizedBox(width: 12.w),
+            SizedBox(width: 14.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,7 +69,7 @@ class UserDashboardScreen extends StatelessWidget {
                       color: _textDark,
                     ),
                   ),
-                  SizedBox(height: 4.h),
+                  SizedBox(height: 6.h),
                   Text(
                     body,
                     style: TextStyle(
@@ -135,7 +135,7 @@ class UserDashboardScreen extends StatelessWidget {
           ],
         ),
         body: ListView(
-          padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
+          padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 24.h),
           children: [
             Text(
               'Hi, $firstName!',
@@ -145,12 +145,12 @@ class UserDashboardScreen extends StatelessWidget {
                 color: _textDark,
               ),
             ),
-            SizedBox(height: 4.h),
+            SizedBox(height: 6.h),
             Text(
               'Find a designated bin, scan its QR code, and submit e-waste drop-offs.',
               style: TextStyle(fontSize: 11.sp, color: _textMuted),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 20.h),
             _infoCard(
               title: 'Find a Bin',
               body:
@@ -166,7 +166,7 @@ class UserDashboardScreen extends StatelessWidget {
                 );
               },
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             _infoCard(
               title: 'Scan Bin QR',
               body:
@@ -182,7 +182,7 @@ class UserDashboardScreen extends StatelessWidget {
                 );
               },
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             _infoCard(
               title: 'Rewards',
               body: 'View available partner rewards and your points activity.',
@@ -195,7 +195,7 @@ class UserDashboardScreen extends StatelessWidget {
                 );
               },
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             _infoCard(
               title: 'Drop-Off History',
               body: 'Review manual and QR drop-off submissions.',

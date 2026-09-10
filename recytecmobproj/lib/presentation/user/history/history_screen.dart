@@ -80,7 +80,7 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
+                padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 24.h),
                 children: [
                   Text(
                     'Designated-Bin Drop-Offs',
@@ -90,7 +90,7 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
                       color: RecyTechTheme.textDark,
                     ),
                   ),
-                  SizedBox(height: 6.h),
+                  SizedBox(height: 8.h),
                   Text(
                     'Manual and QR submissions recorded at designated RecyTech bins.',
                     style: TextStyle(
@@ -99,7 +99,7 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
                       height: 1.35,
                     ),
                   ),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 20.h),
                   if (records.isEmpty)
                     const EmptyState(
                       icon: Icons.history,
@@ -134,8 +134,8 @@ class _UserHistoryScreenState extends State<HistoryScreen> {
         if (mounted) await _refresh();
       },
       child: Container(
-        margin: EdgeInsets.only(bottom: 12.h),
-        padding: EdgeInsets.all(14.w),
+        margin: EdgeInsets.only(bottom: 14.h),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(18.r),

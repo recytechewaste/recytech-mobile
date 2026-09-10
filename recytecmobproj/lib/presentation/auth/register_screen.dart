@@ -115,7 +115,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('RecyTech')),
       body: ListView(
-        padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 16.h),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.fromLTRB(22.w, 18.h, 22.w, 24.h),
         children: [
           SizedBox(height: 10.h),
           Center(
@@ -168,7 +169,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: organizationName,
               textInputAction: TextInputAction.next,
             ),
-            SizedBox(height: 14.h),
+            SizedBox(height: 16.h),
           ],
           LabeledTextField(
             label: role == AppRoles.partnerOrg ? 'Contact Person' : 'Full Name',
@@ -180,7 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             autofillHints: const [AutofillHints.name],
           ),
           if (role != AppRoles.household) ...[
-            SizedBox(height: 14.h),
+            SizedBox(height: 16.h),
             LabeledTextField(
               label: 'Contact Number',
               hintText: 'Enter phone number',
@@ -191,7 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ],
           if (role == AppRoles.collector) ...[
-            SizedBox(height: 14.h),
+            SizedBox(height: 16.h),
             DropdownButtonFormField<String>(
               initialValue: vehicleType,
               decoration: const InputDecoration(
@@ -218,7 +219,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       setState(() => vehicleType = value ?? 'Not Assigned'),
             ),
           ],
-          SizedBox(height: 14.h),
+          SizedBox(height: 16.h),
           LabeledTextField(
             label: 'Email',
             hintText: 'Enter your email address',
@@ -227,7 +228,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.email],
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 16.h),
           LabeledTextField(
             label: 'Password',
             hintText: 'Create a password',
@@ -248,7 +249,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               },
             ),
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 16.h),
           LabeledTextField(
             label: 'Confirm Password',
             hintText: 'Re-enter your password',
@@ -275,7 +276,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               },
             ),
           ),
-          SizedBox(height: 18.h),
+          SizedBox(height: 22.h),
           Center(
             child: auth.isLoading
                 ? SizedBox(

@@ -19,7 +19,7 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.all(16.w),
+          padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
           children: [
             Text(
               'Appearance',
@@ -28,16 +28,16 @@ class SettingsScreen extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            SizedBox(height: 6.h),
+            SizedBox(height: 8.h),
             Text(
               'Choose how RecyTech looks on this device.',
               style: textTheme.bodySmall,
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 16.h),
             Card(
               child: SwitchListTile.adaptive(
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                 secondary: Container(
                   width: 40.w,
                   height: 40.w,

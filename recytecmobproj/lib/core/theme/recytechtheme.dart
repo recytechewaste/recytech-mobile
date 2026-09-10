@@ -250,7 +250,7 @@ class RecyTechTheme {
           fontWeight: FontWeight.w700,
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: inputBorder,
         enabledBorder: inputBorder,
         disabledBorder: inputBorder.copyWith(
@@ -278,6 +278,10 @@ class RecyTechTheme {
         ),
       ),
       dividerTheme: DividerThemeData(color: outline, thickness: 0.8),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        minVerticalPadding: 10,
+      ),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: schemePrimary),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

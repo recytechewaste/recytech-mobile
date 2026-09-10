@@ -240,7 +240,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ],
       ),
       body: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
         child: RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
@@ -256,9 +256,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   color: RecyTechTheme.textDark,
                 ),
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 14.h),
               Container(
-                padding: EdgeInsets.all(14.w),
+                padding: EdgeInsets.all(16.w),
                 decoration: BoxDecoration(
                   color: RecyTechTheme.card,
                   borderRadius: BorderRadius.circular(20.r),
@@ -398,7 +398,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Widget _infoRow(String label, String value) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.only(bottom: 12.h),
       child: Row(
         children: [
           SizedBox(
@@ -464,7 +464,7 @@ class _InfoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.pill,
         borderRadius: BorderRadius.circular(16),

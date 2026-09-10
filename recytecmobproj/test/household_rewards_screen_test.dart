@@ -100,7 +100,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('reward-rule-details')), findsOneWidget);
-      expect(find.text('25 points per unit'), findsOneWidget);
+      expect(find.text('25 points per item'), findsOneWidget);
       expect(
         find.text(
           'Points are added after an eligible drop-off is validated.',

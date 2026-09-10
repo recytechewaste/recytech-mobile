@@ -68,56 +68,56 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
   }
 
   Future<void> _loadCategories() async {
-  setState(() {
-    _loadingCategories = true;
-    _categoryLoadError = null;
-  });
-
-  try {
-    final activeCategories =
-        await _requestRepository.fetchActiveWasteCategories();
-
-    final active = activeCategories
-        .map((category) => category.trim())
-        .where((category) => category.isNotEmpty)
-        .toSet();
-
-    final binCategories = widget.bin.acceptedCategories
-        .map((category) => category.trim())
-        .where((category) => category.isNotEmpty)
-        .toSet();
-
-    final options = binCategories.isEmpty
-        ? active.toList()
-        : active
-            .where(
-              (category) => binCategories.any(
-                (binCategory) =>
-                    binCategory.toLowerCase() == category.toLowerCase(),
-              ),
-            )
-            .toList();
-
-    options.sort();
-
-    if (!mounted) return;
-
     setState(() {
-      _categoryOptions = options;
-      _selectedCategory = options.isEmpty ? null : options.first;
-      _loadingCategories = false;
+      _loadingCategories = true;
+      _categoryLoadError = null;
     });
-  } catch (_) {
-    if (!mounted) return;
 
-    setState(() {
-      _categoryOptions = const [];
-      _selectedCategory = null;
-      _loadingCategories = false;
-      _categoryLoadError = 'Accepted categories could not be loaded.';
-    });
+    try {
+      final activeCategories =
+          await _requestRepository.fetchActiveWasteCategories();
+
+      final active = activeCategories
+          .map((category) => category.trim())
+          .where((category) => category.isNotEmpty)
+          .toSet();
+
+      final binCategories = widget.bin.acceptedCategories
+          .map((category) => category.trim())
+          .where((category) => category.isNotEmpty)
+          .toSet();
+
+      final options = binCategories.isEmpty
+          ? active.toList()
+          : active
+              .where(
+                (category) => binCategories.any(
+                  (binCategory) =>
+                      binCategory.toLowerCase() == category.toLowerCase(),
+                ),
+              )
+              .toList();
+
+      options.sort();
+
+      if (!mounted) return;
+
+      setState(() {
+        _categoryOptions = options;
+        _selectedCategory = options.isEmpty ? null : options.first;
+        _loadingCategories = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _categoryOptions = const [];
+        _selectedCategory = null;
+        _loadingCategories = false;
+        _categoryLoadError = 'Accepted categories could not be loaded.';
+      });
+    }
   }
-}
 
   Future<void> _submit() async {
     if (_submitting) return;
@@ -240,12 +240,13 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
         title: const Text('Submit Drop-Off'),
       ),
       body: ListView(
-        padding: EdgeInsets.all(16.w),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
         children: [
           _binSummary(),
           SizedBox(height: 14.h),
           Container(
-            padding: EdgeInsets.all(14.w),
+            padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
               color: RecyTechTheme.card,
               borderRadius: BorderRadius.circular(16.r),
@@ -262,7 +263,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                     color: RecyTechTheme.textDark,
                   ),
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 14.h),
                 if (_loadingCategories)
                   Container(
                     padding: EdgeInsets.symmetric(
@@ -358,7 +359,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 14.h),
                 TextField(
                   controller: _quantityController,
                   enabled: !_submitting,
@@ -369,7 +370,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 14.h),
                 TextField(
                   controller: _notesController,
                   enabled: !_submitting,
@@ -379,7 +380,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 14.h),
                 Row(
                   children: [
                     Expanded(
@@ -404,7 +405,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                   ],
                 ),
                 if (_selectedImage != null) ...[
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 14.h),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12.r),
                     child: Stack(
@@ -471,7 +472,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
                     ),
                   ),
                 ],
-                SizedBox(height: 16.h),
+                SizedBox(height: 20.h),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -506,7 +507,7 @@ class _DropOffFormScreenState extends State<DropOffFormScreen> {
 
   Widget _binSummary() {
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16.r),

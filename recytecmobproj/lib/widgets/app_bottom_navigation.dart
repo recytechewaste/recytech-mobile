@@ -39,15 +39,15 @@ class AppBottomNavigation extends StatelessWidget {
           backgroundColor: scheme.surface,
           selectedItemColor: scheme.primary,
           unselectedItemColor: scheme.onSurfaceVariant,
-          selectedFontSize: 11,
-          unselectedFontSize: 10.5,
+          selectedFontSize: 11.5,
+          unselectedFontSize: 11,
           selectedIconTheme: const IconThemeData(size: 22),
           unselectedIconTheme: const IconThemeData(size: 22),
           items: items
               .map(
                 (item) => BottomNavigationBarItem(
-                  icon: Icon(item.icon),
-                  activeIcon: _ActiveIcon(icon: item.icon),
+                  icon: _NavigationIcon(icon: item.icon),
+                  activeIcon: _NavigationIcon(icon: item.icon, active: true),
                   label: item.label,
                   tooltip: item.label,
                 ),
@@ -59,21 +59,30 @@ class AppBottomNavigation extends StatelessWidget {
   }
 }
 
-class _ActiveIcon extends StatelessWidget {
-  const _ActiveIcon({required this.icon});
+class _NavigationIcon extends StatelessWidget {
+  const _NavigationIcon({required this.icon, this.active = false});
 
   final IconData icon;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(10),
+    return SizedBox(
+      height: 34,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          decoration: BoxDecoration(
+            color: active ? scheme.primaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            color: active ? scheme.onPrimaryContainer : null,
+          ),
+        ),
       ),
-      child: Icon(icon, color: scheme.onPrimaryContainer),
     );
   }
 }

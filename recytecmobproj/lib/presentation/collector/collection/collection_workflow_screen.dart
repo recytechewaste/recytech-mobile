@@ -182,18 +182,18 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
           title: const Text('Collection Report'),
         ),
         body: ListView(
-          padding: EdgeInsets.all(16.w),
+          padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
           children: [
             _stepHeader(),
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             _itemsSection(),
-            SizedBox(height: 16.h),
+            SizedBox(height: 20.h),
             _reviewSection(),
             if (_message != null) ...[
-              SizedBox(height: 12.h),
+              SizedBox(height: 14.h),
               _messageBox(_message!),
             ],
-            SizedBox(height: 16.h),
+            SizedBox(height: 20.h),
             ElevatedButton.icon(
               onPressed: _isSubmitting ? null : _complete,
               icon: _isSubmitting
@@ -215,7 +215,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
 
   Widget _stepHeader() {
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: _panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,7 +227,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 6.h),
           Text(
             widget.job.location.isEmpty ? '-' : widget.job.location,
           ),
@@ -315,7 +315,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     Widget? trailing,
   }) {
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(16.w),
       decoration: _panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,7 +335,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
               if (trailing != null) trailing,
             ],
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 12.h),
           ...children,
         ],
       ),
@@ -386,7 +386,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
   ) {
     return Padding(
       padding: EdgeInsets.only(
-        bottom: 8.h,
+        bottom: 10.h,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,7 +419,7 @@ class _CollectionWorkflowScreenState extends State<CollectionWorkflowScreen> {
     String message,
   ) {
     return Container(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.danger.withValues(
           alpha: 0.10,

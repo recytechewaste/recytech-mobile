@@ -86,7 +86,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       appBar: AppBar(title: const Text('Verify Email')),
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 18.h),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(22.w, 20.h, 22.w, 24.h),
           children: [
             SizedBox(height: 20.h),
             Icon(

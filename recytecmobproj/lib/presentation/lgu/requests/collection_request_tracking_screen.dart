@@ -96,7 +96,7 @@ class _CollectionRequestTrackingScreenState
             onRefresh: _refresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
               children: [
                 _filterBar(),
                 SizedBox(height: 12.h),
@@ -146,8 +146,8 @@ class _CollectionRequestTrackingScreenState
     final statusLabel = RequestStatuses.label(request.status);
 
     return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(14.w),
+      margin: EdgeInsets.only(bottom: 14.h),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RecyTechTheme.card,
         borderRadius: BorderRadius.circular(16),
@@ -171,7 +171,7 @@ class _CollectionRequestTrackingScreenState
               StatusBadge(label: statusLabel),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 10.h),
           _info('Bin', request.binName ?? request.binId),
           _info('Location', request.location),
           _info('Requested', formatDateTime(request.requestedAt)),

@@ -177,7 +177,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             onRefresh: _refresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 24.h),
               children: notifications.map(_notificationTile).toList(),
             ),
           );
@@ -193,8 +193,8 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       borderRadius: BorderRadius.circular(16),
       onTap: () => _openNotification(notification),
       child: Container(
-        margin: EdgeInsets.only(bottom: 10.h),
-        padding: EdgeInsets.all(14.w),
+        margin: EdgeInsets.only(bottom: 14.h),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: RecyTechTheme.card,
           borderRadius: BorderRadius.circular(16),
@@ -212,7 +212,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
               foregroundColor: color,
               child: Icon(_iconFor(notification.type), size: 20.sp),
             ),
-            SizedBox(width: 12.w),
+            SizedBox(width: 14.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,7 +240,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                         ),
                     ],
                   ),
-                  SizedBox(height: 4.h),
+                  SizedBox(height: 6.h),
                   Text(
                     notification.message,
                     style: TextStyle(
@@ -249,7 +249,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                       height: 1.35,
                     ),
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 10.h),
                   Text(
                     _formatDate(notification.timestamp),
                     style: TextStyle(
