@@ -423,9 +423,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     ),
                   ),
                   Text(
-                    rule.pointsValue == null
-                        ? 'rate'
-                        : 'pts / ${rule.rateUnit}',
+                    rule.pointsValue == null ? 'rate' : 'pts',
                     style: TextStyle(
                       color: scheme.onSurfaceVariant,
                       fontSize: 9.5.sp,
@@ -559,7 +557,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
             child: Text(
               rule.pointsValue == null
                   ? 'Rate unavailable'
-                  : '${_rateValue(rule)} points per ${rule.rateUnit}',
+                  : '${_rateValue(rule)} points per item',
               style: TextStyle(
                 color: scheme.onSecondaryContainer,
                 fontWeight: FontWeight.w900,
